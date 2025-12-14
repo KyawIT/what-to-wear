@@ -2,7 +2,6 @@
 
 # dependencies
 node_modules/
-package-lock.json
 
 # Expo
 .expo/
@@ -37,7 +36,7 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-
+package-lock.json
 app-example
 
 # generated native folders
