@@ -1,0 +1,55 @@
+name: what-to-wear
+services:
+  wtw-db:
+    image: postgres:18-alpine
+    container_name: wtw-db
+    restart: always
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: db
+    ports:
+      - "5432:5432"
+    volumes:
+      - wtw_data:/var/lib/postgresql/data
+
+  wtw-keycloak:
+    image: quay.io/keycloak/keycloak:26.4.5
+    container_name: wtw-keycloak
+    restart: always
+    depends_on:
+      - wtw-db
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://wtw-db:5432/db
+      KC_DB_USERNAME: app
+      KC_DB_PASSWORD: app
+      KC_DB_SCHEMA: keycloak
+      KC_PROXY: edge
+    ports:
+      - "8082:8080"
+    command:
+      - start-dev
+
+  wtw-minio:
+    image: quay.io/minio/minio
+    container_name: wtw-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: adminadmin
+      MINIO_REGION: eu-central-1
+      MINIO_BROWSER: "on"
+    volumes:
+      - ./minio/data:/data
+      - ./minio/config:/root/.minio
+    command: server /data --console-address ":9001"
+
+volumes:
+  wtw_data:
