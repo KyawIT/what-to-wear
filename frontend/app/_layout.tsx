@@ -12,7 +12,14 @@ export default function RootLayout() {
       <SafeAreaProvider>
           <GluestackUIProvider>
               <StatusBar hidden={true}/>
-              <Stack screenOptions={{headerShown: false}}/>
+              <Stack>
+                  <Stack.Protected guard={isAuthenticated !== null}>
+                      <Stack.Screen name={"(tabs)"} options={{headerShown: false}}/>
+                  </Stack.Protected>
+                  <Stack.Protected guard={isAuthenticated === null}>
+                      <Stack.Screen name={"index"} options={{headerShown: false}}/>
+                  </Stack.Protected>
+              </Stack>
           </GluestackUIProvider>
       </SafeAreaProvider>
   );
