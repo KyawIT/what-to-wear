@@ -4,8 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import {genericOAuthClient} from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
-    baseURL: process.env.EXPO_PUBLIC_BETTER_AUTH_URL,
-    disableDefaultFetchPlugins: true,
+    baseURL: process.env.EXPO_PUBLIC_BETTER_AUTH_URL as string,
     plugins:[
         expoClient({
             scheme: "frontend",
