@@ -1,7 +1,7 @@
-import {View, Text} from 'react-native'
+import {View} from 'react-native'
 import React from 'react'
 import {Tabs} from "expo-router";
-import {Globe} from "lucide-react-native"
+import TabIcon from "@/components/common/TabIcon";
 
 const _Layout = () => {
     return (
@@ -12,7 +12,31 @@ const _Layout = () => {
                 <Tabs.Screen name={"index"} options={{
                     headerShown: false,
                     tabBarIcon: ({ focused }) => (
-                        <Globe />
+                        <TabIcon iconType={"home"} focused={focused} />
+                    )
+                }}/>
+                <Tabs.Screen name={"scan"} options={{
+                    headerShown: false,
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon iconType={"scan"} focused={focused} />
+                    )
+                }}/>
+                <Tabs.Screen name={"create"} options={{
+                    headerShown: false,
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon iconType={"create"} focused={focused} />
+                    )
+                }}/>
+                <Tabs.Screen name={"recommendation"} options={{
+                    headerShown: false,
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon iconType={"recommendation"} focused={focused} />
+                    )
+                }}/>
+                <Tabs.Screen name={"profile"} options={{
+                    headerShown: false,
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon iconType={"profile"} focused={focused} />
                     )
                 }}/>
             </Tabs>
