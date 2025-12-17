@@ -8,6 +8,12 @@ const _Layout = () => {
         <View style={{flex: 1}}>
             <Tabs screenOptions={{
                 tabBarShowLabel: false,
+                tabBarStyle: {
+                    backgroundColor: '#c6d2ff',
+                },
+                tabBarIconStyle: {
+                    marginTop: 10
+                }
             }}>
                 <Tabs.Screen name={"index"} options={{
                     headerShown: false,
