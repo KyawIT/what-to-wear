@@ -1,0 +1,1 @@
+WhattoWear is a diploma thesis project that lets users upload their clothes, organize them digitally, and combine single items into complete outfits. The goal is to make it easier to plan daily looks, experiment with style, and get outfit ideas based on the pieces you already own
