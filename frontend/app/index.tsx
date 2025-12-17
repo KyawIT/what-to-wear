@@ -6,7 +6,7 @@ import {authClient} from "@/lib/auth-client";
 import {router, useNavigationContainerRef} from "expo-router";
 import {useEffect} from "react";
 import {auth} from "@/lib/auth";
-
+// TODO: Add Screen transition animation
 export default function Index() {
     const {data: isAuthenticated} = authClient.useSession();
     const navContainerRef = useNavigationContainerRef();
