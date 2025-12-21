@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
-import * as MediaLibrary from "expo-media-library";
 
 import { Center } from "@/components/ui/center";
 import { Box } from "@/components/ui/box";
@@ -11,7 +10,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
 
-import { removeBackground } from "@/app/api/rembg/image.api"; // (recommended move to /lib)
+import { useRemoveBackground } from "@/hooks/useRemoveBackground";
 
 type Params = {
     id?: string;
@@ -20,52 +19,16 @@ type Params = {
 
 export default function PreviewScreen() {
     const { id, uri } = useLocalSearchParams<Params>();
-
-    const [loading, setLoading] = useState(false);
-    const [cutoutUri, setCutoutUri] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const { loading, cutoutUri, error, retry } = useRemoveBackground({ id, uri });
 
     const onBack = () => router.back();
     const retake = () => router.back();
 
     const onUse = () => {
         if (!cutoutUri) return;
+        // TODO: later navigate to save/upload screen with cutoutUri (or save file first)
         router.back();
     };
-
-    useEffect(() => {
-        let alive = true;
-
-        const run = async () => {
-            if (!id && !uri) return;
-
-            setLoading(true);
-            setError(null);
-            setCutoutUri(null);
-
-            try {
-                const uploadUri = await resolveUploadUri({ id, uri });
-
-                const blob = await removeBackground(uploadUri);
-                const base64 = await blobToBase64(blob);
-
-                if (!alive) return;
-                setCutoutUri(`data:image/png;base64,${base64}`);
-            } catch (e: any) {
-                if (!alive) return;
-                setError(e?.message ?? "Failed to remove background.");
-            } finally {
-                if (!alive) return;
-                setLoading(false);
-            }
-        };
-
-        run();
-
-        return () => {
-            alive = false;
-        };
-    }, [id, uri]);
 
     if (!id && !uri) {
         return (
@@ -90,7 +53,6 @@ export default function PreviewScreen() {
                 </Pressable>
 
                 <Text className="text-white text-lg font-bold">Preview</Text>
-
                 <Box className="w-16" />
             </HStack>
 
@@ -111,7 +73,35 @@ export default function PreviewScreen() {
                     )}
                 </Box>
 
-                {error && <Text className="text-red-400 mt-3 text-sm">{error}</Text>}
+                {/* Better-looking error card */}
+                {error && (
+                    <Box className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                        <Text className="text-red-200 font-semibold">Couldn’t remove background</Text>
+                        <Text className="text-red-200/70 text-sm mt-1">{error}</Text>
+
+                        <HStack className="mt-4 space-x-3">
+                            <Button
+                                variant="outline"
+                                action="secondary"
+                                onPress={retry}
+                                className="flex-1 rounded-2xl mr-5"
+                                isDisabled={loading}
+                            >
+                                <ButtonText>Retry</ButtonText>
+                            </Button>
+
+                            <Button
+                                variant="solid"
+                                action="negative"
+                                onPress={retake}
+                                className="flex-1 rounded-2xl"
+                                isDisabled={loading}
+                            >
+                                <ButtonText>Retake</ButtonText>
+                            </Button>
+                        </HStack>
+                    </Box>
+                )}
 
                 {/* Actions */}
                 <VStack className="pb-8 pt-5 space-y-3">
@@ -123,69 +113,23 @@ export default function PreviewScreen() {
                         className="rounded-2xl"
                         isDisabled={loading || !cutoutUri}
                     >
-                        <ButtonText>Use Image</ButtonText>
+                        <ButtonText>Submit</ButtonText>
                     </Button>
 
-                    <Button
-                        variant="solid"
-                        action="negative"
-                        onPress={retake}
-                        size="xl"
-                        className="rounded-2xl mt-5"
-                        isDisabled={loading}
-                    >
-                        <ButtonText>Retake</ButtonText>
-                    </Button>
+                    {!error && (
+                        <Button
+                            variant="solid"
+                            action="negative"
+                            onPress={retake}
+                            size="xl"
+                            className="rounded-2xl mt-5"
+                            isDisabled={loading}
+                        >
+                            <ButtonText>Retake</ButtonText>
+                        </Button>
+                    )}
                 </VStack>
             </VStack>
         </Box>
     );
-}
-
-/**
- * iOS Photos returns ph:// or ph-upload:// which cannot be uploaded.
- * We must resolve it to a real file:// URI via MediaLibrary.
- */
-async function resolveUploadUri(params: { id?: string; uri?: string }): Promise<string> {
-    const { id, uri } = params;
-
-    // If uri is already a real file, good.
-    if (uri && uri.startsWith("file://")) return uri;
-
-    // Use asset id (best path)
-    if (id) {
-        const info = await MediaLibrary.getAssetInfoAsync(id);
-
-        // iOS: localUri is usually file://...
-        if (info.localUri) return info.localUri;
-
-        // Sometimes only uri exists; if it's still ph://, we can't upload it.
-        if (info.uri && info.uri.startsWith("file://")) return info.uri;
-
-        throw new Error(
-            "Could not resolve a local file path for this photo. (MediaLibrary localUri is null)"
-        );
-    }
-
-    // No id provided -> can't resolve ph://
-    if (uri && (uri.startsWith("ph://") || uri.startsWith("ph-upload://"))) {
-        throw new Error("Photo URI is ph://. Pass the asset id to Preview so we can resolve localUri.");
-    }
-
-    if (!uri) throw new Error("Missing image uri.");
-    return uri;
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Failed to read image"));
-        reader.onloadend = () => {
-            const res = reader.result;
-            if (typeof res !== "string") return reject(new Error("Invalid base64 result"));
-            const comma = res.indexOf(",");
-            resolve(comma >= 0 ? res.slice(comma + 1) : res);
-        };
-        reader.readAsDataURL(blob);
-    });
 }
