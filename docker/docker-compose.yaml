@@ -51,5 +51,21 @@ services:
       - ./minio/config:/root/.minio
     command: server /data --console-address ":9001"
 
+  wtw-rembg:
+    build:
+      context: ./rembg
+      dockerfile: Dockerfile
+    container_name: wtw-rembg
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    environment:
+      REMBG_MODEL: u2net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
 volumes:
   wtw_data:
