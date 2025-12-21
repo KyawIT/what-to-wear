@@ -1,9 +1,5 @@
 import * as MediaLibrary from "expo-media-library";
 
-/**
- * iOS Photos returns ph:// or ph-upload:// which cannot be uploaded.
- * Resolve to a real file:// URI.
- */
 export async function resolveUploadUri(params: {
     id?: string;
     uri?: string;
