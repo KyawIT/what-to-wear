@@ -21,8 +21,7 @@ const Scan = () => {
     const [assets, setAssets] = useState<MediaLibrary.Asset[]>([]);
     const [preview, setPreview] = useState<MediaLibrary.Asset | null>(null);
 
-    // Multi-select (photos only)
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
 
     useEffect(() => {
         (async () => {
@@ -38,8 +37,7 @@ const Scan = () => {
 
             const first = page.assets[0] ?? null;
             setPreview(first);
-
-            if (first) setSelectedIds([first.id]);
+            setSelectedId(first?.id ?? null);
         })();
     }, [permission?.granted]);
 
@@ -51,33 +49,9 @@ const Scan = () => {
         [assets]
     );
 
-    const selectedIndexMap = useMemo(() => {
-        const map = new Map<string, number>();
-        selectedIds.forEach((id, idx) => map.set(id, idx + 1));
-        return map;
-    }, [selectedIds]);
-
-    const toggleSelect = (asset: MediaLibrary.Asset) => {
+    const selectAsset = (asset: MediaLibrary.Asset) => {
         setPreview(asset);
-
-        setSelectedIds((prev) => {
-            const exists = prev.includes(asset.id);
-
-            if (exists) {
-                const next = prev.filter((id) => id !== asset.id);
-
-                if (preview?.id === asset.id) {
-                    const newPreviewId = next[next.length - 1];
-                    const newPreview =
-                        assets.find((a) => a.id === newPreviewId) ?? assets[0] ?? null;
-                    setPreview(newPreview);
-                }
-
-                return next;
-            }
-
-            return [...prev, asset.id];
-        });
+        setSelectedId(asset.id);
     };
 
     const onPressCamera = () => {
@@ -85,9 +59,18 @@ const Scan = () => {
     };
 
     const onNext = () => {
-        // TODO: navigate with selectedIds
-        // router.push({ pathname: "/post", params: { ids: selectedIds.join(",") } as any });
+        if (!preview) return;
+
+        router.push({
+            pathname: "/preview",
+            params: {
+                id: preview.id,
+                uri: preview.uri,
+            },
+        });
     };
+
+
 
     return (
         <SafeAreaView className="flex-1 bg-secondary-100" edges={["top"]}>
@@ -112,12 +95,12 @@ const Scan = () => {
 
                 <Pressable
                     className={`h-10 w-10 items-center justify-center rounded-full border ${
-                        selectedIds.length > 0
+                        selectedId
                             ? "bg-indigo-600/15 border-indigo-400/40"
                             : "bg-secondary-800/10 border-secondary-200/60 opacity-40"
                     }`}
                     onPress={onNext}
-                    disabled={selectedIds.length === 0}
+                    disabled={!selectedId}
                 >
                     <ArrowBigRight size={18} />
                 </Pressable>
@@ -154,13 +137,6 @@ const Scan = () => {
                             <Camera size={16} color="white" />
                             <Text className="text-white text-xs font-semibold">Select</Text>
                         </View>
-
-                        {/* Multi-select count */}
-                        <View className="absolute top-3 right-3 rounded-full bg-black/35 px-3 py-2 border border-white/10">
-                            <Text className="text-white text-xs font-semibold">
-                                {selectedIds.length} selected
-                            </Text>
-                        </View>
                     </View>
 
                     <View className="h-3 bg-secondary-200" />
@@ -170,7 +146,7 @@ const Scan = () => {
                         data={gridData}
                         keyExtractor={(item) => item.id}
                         numColumns={3}
-                        extraData={selectedIds}
+                        extraData={selectedId}
                         renderItem={({ item }) => {
                             if (item.type === "camera") {
                                 return (
@@ -204,16 +180,14 @@ const Scan = () => {
                                 );
                             }
 
-                            const isActive = selectedIds.includes(item.id);
-                            const idx = selectedIndexMap.get(item.id) ?? 0;
+                            const isActive = selectedId === item.id;
 
                             return (
                                 <GridImageCell
                                     item={item}
                                     size={SIZE}
                                     isActive={isActive}
-                                    selectIndex={idx}
-                                    onPress={() => toggleSelect(item)}
+                                    onPress={() => selectAsset(item)}
                                 />
                             );
                         }}
