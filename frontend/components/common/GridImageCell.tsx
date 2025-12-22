@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { View, Pressable, Animated, StyleSheet } from "react-native";
+import { View, Pressable, Animated } from "react-native";
 import { Image } from "expo-image";
 import * as MediaLibrary from "expo-media-library";
+import { Check } from "lucide-react-native";
 
 type Props = {
     item: MediaLibrary.Asset;
@@ -16,28 +17,35 @@ export default function GridImageCell({
                                           size,
                                           isActive,
                                           onPress,
-                                          activeBorderColor = "#5853DB",
+                                          activeBorderColor = "#3B82F6",
                                       }: Props) {
-    const scale = useRef(new Animated.Value(1)).current;
+    const opacity = useRef(new Animated.Value(1)).current;
+    const checkScale = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        Animated.spring(scale, {
-            toValue: isActive ? 0.96 : 1,
-            useNativeDriver: true,
-            friction: 9,
-            tension: 120,
-        }).start();
-    }, [isActive, scale]);
+        Animated.parallel([
+            Animated.timing(opacity, {
+                toValue: isActive ? 0.7 : 1,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+            Animated.spring(checkScale, {
+                toValue: isActive ? 1 : 0,
+                useNativeDriver: true,
+                friction: 8,
+                tension: 200,
+            }),
+        ]).start();
+    }, [isActive, opacity, checkScale]);
 
     return (
         <Pressable onPress={onPress}>
-            <Animated.View style={{ width: size, height: size, transform: [{ scale }] }}>
-                <View
+            <View style={{ width: size, height: size }}>
+                <Animated.View
                     style={{
                         width: "100%",
                         height: "100%",
-                        borderWidth: isActive ? 2 : 0,
-                        borderColor: isActive ? activeBorderColor : "transparent",
+                        opacity,
                     }}
                 >
                     <Image
@@ -45,17 +53,56 @@ export default function GridImageCell({
                         style={{ width: "100%", height: "100%" }}
                         contentFit="cover"
                     />
+                </Animated.View>
 
-                    {isActive && (
+                {/* Selection indicator - Instagram style */}
+                <View
+                    style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                    }}
+                >
+                    <Animated.View
+                        style={{
+                            transform: [{ scale: checkScale }],
+                        }}
+                    >
                         <View
-                            style={[
-                                StyleSheet.absoluteFillObject,
-                                { backgroundColor: "rgba(119,118,133,0.12)" },
-                            ]}
-                        />
-                    )}
+                            style={{
+                                height: 24,
+                                width: 24,
+                                borderRadius: 12,
+                                backgroundColor: activeBorderColor,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                shadowColor: "#000",
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.25,
+                                shadowRadius: 3.84,
+                                elevation: 5,
+                            }}
+                        >
+                            <Check size={16} color="white" strokeWidth={3} />
+                        </View>
+                    </Animated.View>
                 </View>
-            </Animated.View>
+
+                {/* Border indicator when selected */}
+                {isActive && (
+                    <View
+                        style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            borderWidth: 2,
+                            borderColor: activeBorderColor,
+                        }}
+                    />
+                )}
+            </View>
         </Pressable>
     );
 }

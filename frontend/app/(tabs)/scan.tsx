@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import * as MediaLibrary from "expo-media-library";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { X, ArrowBigRight, Camera } from "lucide-react-native";
+import { X, Check, Camera } from "lucide-react-native";
 
 import ImagePermissionGate from "@/components/common/ImagePermissionGate";
 import GridImageCell from "@/components/common/GridImageCell";
@@ -70,39 +70,32 @@ const Scan = () => {
         });
     };
 
-
-
     return (
-        <SafeAreaView className="flex-1 bg-secondary-100" edges={["top"]}>
-            {/* Header */}
-            <View className="h-16 border-b border-secondary-200 flex-row items-center justify-between px-4">
+        <SafeAreaView className="flex-1 bg-black" edges={["top"]}>
+            <View className="h-14 border-b border-white/10 flex-row items-center justify-between px-4">
                 <Pressable
-                    className="h-10 w-10 items-center justify-center rounded-full bg-secondary-800/10 border border-secondary-200/60"
+                    className="h-9 w-9 items-center justify-center active:opacity-60"
                     onPress={() => router.push("/")}
                 >
-                    <X size={18} />
+                    <X size={28} color="white" strokeWidth={2} />
                 </Pressable>
 
-                <View className="absolute left-0 right-0 items-center pointer-events-none">
-                    <Text className="text-2xl tracking-tight">
-                        <Text className="text-indigo-500 font-extrabold">What</Text>
-                        <Text className="text-white font-extrabold"> </Text>
-                        <Text className="text-red-500 font-extrabold">To</Text>
-                        <Text className="text-white font-extrabold"> </Text>
-                        <Text className="text-indigo-500 font-extrabold">Wear</Text>
-                    </Text>
-                </View>
+                <Text className="text-white text-base font-semibold">
+                    Select Photo
+                </Text>
 
                 <Pressable
-                    className={`h-10 w-10 items-center justify-center rounded-full border ${
-                        selectedId
-                            ? "bg-indigo-600/15 border-indigo-400/40"
-                            : "bg-secondary-800/10 border-secondary-200/60 opacity-40"
-                    }`}
+                    className="h-9 px-4 items-center justify-center active:opacity-60"
                     onPress={onNext}
                     disabled={!selectedId}
                 >
-                    <ArrowBigRight size={18} />
+                    <Text
+                        className={`text-base font-semibold ${
+                            selectedId ? "text-blue-500" : "text-gray-600"
+                        }`}
+                    >
+                        Next
+                    </Text>
                 </Pressable>
             </View>
 
@@ -121,9 +114,9 @@ const Scan = () => {
                     />
                 }
             >
-                <View className="flex-1 bg-secondary-200">
+                <View className="flex-1 bg-black">
                     {/* Preview */}
-                    <View style={{ width: "100%", height: W }}>
+                    <View style={{ width: "100%", height: W }} className="bg-black">
                         {preview && (
                             <Image
                                 source={{ uri: preview.uri }}
@@ -132,14 +125,25 @@ const Scan = () => {
                             />
                         )}
 
-                        {/* Camera badge overlay */}
-                        <View className="absolute top-3 left-3 flex-row items-center gap-2 rounded-full bg-black/35 px-3 py-2 border border-white/10">
-                            <Camera size={16} color="white" />
-                            <Text className="text-white text-xs font-semibold">Select</Text>
-                        </View>
+                        {/* Selection indicator */}
+                        {selectedId && (
+                            <View className="absolute top-3 right-3">
+                                <View className="h-6 w-6 rounded-full bg-blue-500 items-center justify-center">
+                                    <Check size={16} color="white" strokeWidth={3} />
+                                </View>
+                            </View>
+                        )}
                     </View>
 
-                    <View className="h-3 bg-secondary-200" />
+                    {/* Separator */}
+                    <View className="h-0.5 bg-white/5" />
+
+                    {/* Grid Gallery Header */}
+                    <View className="h-11 flex-row items-center px-4 bg-black border-b border-white/5">
+                        <Text className="text-white text-sm font-semibold">
+                            Recent
+                        </Text>
+                    </View>
 
                     {/* Grid */}
                     <FlatList
@@ -147,30 +151,32 @@ const Scan = () => {
                         keyExtractor={(item) => item.id}
                         numColumns={3}
                         extraData={selectedId}
+                        style={{ backgroundColor: "#000" }}
+                        columnWrapperStyle={{ gap: 1 }}
+                        contentContainerStyle={{ gap: 1 }}
                         renderItem={({ item }) => {
                             if (item.type === "camera") {
                                 return (
                                     <Pressable onPress={onPressCamera}>
                                         <View
                                             style={{
-                                                width: SIZE,
-                                                height: SIZE,
+                                                width: SIZE - 0.67,
+                                                height: SIZE - 0.67,
                                                 alignItems: "center",
                                                 justifyContent: "center",
-                                                borderWidth: 1,
-                                                borderColor: "rgba(120,120,140,0.35)",
-                                                backgroundColor: "rgba(255,255,255,0.35)",
+                                                backgroundColor: "#1a1a1a",
                                             }}
                                         >
-                                            <View className="h-12 w-12 rounded-full items-center justify-center bg-indigo-600/15 border border-indigo-400/25">
-                                                <Camera size={20} color="#5853DB" />
+                                            <View className="h-14 w-14 rounded-full items-center justify-center bg-white/10">
+                                                <Camera size={24} color="white" />
                                             </View>
 
                                             <Text
                                                 style={{
                                                     marginTop: 8,
-                                                    fontSize: 12,
-                                                    color: "#6B7280",
+                                                    fontSize: 11,
+                                                    color: "#9CA3AF",
+                                                    fontWeight: "500",
                                                 }}
                                             >
                                                 Camera
@@ -185,9 +191,10 @@ const Scan = () => {
                             return (
                                 <GridImageCell
                                     item={item}
-                                    size={SIZE}
+                                    size={SIZE - 0.67}
                                     isActive={isActive}
                                     onPress={() => selectAsset(item)}
+                                    activeBorderColor="#3B82F6"
                                 />
                             );
                         }}
