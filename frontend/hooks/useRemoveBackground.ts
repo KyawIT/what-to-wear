@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {resolveUploadUri, blobToBase64} from "@/lib/image/image.utils"
-import { removeBackground } from "@/app/api/rembg/image.api"; // recommended: move to /lib/api/rembg/image.api
+import { removeBackground } from "@/api/rembg/image.api"; // recommended: move to /lib/api/rembg/image.api
 
 type Args = {
     id?: string;
