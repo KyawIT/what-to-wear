@@ -26,13 +26,11 @@ public class Wearable {
     @Column(length = 1000)
     public String description;
 
-    // --- MinIO object keys ---
-    public String originalImageKey;
     public String cutoutImageKey;
 
     @ElementCollection
-    @CollectionTable(name = "wearable_tags")
-    @Column(name = "tag")
+    @CollectionTable(name = "wtw_wearable_tags")
+    @Column(name = "tags")
     public List<String> tags;
 
     @Column(nullable = false, updatable = false)
