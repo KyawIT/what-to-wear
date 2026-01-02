@@ -1,5 +1,6 @@
 package at.htlleonding.wtw.wearables.service;
 
+import at.htlleonding.wtw.wearables.dto.UploadResultDto;
 import at.htlleonding.wtw.wearables.model.Wearable;
 import at.htlleonding.wtw.wearables.model.WearableCategory;
 import at.htlleonding.wtw.wearables.repository.WearableRepository;
@@ -48,7 +49,7 @@ public class WearableService {
         repo.persist(w); // UUID is generated here
 
         if (imageStream != null) {
-            WearablesUtil.UploadResult r = wearablesUtil.uploadWearableImage(
+            UploadResultDto r = wearablesUtil.uploadWearableImage(
                     userId.toString(),
                     w.id,
                     fileName,
