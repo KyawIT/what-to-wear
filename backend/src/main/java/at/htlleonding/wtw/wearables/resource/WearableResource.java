@@ -6,15 +6,15 @@ import at.htlleonding.wtw.wearables.model.WearableCategory;
 import at.htlleonding.wtw.wearables.service.WearableService;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import org.jspecify.annotations.NonNull;
 
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import static at.htlleonding.wtw.wearables.util.WearablesUtil.*;
 
-@Path("/wearables")
+@Path("/wearable")
 @Consumes(MediaType.MULTIPART_FORM_DATA)
 @Produces(MediaType.APPLICATION_JSON)
 public class WearableResource {
@@ -23,6 +23,15 @@ public class WearableResource {
 
     public WearableResource(WearableService service) {
         this.service = service;
+    }
+
+
+    @GET
+    @Path("/category")
+    public List<String> getAllCategory() {
+        return Arrays.stream(WearableCategory.values())
+                .map(Enum::name)
+                .toList();
     }
 
     @POST
