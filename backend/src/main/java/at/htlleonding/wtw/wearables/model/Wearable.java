@@ -14,7 +14,7 @@ public class Wearable {
     public UUID id;
 
     @Column(nullable = false)
-    public UUID userId;
+    public String userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
