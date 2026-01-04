@@ -1,6 +1,7 @@
 package at.htlleonding.wtw.wearables.service;
 
 import at.htlleonding.wtw.wearables.dto.UploadResultDto;
+import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
 import at.htlleonding.wtw.wearables.model.Wearable;
 import at.htlleonding.wtw.wearables.model.WearableCategory;
 import at.htlleonding.wtw.wearables.repository.WearableRepository;
@@ -74,5 +75,90 @@ public class WearableService {
             if (!x.isEmpty()) out.add(x);
         }
         return out;
+    }
+
+    @Transactional
+    public List<WearableResponseDto> getByUserId(String userId) {
+        List<Wearable> wearables = repo.list("userId", userId);
+
+        List<WearableResponseDto> out = new ArrayList<>(wearables.size());
+        for (Wearable w : wearables) {
+            WearableResponseDto dto = new WearableResponseDto();
+            dto.id = w.id;
+            dto.userId = w.userId;
+            dto.category = w.category;
+            dto.title = w.title;
+            dto.description = w.description;
+
+            // IMPORTANT: copy while session is open
+            dto.tags = (w.tags == null) ? List.of() : new ArrayList<>(w.tags);
+
+            dto.cutoutImageKey = w.cutoutImageKey;
+            dto.cutoutImageUrl = (w.cutoutImageKey == null) ? null : wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600);
+
+            dto.createdAt = w.createdAt;
+            dto.updatedAt = w.updatedAt;
+
+            out.add(dto);
+        }
+
+        return out;
+    }
+
+    @Transactional
+    public List<WearableResponseDto> getByUserIdAndCategory(String userId, WearableCategory category) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (category == null) {
+            throw new IllegalArgumentException("category is required");
+        }
+
+        List<Wearable> wearables =
+                repo.list("userId = ?1 and category = ?2", userId, category);
+
+        List<WearableResponseDto> out = new ArrayList<>(wearables.size());
+
+        for (Wearable w : wearables) {
+            WearableResponseDto dto = new WearableResponseDto();
+
+            dto.id = w.id;
+            dto.userId = w.userId;
+            dto.category = w.category;
+            dto.title = w.title;
+            dto.description = w.description;
+
+            // IMPORTANT: copy tags inside transaction (prevents LazyInitializationException)
+            dto.tags = (w.tags == null) ? List.of() : new ArrayList<>(w.tags);
+
+            dto.cutoutImageKey = w.cutoutImageKey;
+
+            if (w.cutoutImageKey != null && !w.cutoutImageKey.isBlank()) {
+                dto.cutoutImageUrl =
+                        wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600); // 10 min
+            }
+
+            dto.createdAt = w.createdAt;
+            dto.updatedAt = w.updatedAt;
+
+            out.add(dto);
+        }
+
+        return out;
+    }
+
+
+    private static WearableResponseDto toResponse(Wearable w) {
+        WearableResponseDto r = new WearableResponseDto();
+        r.id = w.id;
+        r.userId = w.userId;
+        r.category = w.category;
+        r.title = w.title;
+        r.description = w.description;
+        r.tags = w.tags;
+        r.cutoutImageKey = w.cutoutImageKey;
+        r.createdAt = w.createdAt;
+        r.updatedAt = w.updatedAt;
+        return r;
     }
 }
