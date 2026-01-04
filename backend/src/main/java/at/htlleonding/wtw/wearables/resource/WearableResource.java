@@ -6,7 +6,6 @@ import at.htlleonding.wtw.wearables.model.WearableCategory;
 import at.htlleonding.wtw.wearables.service.WearableService;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import org.jspecify.annotations.NonNull;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -39,28 +38,16 @@ public class WearableResource {
             @HeaderParam("X-User-Id") String userIdHeader,
             WearableCreateDto form
     ) {
-        UUID userId = parseUserId(userIdHeader);
-        if (form == null) throw new BadRequestException("Body is required");
+        if (form == null) {
+            throw new BadRequestException("Body is required");
+        }
 
         WearableCategory category = parseCategory(form.category);
         List<String> tags = parseTags(form.tags);
 
-        if (form.file == null) {
-            return service.create(
-                    userId,
-                    category,
-                    form.title,
-                    form.description,
-                    tags,
-                    null,
-                    null,
-                    null
-            );
-        }
-
         try (InputStream in = Files.newInputStream(form.file.uploadedFile())) {
             return service.create(
-                    userId,
+                    userIdHeader,
                     category,
                     form.title,
                     form.description,
