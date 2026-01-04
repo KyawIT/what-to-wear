@@ -1,6 +1,3 @@
-// /app/api/rembg/image.api.ts
-// (Recommended to move to /lib/api/rembg/image.api.ts, but this works)
-
 const BASE_URL = (process.env.EXPO_PUBLIC_REMBG_URL ?? "http://localhost:8083").replace(/\/+$/, "");
 const ENDPOINT = "/remove-bg";
 const FIELD = "file";

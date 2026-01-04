@@ -14,7 +14,7 @@ public class Wearable {
     public UUID id;
 
     @Column(nullable = false)
-    public UUID userId;
+    public String userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -26,13 +26,11 @@ public class Wearable {
     @Column(length = 1000)
     public String description;
 
-    // --- MinIO object keys ---
-    public String originalImageKey;
     public String cutoutImageKey;
 
     @ElementCollection
-    @CollectionTable(name = "wearable_tags")
-    @Column(name = "tag")
+    @CollectionTable(name = "wtw_wearable_tags")
+    @Column(name = "tags")
     public List<String> tags;
 
     @Column(nullable = false, updatable = false)
