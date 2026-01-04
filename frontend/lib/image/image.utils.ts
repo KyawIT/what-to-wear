@@ -1,5 +1,5 @@
 import * as MediaLibrary from "expo-media-library";
-
+import * as FileSystem from "expo-file-system/legacy";
 export async function resolveUploadUri(params: {
     id?: string;
     uri?: string;
@@ -43,4 +43,30 @@ export function blobToBase64(blob: Blob): Promise<string> {
 
         reader.readAsDataURL(blob);
     });
+}
+
+export async function dataUriToFileUri(
+    dataUri: string,
+    filename = `wearable_${Date.now()}.png`
+): Promise<{ uri: string; mime: string; name: string }> {
+    const match = dataUri.match(/^data:(.+);base64,(.*)$/);
+    if (!match) {
+        throw new Error("Invalid data URI (expected data:<mime>;base64,...)");
+    }
+
+    const mime = match[1];
+    const base64 = match[2];
+
+    const dir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+    if (!dir) {
+        throw new Error("No writable directory available (cacheDirectory/documentDirectory missing)");
+    }
+
+    const fileUri = `${dir}${filename}`;
+
+    await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+    });
+
+    return { uri: fileUri, mime, name: filename };
 }
