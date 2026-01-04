@@ -18,7 +18,6 @@ public class WearableCreateDto {
     @RestForm("tags")
     public String tags;
 
-    // optional file
     @RestForm("file")
     public FileUpload file;
 }
