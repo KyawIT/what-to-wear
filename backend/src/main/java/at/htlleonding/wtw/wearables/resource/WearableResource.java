@@ -57,6 +57,7 @@ public class WearableResource {
                     in
             );
         } catch (Exception e) {
+            System.out.println(e.getMessage());
             throw new InternalServerErrorException("Upload failed");
         }
     }
