@@ -3,6 +3,7 @@ package at.htlleonding.wtw.wearables.util;
 import at.htlleonding.wtw.wearables.dto.UploadResultDto;
 import at.htlleonding.wtw.wearables.model.WearableCategory;
 import io.minio.*;
+import io.minio.http.Method;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.BadRequestException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -189,5 +190,19 @@ public class WearablesUtil {
         return out;
     }
 
+    public String presignedGetUrl(String objectKey, int expirySeconds) {
+        try {
+            return minio.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .expiry(expirySeconds)
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create presigned URL", e);
+        }
+    }
 
 }
