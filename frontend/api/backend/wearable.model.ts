@@ -31,6 +31,21 @@ export type WearableCategory =
     | "HAT"
     | "ACCESSORY";
 
+export type WearableResponseDto = {
+    id: string;
+    userId: string;
+    category: WearableCategory;
+    title: string;
+    description?: string | null;
+    tags: string[];
+
+    cutoutImageKey?: string | null;
+    cutoutImageUrl?: string | null;
+
+    createdAt: string; // Instant
+    updatedAt?: string | null; // Instant
+};
+
 const WEARABLE_CATEGORY_VALUES: readonly WearableCategory[] = [
     "SHIRT",
     "PANTS",
