@@ -26,7 +26,7 @@ public class WearableService {
 
     @Transactional
     public Wearable create(
-            UUID userId,
+            String userId,
             WearableCategory category,
             String title,
             String description,
@@ -50,7 +50,7 @@ public class WearableService {
 
         if (imageStream != null) {
             UploadResultDto r = wearablesUtil.uploadWearableImage(
-                    userId.toString(),
+                    userId,
                     w.id,
                     fileName,
                     imageStream,
