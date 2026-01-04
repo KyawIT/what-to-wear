@@ -1,4 +1,5 @@
-import { View, Text, ScrollView } from 'react-native'
+import {Text, ScrollView, FlatList, Dimensions} from 'react-native'
+import {Image} from "expo-image"
 import React, {useEffect, useState} from 'react'
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
@@ -11,13 +12,18 @@ import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
 import { Divider } from "@/components/ui/divider";
 import { Pressable } from "@/components/ui/pressable";
+import {WearableCategory, WearableResponseDto} from "@/api/backend/wearable.model";
 import {fetchWearableCategories} from "@/api/backend/category.api";
+import {fetchWearablesByCategory} from "@/api/backend/wearable.api";
 
 const Profile = () => {
     const { data } = authClient.useSession();
     const [categories, setCategories] = useState<string[]>([]);
-    const [loadingCategories, setLoadingCategories] = useState(true);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [wearables, setWearables] = useState<WearableResponseDto[]>([]);
+    const [loadingWearables, setLoadingWearables] = useState(false);
+
+    const ITEM_SIZE = Dimensions.get("window").width / 3;
 
     const handleFullLogout = async () => {
         const clientId = process.env.EXPO_PUBLIC_KC_CLIENT_ID as string;
@@ -63,11 +69,30 @@ const Profile = () => {
                 }
             } catch (err) {
                 console.error("Failed to fetch categories:", err);
-            } finally {
-                setLoadingCategories(false);
             }
         })();
     }, []);
+
+    // Fetch wearables when active category changes
+    useEffect(() => {
+        if (!activeCategory || !data?.user?.id) return;
+
+        (async () => {
+            setLoadingWearables(true);
+            try {
+                const items = await fetchWearablesByCategory(
+                    data.user.id,
+                    activeCategory as WearableCategory
+                );
+                setWearables(items);
+            } catch (err) {
+                console.error("Failed to fetch wearables:", err);
+                setWearables([]);
+            } finally {
+                setLoadingWearables(false);
+            }
+        })();
+    }, [activeCategory, data?.user?.id]);
 
     return (
         <SafeAreaView className="flex-1 bg-black" edges={["top"]}>
@@ -167,14 +192,71 @@ const Profile = () => {
                 </ScrollView>
 
                 {/* Content for active category */}
-                <Box className="flex-1 items-center justify-center py-20">
-                    <Text className="text-white/40 text-base">
-                        No {activeCategory?.toLowerCase()} items yet
-                    </Text>
-                    <Text className="text-white/30 text-sm mt-2">
-                        Add items to see them here
-                    </Text>
-                </Box>
+                {loadingWearables ? (
+                    <Box className="flex-1 items-center justify-center py-20">
+                        <Text className="text-white/60 text-base">Loading...</Text>
+                    </Box>
+                ) : wearables.length === 0 ? (
+                    <Box className="flex-1 items-center justify-center py-20">
+                        <Text className="text-white/40 text-base">
+                            No {activeCategory?.toLowerCase()} items yet
+                        </Text>
+                        <Text className="text-white/30 text-sm mt-2">
+                            Add items to see them here
+                        </Text>
+                    </Box>
+                ) : (
+                    <FlatList
+                        data={wearables}
+                        keyExtractor={(item) => item.id}
+                        numColumns={3}
+                        scrollEnabled={false}
+                        contentContainerStyle={{ gap: 1 }}
+                        columnWrapperStyle={{ gap: 1 }}
+                        renderItem={({ item }) => (
+                            <Pressable
+                                onPress={() => {
+                                    // TODO: Navigate to detail view
+                                    console.log("Clicked wearable:", item.id);
+                                }}
+                                className="active:opacity-80"
+                            >
+                                <Box
+                                    style={{
+                                        width: ITEM_SIZE - 0.67,
+                                        height: ITEM_SIZE - 0.67,
+                                    }}
+                                    className="bg-neutral-900 relative"
+                                >
+                                    {item.cutoutImageUrl ? (
+                                        <>
+                                            <Image
+                                                source={{ uri: item.cutoutImageUrl }}
+                                                style={{ width: "100%", height: "100%" }}
+                                                contentFit="cover"
+                                            />
+                                            {/* Title overlay */}
+                                            <Box className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                                                <Text
+                                                    className="text-white text-xs font-medium"
+                                                    numberOfLines={1}
+                                                >
+                                                    {item.title}
+                                                </Text>
+                                            </Box>
+                                        </>
+                                    ) : (
+                                        <Box className="flex-1 items-center justify-center">
+                                            <Text className="text-white/30 text-xs text-center px-2">
+                                                {item.title}
+                                            </Text>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Pressable>
+                        )}
+                    />
+                )}
 
                 {/* Settings Section */}
                 <Box className="px-4 py-2">
