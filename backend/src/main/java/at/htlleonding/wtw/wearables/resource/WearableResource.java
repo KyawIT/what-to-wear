@@ -1,6 +1,7 @@
 package at.htlleonding.wtw.wearables.resource;
 
 import at.htlleonding.wtw.wearables.dto.WearableCreateDto;
+import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
 import at.htlleonding.wtw.wearables.model.Wearable;
 import at.htlleonding.wtw.wearables.model.WearableCategory;
 import at.htlleonding.wtw.wearables.service.WearableService;
@@ -60,5 +61,39 @@ public class WearableResource {
             System.out.println(e.getMessage());
             throw new InternalServerErrorException("Upload failed");
         }
+    }
+
+    @GET
+    public List<WearableResponseDto> getMyWearables(
+            @HeaderParam("X-User-Id") String userId
+    ) {
+        if (userId == null || userId.isBlank()) {
+            throw new BadRequestException("Missing X-User-Id header");
+        }
+
+        return service.getByUserId(userId.trim());
+    }
+
+    @GET
+    @Path("/by-category")
+    public List<WearableResponseDto> getByCategory(
+            @HeaderParam("X-User-Id") String userId,
+            @QueryParam("category") String categoryParam
+    ) {
+        if (userId == null || userId.isBlank()) {
+            throw new BadRequestException("Missing X-User-Id header");
+        }
+        if (categoryParam == null || categoryParam.isBlank()) {
+            throw new BadRequestException("category query param is required");
+        }
+
+        WearableCategory category;
+        try {
+            category = WearableCategory.valueOf(categoryParam.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid category");
+        }
+
+        return service.getByUserIdAndCategory(userId.trim(), category);
     }
 }
