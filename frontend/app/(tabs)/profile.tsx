@@ -1,5 +1,4 @@
-import { Text, ScrollView, FlatList, Dimensions, View } from "react-native";
-import { Image } from "expo-image";
+import { Text, ScrollView, View } from "react-native";
 import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
@@ -20,11 +19,8 @@ import {
   Info,
   LogOut,
   ChevronRight,
-  Shirt,
 } from "lucide-react-native";
-import { WearableCategory, WearableResponseDto } from "@/api/backend/wearable.model";
-import { fetchWearableCategories } from "@/api/backend/category.api";
-import { fetchWearablesByCategory } from "@/api/backend/wearable.api";
+import { fetchAllWearables } from "@/api/backend/wearable.api";
 
 // Beige theme colors
 const colors = {
@@ -43,12 +39,7 @@ const colors = {
 
 const Profile = () => {
   const { data } = authClient.useSession();
-  const [categories, setCategories] = useState<string[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [wearables, setWearables] = useState<WearableResponseDto[]>([]);
-  const [loadingWearables, setLoadingWearables] = useState(false);
-
-  const ITEM_SIZE = Dimensions.get("window").width / 3;
+  const [totalItemsCount, setTotalItemsCount] = useState(0);
 
   const handleFullLogout = async () => {
     const clientId = process.env.EXPO_PUBLIC_KC_CLIENT_ID as string;
@@ -84,40 +75,17 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const cats = await fetchWearableCategories();
-        setCategories(cats);
-        // Set first category as active by default
-        if (cats.length > 0) {
-          setActiveCategory(cats[0]);
-        }
-      } catch (err) {
-        console.error("Failed to fetch categories:", err);
-      }
-    })();
-  }, []);
-
-  // Fetch wearables when active category changes
-  useEffect(() => {
-    if (!activeCategory || !data?.user?.id) return;
+    if (!data?.user?.id) return;
 
     (async () => {
-      setLoadingWearables(true);
       try {
-        const items = await fetchWearablesByCategory(
-          data.user.id,
-          activeCategory as WearableCategory
-        );
-        setWearables(items);
+        const allItems = await fetchAllWearables(data.user.id);
+        setTotalItemsCount(allItems.length);
       } catch (err) {
-        console.error("Failed to fetch wearables:", err);
-        setWearables([]);
-      } finally {
-        setLoadingWearables(false);
+        console.error("Failed to fetch total wearables:", err);
       }
     })();
-  }, [activeCategory, data?.user?.id]);
+  }, [data?.user?.id]);
 
   const SettingsItem = ({
     icon,
@@ -223,7 +191,7 @@ const Profile = () => {
                   className="text-xl font-bold"
                   style={{ color: colors.textPrimary }}
                 >
-                  {wearables.length}
+                  {totalItemsCount}
                 </Text>
                 <Text className="text-sm" style={{ color: colors.textMuted }}>
                   Items
@@ -245,153 +213,7 @@ const Profile = () => {
             </Text>
           </VStack>
 
-          {/* Edit Profile Button */}
-          <Pressable
-            className="h-11 rounded-xl items-center justify-center active:opacity-80"
-            style={{
-              backgroundColor: colors.cardBg,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text
-              className="font-semibold"
-              style={{ color: colors.textPrimary }}
-            >
-              Edit Profile
-            </Text>
-          </Pressable>
         </Box>
-
-        {/* Category Tabs */}
-        <View style={{ backgroundColor: colors.cardBg }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-          >
-            <HStack className="px-4">
-              {categories.map((category) => (
-                <Pressable
-                  key={category}
-                  onPress={() => setActiveCategory(category)}
-                  className="mr-6 pb-3 pt-3"
-                >
-                  <VStack className="items-center relative">
-                    <Text
-                      className="text-sm font-medium"
-                      style={{
-                        color:
-                          activeCategory === category
-                            ? colors.primary
-                            : colors.textMuted,
-                      }}
-                    >
-                      {category}
-                    </Text>
-                    {activeCategory === category && (
-                      <View
-                        className="absolute -bottom-3 left-0 right-0 h-0.5 rounded-full"
-                        style={{ backgroundColor: colors.primary }}
-                      />
-                    )}
-                  </VStack>
-                </Pressable>
-              ))}
-            </HStack>
-          </ScrollView>
-        </View>
-
-        {/* Content for active category */}
-        {loadingWearables ? (
-          <Box
-            className="items-center justify-center py-20"
-            style={{ backgroundColor: colors.backgroundSecondary }}
-          >
-            <Text className="text-base" style={{ color: colors.textMuted }}>
-              Loading...
-            </Text>
-          </Box>
-        ) : wearables.length === 0 ? (
-          <Box
-            className="items-center justify-center py-16"
-            style={{ backgroundColor: colors.backgroundSecondary }}
-          >
-            <View
-              className="h-20 w-20 rounded-full items-center justify-center mb-4"
-              style={{ backgroundColor: `${colors.primary}15` }}
-            >
-              <Shirt size={36} color={colors.primary} strokeWidth={1.5} />
-            </View>
-            <Text className="text-base mb-1" style={{ color: colors.textSecondary }}>
-              No {activeCategory?.toLowerCase()} items yet
-            </Text>
-            <Text className="text-sm" style={{ color: colors.textMuted }}>
-              Add items to see them here
-            </Text>
-          </Box>
-        ) : (
-          <FlatList
-            data={wearables}
-            keyExtractor={(item) => item.id}
-            numColumns={3}
-            scrollEnabled={false}
-            style={{ backgroundColor: colors.backgroundSecondary }}
-            contentContainerStyle={{ gap: 2 }}
-            columnWrapperStyle={{ gap: 2 }}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  // TODO: Navigate to detail view
-                  console.log("Clicked wearable:", item.id);
-                }}
-                className="active:opacity-80"
-              >
-                <Box
-                  style={{
-                    width: ITEM_SIZE - 1.33,
-                    height: ITEM_SIZE - 1.33,
-                    backgroundColor: colors.cardBg,
-                  }}
-                  className="relative overflow-hidden"
-                >
-                  {item.cutoutImageUrl ? (
-                    <>
-                      <Image
-                        source={{ uri: item.cutoutImageUrl }}
-                        style={{ width: "100%", height: "100%" }}
-                        contentFit="cover"
-                      />
-                      {/* Title overlay */}
-                      <Box
-                        className="absolute bottom-0 left-0 right-0 px-2 py-1.5"
-                        style={{ backgroundColor: `${colors.accent}CC` }}
-                      >
-                        <Text
-                          className="text-xs font-medium text-white"
-                          numberOfLines={1}
-                        >
-                          {item.title}
-                        </Text>
-                      </Box>
-                    </>
-                  ) : (
-                    <Box className="flex-1 items-center justify-center">
-                      <Shirt size={24} color={colors.textMuted} />
-                      <Text
-                        className="text-xs text-center px-2 mt-2"
-                        style={{ color: colors.textMuted }}
-                        numberOfLines={2}
-                      >
-                        {item.title}
-                      </Text>
-                    </Box>
-                  )}
-                </Box>
-              </Pressable>
-            )}
-          />
-        )}
 
         {/* Settings Section */}
         <Box
