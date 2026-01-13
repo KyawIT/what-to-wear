@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import React from "react";
-import { Home, User, Sparkles, Shirt, Camera } from "lucide-react-native";
+import { LayoutGrid, User, Sparkles, Shirt, Camera } from "lucide-react-native";
 
 // Beige theme colors
 const colors = {
@@ -20,8 +20,8 @@ const TabIcon = ({ iconType, focused }: TabIconProps) => {
 
   const renderIcon = () => {
     switch (iconType) {
-      case "home":
-        return <Home size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
+      case "wardrobe":
+        return <LayoutGrid size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
       case "profile":
         return <User size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
       case "recommendation":
