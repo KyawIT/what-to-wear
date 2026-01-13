@@ -1,33 +1,52 @@
-import {View, Text} from 'react-native'
-import React from 'react'
-import {Globe, User, StarsIcon, Shirt, Camera} from "lucide-react-native";
+import { View, Text } from "react-native";
+import React from "react";
+import { Home, User, Sparkles, Shirt, Camera } from "lucide-react-native";
 
-const TabIcon = ({iconType, focused}:{iconType:string, focused:boolean}) => {
-    if (iconType === 'home') {
-        return (
-            <Globe fill={focused ? '#6366f1' : 'white'}/>
-        )
-    }else if(iconType === 'profile') {
-        return (
-            <User fill={focused ? '#6366f1' : 'white'}/>
-        )
-    }else if(iconType === 'recommendation') {
-        return (
-            <StarsIcon fill={focused ? '#ef4444' : 'white'}/>
-        )
-    }else if(iconType === 'create') {
-        return (
-            <Shirt fill={focused ? '#6366f1' : 'white'}/>
-        )
-    }else if(iconType === 'scan') {
-        return (
-            <Camera fill={focused ? '#ef4444' : 'white'}/>
-        )
-    }
-    return (
-        <View>
-            <Text>TabIcon</Text>
-        </View>
-    )
+// Beige theme colors
+const colors = {
+  active: "#D4A574",
+  inactive: "#9B8B7F",
+  activeBg: "#D4A57420",
+};
+
+interface TabIconProps {
+  iconType: string;
+  focused: boolean;
 }
-export default TabIcon
+
+const TabIcon = ({ iconType, focused }: TabIconProps) => {
+  const color = focused ? colors.active : colors.inactive;
+  const size = 24;
+
+  const renderIcon = () => {
+    switch (iconType) {
+      case "home":
+        return <Home size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
+      case "profile":
+        return <User size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
+      case "recommendation":
+        return <Sparkles size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
+      case "create":
+        return <Shirt size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
+      case "scan":
+        return <Camera size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <View
+      className="items-center justify-center rounded-full"
+      style={{
+        width: 48,
+        height: 48,
+        backgroundColor: focused ? colors.activeBg : "transparent",
+      }}
+    >
+      {renderIcon()}
+    </View>
+  );
+};
+
+export default TabIcon;
