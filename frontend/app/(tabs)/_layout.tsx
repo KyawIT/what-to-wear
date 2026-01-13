@@ -34,7 +34,7 @@ const _Layout = () => {
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <TabIcon iconType="home" focused={focused} />
+              <TabIcon iconType="recommendation" focused={focused} />
             ),
           }}
         />
@@ -57,11 +57,11 @@ const _Layout = () => {
           }}
         />
         <Tabs.Screen
-          name="recommendation"
+          name="wardrobe"
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <TabIcon iconType="recommendation" focused={focused} />
+              <TabIcon iconType="wardrobe" focused={focused} />
             ),
           }}
         />

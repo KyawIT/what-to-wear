@@ -8,6 +8,7 @@ import at.htlleonding.wtw.wearables.repository.WearableRepository;
 import at.htlleonding.wtw.wearables.util.WearablesUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.NotFoundException;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -147,18 +148,30 @@ public class WearableService {
         return out;
     }
 
+    @Transactional
+    public WearableResponseDto getByWearableId(UUID id) {
+        if (id == null) {
+            throw new IllegalArgumentException("id is required");
+        }
 
-    private static WearableResponseDto toResponse(Wearable w) {
-        WearableResponseDto r = new WearableResponseDto();
-        r.id = w.id;
-        r.userId = w.userId;
-        r.category = w.category;
-        r.title = w.title;
-        r.description = w.description;
-        r.tags = w.tags;
-        r.cutoutImageKey = w.cutoutImageKey;
-        r.createdAt = w.createdAt;
-        r.updatedAt = w.updatedAt;
-        return r;
+        Wearable wearable = repo.find("id", id).firstResult();
+        if (wearable == null) {
+            throw new NotFoundException("Wearable not found");
+        }
+
+        WearableResponseDto dto = new WearableResponseDto();
+        dto.id = wearable.id;
+        dto.userId = wearable.userId;
+        dto.category = wearable.category;
+        dto.title = wearable.title;
+        dto.description = wearable.description;
+        dto.tags = (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags);
+        dto.cutoutImageKey = wearable.cutoutImageKey;
+        dto.cutoutImageUrl = (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
+                ? null
+                : wearablesUtil.presignedGetUrl(wearable.cutoutImageKey, 600);
+        dto.createdAt = wearable.createdAt;
+        dto.updatedAt = wearable.updatedAt;
+        return dto;
     }
 }

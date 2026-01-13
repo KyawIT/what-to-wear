@@ -1,10 +1,12 @@
 import React from 'react'
-import Navbar from "@/components/navbar/navbar";
+import { Text} from "react-native";
 
 
 const Index = () => {
     return (
-        <Navbar/>
+        <>
+            <Text>Recommendation</Text>
+        </>
     )
 }
 export default Index
