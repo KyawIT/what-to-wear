@@ -27,12 +27,11 @@ services:
       KC_DB_USERNAME: ${DB_USER}
       KC_DB_PASSWORD: ${DB_PASS}
       KC_DB_SCHEMA: keycloak
-      KC_HOSTNAME: https://what-to-wear.cms-building.at
-      KC_HOSTNAME_ADMIN: https://what-to-wear.cms-building.at
+      KC_HOSTNAME: https://what-to-wear.cms-building.at/auth
+      KC_HOSTNAME_ADMIN: https://what-to-wear.cms-building.at/auth
       KC_HOSTNAME_STRICT: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
-      KC_HTTP_RELATIVE_PATH: /auth
     networks:
       - wtw_internal
       - proxy_default
