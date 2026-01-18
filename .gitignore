@@ -1,3 +1,7 @@
 .DS_Store
 minio
 .st*
+.claude
+.idea
+/AGENTS.md
+/CLAUDE.md
