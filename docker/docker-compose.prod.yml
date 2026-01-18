@@ -28,9 +28,10 @@ services:
       KC_DB_PASSWORD: ${DB_PASS}
       KC_DB_SCHEMA: keycloak
       KC_PROXY: edge
-      KC_HOSTNAME: auth.what-to-wear.cms-building.at
+      KC_HOSTNAME: what-to-wear.cms-building.at
       KC_HOSTNAME_STRICT: "true"
       KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /auth
     networks:
       - wtw_internal
       - proxy_default
@@ -40,7 +41,7 @@ services:
       - start-dev
     labels:
       - traefik.enable=true
-      - traefik.http.routers.wtw-keycloak.rule=Host(`auth.what-to-wear.cms-building.at`)
+      - traefik.http.routers.wtw-keycloak.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/auth`)
       - traefik.http.routers.wtw-keycloak.entrypoints=websecure
       - traefik.http.routers.wtw-keycloak.tls=true
       - traefik.http.routers.wtw-keycloak.tls.certresolver=letsencrypt
@@ -76,10 +77,12 @@ services:
       REMBG_MODEL: ${REMBG_MODEL}
     labels:
       - traefik.enable=true
-      - traefik.http.routers.wtw-rembg.rule=Host(`rembg.what-to-wear.cms-building.at`)
+      - traefik.http.routers.wtw-rembg.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/rembg`)
       - traefik.http.routers.wtw-rembg.entrypoints=websecure
       - traefik.http.routers.wtw-rembg.tls=true
       - traefik.http.routers.wtw-rembg.tls.certresolver=letsencrypt
+      - traefik.http.routers.wtw-rembg.middlewares=wtw-rembg-stripprefix
+      - traefik.http.middlewares.wtw-rembg-stripprefix.stripprefix.prefixes=/rembg
       - traefik.http.services.wtw-rembg.loadbalancer.server.port=8080
 
   wtw-backend:
@@ -107,7 +110,7 @@ services:
       APP_MINIO_PUBLIC_BASE_URL: ${APP_MINIO_PUBLIC_BASE_URL}
     labels:
       - traefik.enable=true
-      - traefik.http.routers.wtw-backend.rule=Host(`api.what-to-wear.cms-building.at`)
+      - traefik.http.routers.wtw-backend.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api`)
       - traefik.http.routers.wtw-backend.entrypoints=websecure
       - traefik.http.routers.wtw-backend.tls=true
       - traefik.http.routers.wtw-backend.tls.certresolver=letsencrypt
