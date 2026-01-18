@@ -6,3 +6,4 @@ minio
 /AGENTS.md
 /CLAUDE.md
 /docker/.env.prod
+/wtw-realm.json

@@ -70,8 +70,8 @@ jobs:
           {
             echo "## Build Summary"
             echo ""
-            echo "- Backend image: ghcr.io/${OWNER_LC}/wtw-backend:${GITHUB_SHA}"
-            echo "- Rembg image: ghcr.io/${OWNER_LC}/wtw-rembg:${GITHUB_SHA}"
+            echo "- Backend image: ghcr.io/${OWNER_LC}/wtw-backend:latest"
+            echo "- Rembg image: ghcr.io/${OWNER_LC}/wtw-rembg:latest"
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
@@ -96,8 +96,8 @@ jobs:
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         env:
-          BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}
-          REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
+          BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest
+          REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
@@ -119,6 +119,6 @@ jobs:
             echo "## Deploy Summary"
             echo ""
             echo "- Deploy path: ${{ secrets.DEPLOY_PATH }}"
-            echo "- Backend image: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}"
-            echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}"
+            echo "- Backend image: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest"
+            echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest"
           } >> "$GITHUB_STEP_SUMMARY"
