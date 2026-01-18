@@ -5,3 +5,4 @@ minio
 .idea
 /AGENTS.md
 /CLAUDE.md
+/docker/.env.prod
