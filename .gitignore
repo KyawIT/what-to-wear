@@ -1,3 +1,9 @@
 .DS_Store
 minio
 .st*
+.claude
+.idea
+/AGENTS.md
+/CLAUDE.md
+/docker/.env.prod
+/wtw-realm.json

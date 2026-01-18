@@ -75,6 +75,29 @@ public class WearableResource {
     }
 
     @GET
+    @Path("/{id}")
+    public WearableResponseDto getById(
+            @HeaderParam("X-User-Id") String userId,
+            @PathParam("id") String idParam
+    ) {
+        if (userId == null || userId.isBlank()) {
+            throw new BadRequestException("Missing X-User-Id header");
+        }
+        if (idParam == null || idParam.isBlank()) {
+            throw new BadRequestException("id path param is required");
+        }
+
+        UUID id;
+        try {
+            id = UUID.fromString(idParam.trim());
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid id");
+        }
+
+        return service.getByWearableId(id);
+    }
+
+    @GET
     @Path("/by-category")
     public List<WearableResponseDto> getByCategory(
             @HeaderParam("X-User-Id") String userId,
