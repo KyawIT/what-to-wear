@@ -33,6 +33,7 @@ services:
       KC_HOSTNAME_PATH: /auth
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /auth
     networks:
       - wtw_internal
       - proxy_default
