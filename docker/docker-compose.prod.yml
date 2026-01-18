@@ -4,6 +4,8 @@ services:
     image: postgres:18-alpine
     container_name: wtw-db
     restart: always
+    networks:
+      - wtw_internal
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
@@ -27,6 +29,7 @@ services:
       KC_DB_SCHEMA: keycloak
       KC_PROXY: edge
     networks:
+      - wtw_internal
       - proxy_default
     volumes:
       - ./keycloak-theme:/opt/keycloak/themes
@@ -44,6 +47,8 @@ services:
     image: quay.io/minio/minio
     container_name: wtw-minio
     restart: unless-stopped
+    networks:
+      - wtw_internal
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -62,6 +67,7 @@ services:
     container_name: wtw-rembg
     restart: unless-stopped
     networks:
+      - wtw_internal
       - proxy_default
     environment:
       REMBG_MODEL: ${REMBG_MODEL}
@@ -81,6 +87,7 @@ services:
       - wtw-db
       - wtw-minio
     networks:
+      - wtw_internal
       - proxy_default
     environment:
       QUARKUS_PROFILE: prod
@@ -111,3 +118,5 @@ volumes:
 networks:
   proxy_default:
     external: true
+  wtw_internal:
+    name: wtw_internal
