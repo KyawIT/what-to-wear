@@ -1,7 +1,11 @@
 FROM eclipse-temurin:21-jre
 
 RUN mkdir -p /opt/application
-RUN ls -lah /
-COPY ./target/*-runner.jar /opt/application/backend.jar
+
+COPY ./target/quarkus-app/lib/ /opt/application/lib/
+COPY ./target/quarkus-app/*.jar /opt/application/
+COPY ./target/quarkus-app/app/ /opt/application/app/
+COPY ./target/quarkus-app/quarkus/ /opt/application/quarkus/
+
 WORKDIR /opt/application
-CMD [ "java", "-jar", "backend.jar" ]
+CMD [ "java", "-jar", "quarkus-run.jar" ]
