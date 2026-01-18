@@ -30,7 +30,6 @@ services:
       KC_HOSTNAME: https://what-to-wear.cms-building.at
       KC_HOSTNAME_ADMIN: https://what-to-wear.cms-building.at
       KC_HOSTNAME_STRICT: "true"
-      KC_HOSTNAME_PATH: /auth
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
       KC_HTTP_RELATIVE_PATH: /auth
