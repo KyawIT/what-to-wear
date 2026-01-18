@@ -29,7 +29,7 @@ services:
       KC_DB_SCHEMA: keycloak
       KC_PROXY: edge
       KC_HOSTNAME: what-to-wear.cms-building.at
-      KC_HOSTNAME_ADMIN: what-to-wear.cms-building.at
+      KC_HOSTNAME_ADMIN: https://what-to-wear.cms-building.at
       KC_HOSTNAME_STRICT: "true"
       KC_HOSTNAME_STRICT_HTTPS: "true"
       KC_PROXY_HEADERS: xforwarded
