@@ -28,6 +28,9 @@ services:
       KC_DB_PASSWORD: ${DB_PASS}
       KC_DB_SCHEMA: keycloak
       KC_PROXY: edge
+      KC_HOSTNAME: auth.what-to-wear.cms-building.at
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "true"
     networks:
       - wtw_internal
       - proxy_default
@@ -120,4 +123,3 @@ networks:
     external: true
   wtw_internal:
     name: wtw_internal
-
