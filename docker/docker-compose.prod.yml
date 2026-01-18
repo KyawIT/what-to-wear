@@ -38,7 +38,7 @@ services:
     volumes:
       - ./keycloak-theme:/opt/keycloak/themes
     command:
-      - start-dev
+      - start
     labels:
       - traefik.enable=true
       - traefik.http.routers.wtw-keycloak.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/auth`)
