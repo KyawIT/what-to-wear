@@ -11,7 +11,6 @@ import {authClient} from "@/lib/auth-client";
 
 const Navbar = () => {
     const {data, isPending} = authClient.useSession();
-    console.log(data!.user)
     if (data != null) {
         return (
             <View className="flex-1 bg-secondary-50">

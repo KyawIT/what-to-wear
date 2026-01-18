@@ -1,0 +1,128 @@
+name: what-to-wear
+services:
+  wtw-db:
+    image: postgres:18-alpine
+    container_name: wtw-db
+    restart: always
+    networks:
+      - wtw_internal
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - wtw_data:/var/lib/postgresql/data
+
+  wtw-keycloak:
+    image: quay.io/keycloak/keycloak:26.4.5
+    container_name: wtw-keycloak
+    restart: always
+    depends_on:
+      - wtw-db
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASS}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://wtw-db:5432/${DB_NAME}
+      KC_DB_USERNAME: ${DB_USER}
+      KC_DB_PASSWORD: ${DB_PASS}
+      KC_DB_SCHEMA: keycloak
+      KC_HOSTNAME: https://what-to-wear.cms-building.at/auth
+      KC_HOSTNAME_ADMIN: https://what-to-wear.cms-building.at/auth
+      KC_HOSTNAME_STRICT: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+    networks:
+      - wtw_internal
+      - proxy_default
+    volumes:
+      - ./keycloak-theme:/opt/keycloak/themes
+    command:
+      - start
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-keycloak.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/auth`)
+      - traefik.http.routers.wtw-keycloak.entrypoints=websecure
+      - traefik.http.routers.wtw-keycloak.tls=true
+      - traefik.http.routers.wtw-keycloak.tls.certresolver=letsencrypt
+      - traefik.http.services.wtw-keycloak.loadbalancer.server.port=8080
+
+  wtw-minio:
+    image: quay.io/minio/minio
+    container_name: wtw-minio
+    restart: unless-stopped
+    networks:
+      - wtw_internal
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_REGION: ${MINIO_REGION}
+      MINIO_BROWSER: "on"
+    volumes:
+      - wtw_minio_data:/data
+      - wtw_minio_config:/root/.minio
+    command: server /data --console-address ":9001"
+
+  wtw-rembg:
+    image: ${REMBG_IMAGE}
+    container_name: wtw-rembg
+    restart: unless-stopped
+    networks:
+      - wtw_internal
+      - proxy_default
+    environment:
+      REMBG_MODEL: ${REMBG_MODEL}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-rembg.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/rembg`)
+      - traefik.http.routers.wtw-rembg.entrypoints=websecure
+      - traefik.http.routers.wtw-rembg.tls=true
+      - traefik.http.routers.wtw-rembg.tls.certresolver=letsencrypt
+      - traefik.http.routers.wtw-rembg.middlewares=wtw-rembg-stripprefix
+      - traefik.http.middlewares.wtw-rembg-stripprefix.stripprefix.prefixes=/rembg
+      - traefik.http.services.wtw-rembg.loadbalancer.server.port=8080
+
+  wtw-backend:
+    image: ${BACKEND_IMAGE}
+    container_name: wtw-backend
+    restart: unless-stopped
+    depends_on:
+      - wtw-db
+      - wtw-minio
+    networks:
+      - wtw_internal
+      - proxy_default
+    environment:
+      QUARKUS_PROFILE: prod
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://wtw-db:5432/${DB_NAME}
+      QUARKUS_DATASOURCE_USERNAME: ${DB_USER}
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASS}
+      QUARKUS_MINIO_ENDPOINT: http://wtw-minio:9000
+      QUARKUS_MINIO_REGION: ${MINIO_REGION}
+      QUARKUS_MINIO_HOST: wtw-minio
+      QUARKUS_MINIO_PORT: 9000
+      QUARKUS_MINIO_SECURE: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      APP_MINIO_PUBLIC_BASE_URL: ${APP_MINIO_PUBLIC_BASE_URL}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-backend.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api`)
+      - traefik.http.routers.wtw-backend.entrypoints=websecure
+      - traefik.http.routers.wtw-backend.tls=true
+      - traefik.http.routers.wtw-backend.tls.certresolver=letsencrypt
+      - traefik.http.services.wtw-backend.loadbalancer.server.port=8080
+
+volumes:
+  wtw_data:
+  wtw_minio_data:
+  wtw_minio_config:
+
+networks:
+  proxy_default:
+    external: true
+  wtw_internal:
+    name: wtw_internal
