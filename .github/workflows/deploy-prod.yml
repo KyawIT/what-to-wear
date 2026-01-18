@@ -38,6 +38,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Normalize image owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -52,8 +55,8 @@ jobs:
           file: ./backend/src/main/docker/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/wtw-backend:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/wtw-backend:latest
+            ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest
 
       - name: Build and push rembg image
         uses: docker/build-push-action@v6
@@ -62,8 +65,8 @@ jobs:
           file: ./docker/rembg/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/wtw-rembg:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/wtw-rembg:latest
+            ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -81,8 +84,8 @@ jobs:
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         env:
-          BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/wtw-backend:${{ github.sha }}
-          REMBG_IMAGE: ghcr.io/${{ github.repository_owner }}/wtw-rembg:${{ github.sha }}
+          BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}
+          REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
