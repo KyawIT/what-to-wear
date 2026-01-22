@@ -45,6 +45,7 @@ import {
   fetchAllWearables,
   fetWearableById,
 } from "@/api/backend/wearable.api";
+import { colors } from "@/lib/theme";
 
 type TabType = "items" | "outfits";
 type CategoryFilter = "ALL" | WearableCategory;
@@ -130,7 +131,7 @@ const Wardrobe = () => {
     return (
       <IconComponent
         size={24}
-        color={isActive ? "#D4A574" : "#9B8B7F"}
+        color={isActive ? colors.primary : colors.textMuted}
         strokeWidth={isActive ? 2.5 : 2}
       />
     );
@@ -170,7 +171,7 @@ const Wardrobe = () => {
           />
         ) : (
           <Center className="flex-1">
-            <Shirt size={32} color="#9B8B7F" />
+            <Shirt size={32} color={colors.textMuted} />
             <Text size="xs" className="text-center px-2 mt-2 text-typography-400" numberOfLines={2}>
               {item.title}
             </Text>
@@ -301,7 +302,7 @@ const Wardrobe = () => {
             ) : (
               <Center className="pt-12 px-4">
                 <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
-                  <Shirt size={40} color="#D4A574" strokeWidth={1.5} />
+                  <Shirt size={40} color={colors.primary} strokeWidth={1.5} />
                 </Box>
                 <Heading size="md" className="mb-2 text-center text-typography-600">
                   {searchQuery
@@ -326,7 +327,7 @@ const Wardrobe = () => {
           contentContainerStyle={{ paddingTop: 48, alignItems: "center", paddingHorizontal: 32 }}
         >
           <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
-            <LayoutGrid size={40} color="#D4A574" strokeWidth={1.5} />
+            <LayoutGrid size={40} color={colors.primary} strokeWidth={1.5} />
           </Box>
           <Heading size="md" className="mb-2 text-center text-typography-600">
             Outfits coming soon
@@ -379,7 +380,7 @@ const Wardrobe = () => {
                     />
                   ) : (
                     <Center className="flex-1">
-                      <Shirt size={40} color="#9B8B7F" />
+                      <Shirt size={40} color={colors.textMuted} />
                       <Text
                         size="sm"
                         className="text-center px-2 mt-2 text-typography-400"
@@ -418,7 +419,7 @@ const Wardrobe = () => {
                 <Divider className="bg-outline-200" />
 
                 <HStack className="items-center gap-2">
-                  <Calendar size={16} color="#9B8B7F" />
+                  <Calendar size={16} color={colors.textMuted} />
                   <Text size="sm" className="text-typography-500">
                     Added{" "}
                     {new Date(selectedWearable.createdAt).toLocaleDateString()}
