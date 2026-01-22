@@ -27,11 +27,12 @@ services:
       KC_DB_USERNAME: ${DB_USER}
       KC_DB_PASSWORD: ${DB_PASS}
       KC_DB_SCHEMA: keycloak
-      KC_HOSTNAME: https://what-to-wear.cms-building.at/auth
-      KC_HOSTNAME_ADMIN: https://what-to-wear.cms-building.at/auth
+      KC_HOSTNAME: https://what-to-wear.cms-building.at
+      KC_HOSTNAME_ADMIN: https://what-to-wear.cms-building.at
       KC_HOSTNAME_STRICT: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /auth
     networks:
       - wtw_internal
       - proxy_default
@@ -39,12 +40,13 @@ services:
       - ./keycloak-theme:/opt/keycloak/themes
     command:
       - start
+      - --http-relative-path=/auth
     labels:
       - traefik.enable=true
       - traefik.http.routers.wtw-keycloak.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/auth`)
       - traefik.http.routers.wtw-keycloak.entrypoints=websecure
       - traefik.http.routers.wtw-keycloak.tls=true
-      - traefik.http.routers.wtw-keycloak.tls.certresolver=letsencrypt
+      - traefik.http.routers.wtw-keycloak.tls.certresolver=default
       - traefik.http.services.wtw-keycloak.loadbalancer.server.port=8080
 
   wtw-minio:
@@ -80,7 +82,7 @@ services:
       - traefik.http.routers.wtw-rembg.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/rembg`)
       - traefik.http.routers.wtw-rembg.entrypoints=websecure
       - traefik.http.routers.wtw-rembg.tls=true
-      - traefik.http.routers.wtw-rembg.tls.certresolver=letsencrypt
+      - traefik.http.routers.wtw-rembg.tls.certresolver=default
       - traefik.http.routers.wtw-rembg.middlewares=wtw-rembg-stripprefix
       - traefik.http.middlewares.wtw-rembg-stripprefix.stripprefix.prefixes=/rembg
       - traefik.http.services.wtw-rembg.loadbalancer.server.port=8080
@@ -113,7 +115,7 @@ services:
       - traefik.http.routers.wtw-backend.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api`)
       - traefik.http.routers.wtw-backend.entrypoints=websecure
       - traefik.http.routers.wtw-backend.tls=true
-      - traefik.http.routers.wtw-backend.tls.certresolver=letsencrypt
+      - traefik.http.routers.wtw-backend.tls.certresolver=default
       - traefik.http.services.wtw-backend.loadbalancer.server.port=8080
 
 volumes:
