@@ -33,7 +33,6 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
       KC_HTTP_RELATIVE_PATH: /auth
-      KC_SPI_THEME_DEFAULT: wtw
     networks:
       - wtw_internal
       - proxy_default

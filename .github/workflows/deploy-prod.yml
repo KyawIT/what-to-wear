@@ -84,13 +84,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload production compose file
+      - name: Upload production compose + Keycloak assets
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          source: docker/docker-compose.prod.yml
+          source: docker/docker-compose.prod.yml,docker/keycloak-theme,docker/wtw-realm.json
           target: ${{ secrets.DEPLOY_PATH }}
 
       - name: Deploy on server
