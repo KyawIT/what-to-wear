@@ -44,22 +44,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { dataUriToFileUri } from "@/lib/image/image.utils";
 import { toWearableCategory } from "@/api/backend/wearable.model";
-
-// Beige theme colors
-const colors = {
-  background: "#FAF7F2",
-  backgroundSecondary: "#F5EFE6",
-  primary: "#D4A574",
-  secondary: "#8B7355",
-  accent: "#4A3728",
-  textPrimary: "#3D2E22",
-  textSecondary: "#6B5B4F",
-  textMuted: "#9B8B7F",
-  border: "#E8DED3",
-  cardBg: "#FFFFFF",
-  error: "#C75050",
-  success: "#5A9A6E",
-};
+import { colors } from "@/lib/theme";
 
 const SUGGESTED_TAGS = [
   "Casual",
