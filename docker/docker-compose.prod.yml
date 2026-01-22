@@ -33,14 +33,17 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
       KC_HTTP_RELATIVE_PATH: /auth
+      KC_SPI_THEME_DEFAULT: wtw
     networks:
       - wtw_internal
       - proxy_default
     volumes:
       - ./keycloak-theme:/opt/keycloak/themes
+      - ./wtw-realm.json:/opt/keycloak/data/import/wtw-realm.json:ro
     command:
       - start
       - --http-relative-path=/auth
+      - --import-realm
     labels:
       - traefik.enable=true
       - traefik.http.routers.wtw-keycloak.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/auth`)

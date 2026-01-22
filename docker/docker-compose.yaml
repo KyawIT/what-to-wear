@@ -22,19 +22,27 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_SPI_THEME_CACHE_THEMES: "false"
+      KC_SPI_THEME_CACHE_TEMPLATES: "false"
 
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://wtw-db:5432/db
       KC_DB_USERNAME: app
       KC_DB_PASSWORD: app
       KC_DB_SCHEMA: keycloak
-      KC_PROXY: edge
+
+      # Disable HTTPS requirement for local dev
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
     ports:
       - "8082:8080"
     volumes:
-      - ./keycloak-themes:/opt/keycloak/themes
+      - ./keycloak-theme:/opt/keycloak/themes
+      - ./wtw-realm.json:/opt/keycloak/data/import/wtw-realm.json:ro
     command:
       - start-dev
+      - --import-realm
 
   wtw-minio:
     image: quay.io/minio/minio
