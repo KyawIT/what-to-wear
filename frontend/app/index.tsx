@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { WardrobeIllustration } from "@/components/illustrations/WardrobeIllustration";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors } from "@/lib/theme";
 
 export default function Index() {
   const { data: isAuthenticated } = authClient.useSession();
@@ -21,7 +22,7 @@ export default function Index() {
   return (
     <View className="flex-1 bg-background-50">
       <LinearGradient
-        colors={["#FAF7F2", "#F5EFE6", "#FAF7F2"]}
+        colors={[colors.background, colors.backgroundSecondary, colors.background]}
         locations={[0, 0.5, 1]}
         className="flex-1"
       >
@@ -39,9 +40,9 @@ export default function Index() {
               <WardrobeIllustration
                 width={260}
                 height={200}
-                primaryColor="#D4A574"
-                secondaryColor="#8B7355"
-                accentColor="#4A3728"
+                primaryColor={colors.primary}
+                secondaryColor={colors.secondary}
+                accentColor={colors.accent}
               />
             </View>
           </View>
