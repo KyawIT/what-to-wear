@@ -21,21 +21,7 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
-
-// Beige theme colors
-const colors = {
-  background: "#FAF7F2",
-  backgroundSecondary: "#F5EFE6",
-  primary: "#D4A574",
-  secondary: "#8B7355",
-  accent: "#4A3728",
-  textPrimary: "#3D2E22",
-  textSecondary: "#6B5B4F",
-  textMuted: "#9B8B7F",
-  border: "#E8DED3",
-  cardBg: "#FFFFFF",
-  error: "#C75050",
-};
+import { colors } from "@/lib/theme";
 
 const Profile = () => {
   const { data } = authClient.useSession();
