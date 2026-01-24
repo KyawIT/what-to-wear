@@ -76,6 +76,70 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+  
+  wtw-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: wtw-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST
+      - "6334:6334"   # gRPC
+    volumes:
+      - wtw_qdrant:/qdrant/storage
+
+  # ============================================================================
+  # OPTION 1: ML Processing Container (für Dataset Preprocessing & Indexing)
+  # Verwende diesen Container für:
+  # - preprocess_dataset.py (Person Detection, Tag Extraction)
+  # - qdrant_indexer.py (Bilder in Qdrant indexieren)
+  # ============================================================================
+  #wtw-ml:
+  #  build:
+  #    context: ../python
+  #    dockerfile: embedding/docker/Dockerfile
+  #  container_name: wtw-ml
+  #  restart: unless-stopped
+  #  depends_on:
+  #    - wtw-qdrant
+  #  environment:
+  #    QDRANT_HOST: wtw-qdrant
+  #    QDRANT_PORT: "6333"
+  #  volumes:
+  #    - ../python/embedding/dataset:/data/input
+  #    - ../python/embedding/preprocessed:/data/output
+  #    - ../python/embedding/scripts:/app/scripts
+  #    - ../python/embedding/config:/app/config
+  #  working_dir: /app
+  #  command: ["tail", "-f", "/dev/null"]
+  #
+  # ============================================================================
+  # OPTION 2: Python Service Container (für FastAPI Backend)
+  # Verwende diesen Container für:
+  # - FastAPI Server mit /predict Endpoint
+  # - Bildklassifikation über Qdrant Vector Search
+  # ============================================================================
+  python-service:
+    build:
+      context: ../python/service
+      dockerfile: docker/Dockerfile
+    container_name: python-service
+    restart: unless-stopped
+    depends_on:
+      - wtw-qdrant
+    environment:
+      QDRANT_HOST: wtw-qdrant
+      QDRANT_PORT: "6333"
+    ports:
+      - "8084:8000"  # FastAPI Server
+    volumes:
+      - ../python/service:/app/service
+    working_dir: /app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   wtw_data:
+  wtw_qdrant:
