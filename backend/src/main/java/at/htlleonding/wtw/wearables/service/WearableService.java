@@ -4,6 +4,7 @@ import at.htlleonding.wtw.wearables.dto.UploadResultDto;
 import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
 import at.htlleonding.wtw.wearables.model.Wearable;
 import at.htlleonding.wtw.wearables.model.WearableCategory;
+import at.htlleonding.wtw.wearables.repository.WearableCategoryRepository;
 import at.htlleonding.wtw.wearables.repository.WearableRepository;
 import at.htlleonding.wtw.wearables.util.WearablesUtil;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -19,17 +20,23 @@ import java.util.UUID;
 public class WearableService {
 
     private final WearableRepository repo;
+    private final WearableCategoryRepository categoryRepo;
     private final WearablesUtil wearablesUtil;
 
-    public WearableService(WearableRepository repo, WearablesUtil wearablesUtil) {
+    public WearableService(
+            WearableRepository repo,
+            WearableCategoryRepository categoryRepo,
+            WearablesUtil wearablesUtil
+    ) {
         this.repo = repo;
+        this.categoryRepo = categoryRepo;
         this.wearablesUtil = wearablesUtil;
     }
 
     @Transactional
-    public Wearable create(
+    public WearableResponseDto create(
             String userId,
-            WearableCategory category,
+            UUID categoryId,
             String title,
             String description,
             List<String> tags,
@@ -38,11 +45,17 @@ public class WearableService {
             InputStream imageStream
     ) {
         if (userId == null) throw new IllegalArgumentException("userId is required");
-        if (category == null) throw new IllegalArgumentException("category is required");
+        if (categoryId == null) throw new IllegalArgumentException("categoryId is required");
         if (title == null || title.isBlank()) throw new IllegalArgumentException("title is required");
 
+        String userIdTrim = userId.trim();
+        WearableCategory category = categoryRepo
+                .find("id = ?1 and userId = ?2", categoryId, userIdTrim)
+                .firstResult();
+        if (category == null) throw new IllegalArgumentException("category not found");
+
         Wearable w = new Wearable();
-        w.userId = userId;
+        w.userId = userIdTrim;
         w.category = category;
         w.title = title.trim();
         w.description = normalize(description);
@@ -61,7 +74,19 @@ public class WearableService {
             w.cutoutImageKey = r.objectKey(); // store only key in DB
         }
 
-        return w;
+        return new WearableResponseDto(
+                w.id,
+                w.userId,
+                (w.category == null) ? null : w.category.id,
+                (w.category == null) ? null : w.category.name,
+                w.title,
+                w.description,
+                (w.tags == null) ? List.of() : new ArrayList<>(w.tags),
+                w.cutoutImageKey,
+                (w.cutoutImageKey == null) ? null : wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600),
+                w.createdAt,
+                w.updatedAt
+        );
     }
 
     private static String normalize(String v) {
@@ -80,98 +105,105 @@ public class WearableService {
 
     @Transactional
     public List<WearableResponseDto> getByUserId(String userId) {
-        List<Wearable> wearables = repo.list("userId", userId);
+        String userIdTrim = (userId == null) ? null : userId.trim();
+        List<Wearable> wearables = repo.list("userId", userIdTrim);
 
         List<WearableResponseDto> out = new ArrayList<>(wearables.size());
         for (Wearable w : wearables) {
-            WearableResponseDto dto = new WearableResponseDto();
-            dto.id = w.id;
-            dto.userId = w.userId;
-            dto.category = w.category;
-            dto.title = w.title;
-            dto.description = w.description;
-
-            // IMPORTANT: copy while session is open
-            dto.tags = (w.tags == null) ? List.of() : new ArrayList<>(w.tags);
-
-            dto.cutoutImageKey = w.cutoutImageKey;
-            dto.cutoutImageUrl = (w.cutoutImageKey == null) ? null : wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600);
-
-            dto.createdAt = w.createdAt;
-            dto.updatedAt = w.updatedAt;
-
-            out.add(dto);
+            out.add(new WearableResponseDto(
+                    w.id,
+                    w.userId,
+                    (w.category == null) ? null : w.category.id,
+                    (w.category == null) ? null : w.category.name,
+                    w.title,
+                    w.description,
+                    // IMPORTANT: copy while session is open
+                    (w.tags == null) ? List.of() : new ArrayList<>(w.tags),
+                    w.cutoutImageKey,
+                    (w.cutoutImageKey == null) ? null : wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600),
+                    w.createdAt,
+                    w.updatedAt
+            ));
         }
 
         return out;
     }
 
     @Transactional
-    public List<WearableResponseDto> getByUserIdAndCategory(String userId, WearableCategory category) {
+    public List<WearableResponseDto> getByUserIdAndCategory(String userId, UUID categoryId) {
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId is required");
         }
+        if (categoryId == null) {
+            throw new IllegalArgumentException("categoryId is required");
+        }
+
+        String userIdTrim = userId.trim();
+        WearableCategory category = categoryRepo
+                .find("id = ?1 and userId = ?2", categoryId, userIdTrim)
+                .firstResult();
         if (category == null) {
-            throw new IllegalArgumentException("category is required");
+            throw new IllegalArgumentException("category not found");
         }
 
         List<Wearable> wearables =
-                repo.list("userId = ?1 and category = ?2", userId, category);
+                repo.list("userId = ?1 and category = ?2", userIdTrim, category);
 
         List<WearableResponseDto> out = new ArrayList<>(wearables.size());
 
         for (Wearable w : wearables) {
-            WearableResponseDto dto = new WearableResponseDto();
-
-            dto.id = w.id;
-            dto.userId = w.userId;
-            dto.category = w.category;
-            dto.title = w.title;
-            dto.description = w.description;
-
-            // IMPORTANT: copy tags inside transaction (prevents LazyInitializationException)
-            dto.tags = (w.tags == null) ? List.of() : new ArrayList<>(w.tags);
-
-            dto.cutoutImageKey = w.cutoutImageKey;
-
+            String cutoutImageUrl = null;
             if (w.cutoutImageKey != null && !w.cutoutImageKey.isBlank()) {
-                dto.cutoutImageUrl =
-                        wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600); // 10 min
+                cutoutImageUrl = wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600); // 10 min
             }
 
-            dto.createdAt = w.createdAt;
-            dto.updatedAt = w.updatedAt;
-
-            out.add(dto);
+            out.add(new WearableResponseDto(
+                    w.id,
+                    w.userId,
+                    (w.category == null) ? null : w.category.id,
+                    (w.category == null) ? null : w.category.name,
+                    w.title,
+                    w.description,
+                    // IMPORTANT: copy tags inside transaction (prevents LazyInitializationException)
+                    (w.tags == null) ? List.of() : new ArrayList<>(w.tags),
+                    w.cutoutImageKey,
+                    cutoutImageUrl,
+                    w.createdAt,
+                    w.updatedAt
+            ));
         }
 
         return out;
     }
 
     @Transactional
-    public WearableResponseDto getByWearableId(UUID id) {
+    public WearableResponseDto getByWearableId(String userId, UUID id) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
         if (id == null) {
             throw new IllegalArgumentException("id is required");
         }
 
-        Wearable wearable = repo.find("id", id).firstResult();
+        Wearable wearable = repo.find("id = ?1 and userId = ?2", id, userId.trim()).firstResult();
         if (wearable == null) {
             throw new NotFoundException("Wearable not found");
         }
 
-        WearableResponseDto dto = new WearableResponseDto();
-        dto.id = wearable.id;
-        dto.userId = wearable.userId;
-        dto.category = wearable.category;
-        dto.title = wearable.title;
-        dto.description = wearable.description;
-        dto.tags = (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags);
-        dto.cutoutImageKey = wearable.cutoutImageKey;
-        dto.cutoutImageUrl = (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
-                ? null
-                : wearablesUtil.presignedGetUrl(wearable.cutoutImageKey, 600);
-        dto.createdAt = wearable.createdAt;
-        dto.updatedAt = wearable.updatedAt;
-        return dto;
+        return new WearableResponseDto(
+                wearable.id,
+                wearable.userId,
+                (wearable.category == null) ? null : wearable.category.id,
+                (wearable.category == null) ? null : wearable.category.name,
+                wearable.title,
+                wearable.description,
+                (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags),
+                wearable.cutoutImageKey,
+                (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
+                        ? null
+                        : wearablesUtil.presignedGetUrl(wearable.cutoutImageKey, 600),
+                wearable.createdAt,
+                wearable.updatedAt
+        );
     }
 }

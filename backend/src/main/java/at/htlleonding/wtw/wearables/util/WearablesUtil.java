@@ -1,7 +1,6 @@
 package at.htlleonding.wtw.wearables.util;
 
 import at.htlleonding.wtw.wearables.dto.UploadResultDto;
-import at.htlleonding.wtw.wearables.model.WearableCategory;
 import io.minio.*;
 import io.minio.http.Method;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -106,12 +105,6 @@ public class WearablesUtil {
         }
     }
 
-    public String buildObjectKey(String userId, UUID wearableId, String fileName) {
-        String safeUserId = sanitizeUserId(userId);
-        String safeFileName = sanitizeFileName(fileName);
-        return safeUserId + "/" + wearableId + "/" + safeFileName;
-    }
-
     public String buildPublicUrl(String objectKey) {
         String base = (publicBaseUrl == null || publicBaseUrl.isBlank()) ? endpoint : publicBaseUrl;
         base = trimTrailingSlash(base);
@@ -159,24 +152,6 @@ public class WearablesUtil {
         if (lower.endsWith(".webp")) return "image/webp";
         if (lower.endsWith(".jpeg") || lower.endsWith(".jpg")) return "image/jpeg";
         return "application/octet-stream";
-    }
-
-    public static UUID parseUserId(String raw) {
-        if (raw == null || raw.isBlank()) throw new BadRequestException("Missing X-User-Id header");
-        try {
-            return UUID.fromString(raw.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid X-User-Id header (must be UUID)");
-        }
-    }
-
-    public static WearableCategory parseCategory(String raw) {
-        if (raw == null || raw.isBlank()) throw new BadRequestException("category is required");
-        try {
-            return WearableCategory.valueOf(raw.trim().toUpperCase());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid category");
-        }
     }
 
     public static List<String> parseTags(String raw) {

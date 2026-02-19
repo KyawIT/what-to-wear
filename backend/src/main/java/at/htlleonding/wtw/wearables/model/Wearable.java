@@ -16,8 +16,8 @@ public class Wearable {
     @Column(nullable = false)
     public String userId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
     public WearableCategory category;
 
     @Column(nullable = false)
