@@ -19,7 +19,11 @@ import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
 
 import { useRemoveBackground } from "@/hooks/useRemoveBackground";
-import { fetchWearableCategories } from "@/api/backend/category.api";
+import {
+  fetchWearableCategories,
+  createWearableCategory,
+  WearableCategoryDto,
+} from "@/api/backend/category.api";
 import { createWearableMultipart } from "@/api/backend/create.api";
 import {
   Select,
@@ -40,24 +44,21 @@ import {
   Sparkles,
   RotateCcw,
   Check,
+  Plus,
 } from "lucide-react-native";
 import { authClient } from "@/lib/auth-client";
 import { dataUriToFileUri } from "@/lib/image/image.utils";
-import { toWearableCategory } from "@/api/backend/wearable.model";
 import { colors } from "@/lib/theme";
+import { getKeycloakAccessToken } from "@/lib/keycloak";
 
 const SUGGESTED_TAGS = [
   "Casual",
-  "Formal",
   "Summer",
-  "Winter",
   "Spring",
-  "Autumn",
   "Outdoor",
-  "Work",
-  "Party",
-  "Vintage",
 ];
+
+const CREATE_NEW_VALUE = "__create_new__";
 
 type Params = {
   id?: string;
@@ -74,15 +75,22 @@ export default function PreviewScreen() {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
 
-  const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [categories, setCategories] = useState<WearableCategoryDto[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [createCategoryError, setCreateCategoryError] = useState<string>("");
 
   useEffect(() => {
     (async () => {
       try {
-        const cats = await fetchWearableCategories();
+        if (!data?.user?.id) return;
+        const accessToken = await getKeycloakAccessToken(data.user.id);
+        const cats = await fetchWearableCategories(accessToken);
         setCategories(cats);
       } catch (err) {
         console.error("Failed to fetch categories:", err);
@@ -90,7 +98,7 @@ export default function PreviewScreen() {
         setLoadingCategories(false);
       }
     })();
-  }, []);
+  }, [data?.user?.id]);
 
   const onBack = () => router.back();
   const retake = () => router.back();
@@ -119,6 +127,52 @@ export default function PreviewScreen() {
     [tags]
   );
 
+  const handleCategoryChange = (value: string) => {
+    if (value === CREATE_NEW_VALUE) {
+      setShowCreateCategory(true);
+      setSelectedCategoryId("");
+      setCreateCategoryError("");
+    } else {
+      setSelectedCategoryId(value);
+      setShowCreateCategory(false);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      setCreateCategoryError("Category name is required");
+      return;
+    }
+
+    setCreatingCategory(true);
+    setCreateCategoryError("");
+
+    try {
+      const accessToken = await getKeycloakAccessToken(data!.user.id);
+      const created = await createWearableCategory(name, accessToken);
+      setCategories((prev) => [...prev, created]);
+      setSelectedCategoryId(created.id);
+      setShowCreateCategory(false);
+      setNewCategoryName("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create category";
+      setCreateCategoryError(msg);
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
+  const cancelCreateCategory = () => {
+    setShowCreateCategory(false);
+    setNewCategoryName("");
+    setCreateCategoryError("");
+  };
+
+  const selectedCategoryName = categories.find(
+    (c) => c.id === selectedCategoryId
+  )?.name;
+
   const onUse = async () => {
     if (!cutoutUri) return;
 
@@ -126,22 +180,26 @@ export default function PreviewScreen() {
 
     try {
       const userId = data!.user.id;
+      const accessToken = await getKeycloakAccessToken(userId);
 
       const file = cutoutUri.startsWith("data:")
         ? await dataUriToFileUri(cutoutUri)
         : { uri: cutoutUri, mime: "image/png", name: `wearable_${Date.now()}.png` };
 
-      const result = await createWearableMultipart(userId, {
-        category: toWearableCategory(selectedCategory),
-        title: title.trim(),
-        description: description.trim(),
-        tags,
-        file: {
-          uri: file.uri,
-          name: file.name,
-          type: file.mime,
+      const result = await createWearableMultipart(
+        {
+          categoryId: selectedCategoryId,
+          title: title.trim(),
+          description: description.trim(),
+          tags,
+          file: {
+            uri: file.uri,
+            name: file.name,
+            type: file.mime,
+          },
         },
-      });
+        accessToken
+      );
 
       console.log("Wearable created successfully:", result);
 
@@ -164,7 +222,7 @@ export default function PreviewScreen() {
   };
 
   const isFormValid =
-    !loading && cutoutUri && tags.length > 0 && selectedCategory && title.trim();
+    !loading && cutoutUri && tags.length > 0 && selectedCategoryId && title.trim();
 
   if (!id && !uri) {
     return (
@@ -371,8 +429,8 @@ export default function PreviewScreen() {
               </Text>
 
               <Select
-                selectedValue={selectedCategory}
-                onValueChange={(value) => setSelectedCategory(value)}
+                selectedValue={selectedCategoryId || (showCreateCategory ? CREATE_NEW_VALUE : "")}
+                onValueChange={handleCategoryChange}
                 isDisabled={loadingCategories}
               >
                 <SelectTrigger
@@ -390,7 +448,9 @@ export default function PreviewScreen() {
                     }
                     className="text-base flex-1"
                     style={{
-                      color: selectedCategory ? colors.textPrimary : colors.textMuted,
+                      color: (selectedCategoryId || showCreateCategory)
+                        ? colors.textPrimary
+                        : colors.textMuted,
                     }}
                   />
                   <SelectIcon
@@ -411,55 +471,121 @@ export default function PreviewScreen() {
                     </SelectDragIndicatorWrapper>
                     {categories.map((category) => (
                       <SelectItem
-                        key={category}
-                        label={category}
-                        value={category}
+                        key={category.id}
+                        label={category.name}
+                        value={category.id}
                       />
                     ))}
+                    <SelectItem
+                      label="+ New category"
+                      value={CREATE_NEW_VALUE}
+                    />
                   </SelectContent>
                 </SelectPortal>
               </Select>
-            </Box>
 
-            {/* Description */}
-            <Box className="mb-5">
-              <HStack className="items-center justify-between mb-2">
-                <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                  Description
-                </Text>
-                <Text className="text-xs" style={{ color: colors.textMuted }}>
-                  {description.trim().length}/200
-                </Text>
-              </HStack>
+              {/* Inline create category form */}
+              {showCreateCategory && (
+                <Box
+                  className="mt-3 rounded-xl p-3"
+                  style={{
+                    backgroundColor: colors.cardBg,
+                    borderWidth: 1,
+                    borderColor: colors.primary + "60",
+                  }}
+                >
+                  <HStack className="items-center mb-2">
+                    <Plus size={14} color={colors.primary} />
+                    <Text
+                      className="text-xs font-semibold ml-1"
+                      style={{ color: colors.primary }}
+                    >
+                      New category
+                    </Text>
+                  </HStack>
 
-              <Box
-                className="rounded-xl overflow-hidden"
-                style={{
-                  backgroundColor: colors.cardBg,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-              >
-                <Box className="px-4 py-3">
-                  <TextInput
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="Add details about color, material, condition..."
-                    placeholderTextColor={colors.textMuted}
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      paddingVertical: 0,
-                      minHeight: 80,
-                      textAlignVertical: "top",
-                    }}
-                    maxLength={200}
-                    multiline
-                    numberOfLines={4}
-                    returnKeyType="default"
-                  />
+                  <HStack className="items-center">
+                    <Box
+                      className="flex-1 rounded-lg overflow-hidden mr-2"
+                      style={{
+                        backgroundColor: colors.background,
+                        borderWidth: 1,
+                        borderColor: createCategoryError ? colors.error : colors.border,
+                      }}
+                    >
+                      <TextInput
+                        value={newCategoryName}
+                        onChangeText={(t) => {
+                          setNewCategoryName(t);
+                          if (createCategoryError) setCreateCategoryError("");
+                        }}
+                        placeholder="Category name..."
+                        placeholderTextColor={colors.textMuted}
+                        style={{
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                        }}
+                        autoFocus
+                        maxLength={100}
+                        returnKeyType="done"
+                        onSubmitEditing={handleCreateCategory}
+                      />
+                    </Box>
+
+                    <Pressable
+                      onPress={handleCreateCategory}
+                      disabled={creatingCategory || !newCategoryName.trim()}
+                      className="rounded-lg px-3 py-2 active:opacity-80"
+                      style={{
+                        backgroundColor:
+                          newCategoryName.trim() && !creatingCategory
+                            ? colors.primary
+                            : colors.border,
+                      }}
+                    >
+                      <Text
+                        className="text-sm font-semibold"
+                        style={{
+                          color:
+                            newCategoryName.trim() && !creatingCategory
+                              ? "#FFFFFF"
+                              : colors.textMuted,
+                        }}
+                      >
+                        {creatingCategory ? "..." : "Create"}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={cancelCreateCategory}
+                      className="ml-2 active:opacity-60"
+                    >
+                      <X size={18} color={colors.textMuted} />
+                    </Pressable>
+                  </HStack>
+
+                  {createCategoryError ? (
+                    <Text
+                      className="text-xs mt-2"
+                      style={{ color: colors.error }}
+                    >
+                      {createCategoryError}
+                    </Text>
+                  ) : null}
                 </Box>
-              </Box>
+              )}
+
+              {/* Show selected category name as confirmation */}
+              {selectedCategoryName && !showCreateCategory && (
+                <Text
+                  className="text-xs mt-1.5 ml-1"
+                  style={{ color: colors.textMuted }}
+                >
+                  Selected: {selectedCategoryName}
+                </Text>
+              )}
             </Box>
 
             {/* Tags Section */}
@@ -591,6 +717,47 @@ export default function PreviewScreen() {
                   </HStack>
                 </Box>
               )}
+            </Box>
+          </Box>
+
+          {/* Description */}
+          <Box className="mb-5">
+            <HStack className="items-center justify-between mb-2">
+              <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                Description
+              </Text>
+              <Text className="text-xs" style={{ color: colors.textMuted }}>
+                {description.trim().length}/200
+              </Text>
+            </HStack>
+
+            <Box
+                className="rounded-xl overflow-hidden"
+                style={{
+                  backgroundColor: colors.cardBg,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+            >
+              <Box className="px-4 py-3">
+                <TextInput
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Add details about color, material, condition..."
+                    placeholderTextColor={colors.textMuted}
+                    style={{
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      paddingVertical: 0,
+                      minHeight: 80,
+                      textAlignVertical: "top",
+                    }}
+                    maxLength={200}
+                    multiline
+                    numberOfLines={4}
+                    returnKeyType="default"
+                />
+              </Box>
             </Box>
           </Box>
 

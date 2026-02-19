@@ -97,14 +97,27 @@ class WearableRepository:
         Returns:
             List of tuples (payload, score)
         """
-        results = self.client.search(
-            collection_name=self.collection_name,
-            query_vector=query_embedding,
-            limit=limit,
-            score_threshold=score_threshold
-        )
-        
-        return [(hit.payload, hit.score) for hit in results]
+        # qdrant-client >= 1.16 uses `query_points` instead of `search`.
+        # Keep compatibility with both APIs.
+        if hasattr(self.client, "query_points"):
+            response = self.client.query_points(
+                collection_name=self.collection_name,
+                query=query_embedding,
+                limit=limit,
+                score_threshold=score_threshold,
+                with_payload=True,
+                with_vectors=False,
+            )
+            hits = response.points
+        else:
+            hits = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_embedding,
+                limit=limit,
+                score_threshold=score_threshold,
+            )
+
+        return [(hit.payload, hit.score) for hit in hits]
     
     def predict_category_and_tags(
         self,

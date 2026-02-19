@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { ButtonText, Button } from "@/components/ui/button";
 import { Avatar, AvatarFallbackText, AvatarImage } from "@/components/ui/avatar";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -22,6 +21,7 @@ import {
 } from "lucide-react-native";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
 import { colors } from "@/lib/theme";
+import { getKeycloakAccessToken } from "@/lib/keycloak";
 
 const Profile = () => {
   const { data } = authClient.useSession();
@@ -65,7 +65,8 @@ const Profile = () => {
 
     (async () => {
       try {
-        const allItems = await fetchAllWearables(data.user.id);
+        const accessToken = await getKeycloakAccessToken(data.user.id);
+        const allItems = await fetchAllWearables(accessToken);
         setTotalItemsCount(allItems.length);
       } catch (err) {
         console.error("Failed to fetch total wearables:", err);
