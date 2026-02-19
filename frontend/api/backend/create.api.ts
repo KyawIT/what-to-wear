@@ -1,22 +1,11 @@
-import {CreateWearableInput, Wearable, WearableCategory} from "@/api/backend/wearable.model";
+import { CreateWearableInput, Wearable } from "@/api/backend/wearable.model";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080")
     .replace(/\/+$/, "");
 
 const ENDPOINT = "/api/wearable";
 
-
-
-
-const CATEGORY_SET = new Set<WearableCategory>([
-    "SHIRT",
-    "PANTS",
-    "JACKET",
-    "SHOES",
-    "WATCH",
-    "HAT",
-    "ACCESSORY",
-]);
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function normalizeTags(tags: string[]): string {
     return (tags ?? [])
@@ -25,10 +14,9 @@ function normalizeTags(tags: string[]): string {
         .join(",");
 }
 
-function assertCreateInput(userId: string, input: CreateWearableInput) {
-
-    if (!input?.category || !CATEGORY_SET.has(input.category)) {
-        throw new Error(`Invalid category: "${String(input?.category)}"`);
+function assertCreateInput(input: CreateWearableInput) {
+    if (!input?.categoryId || !UUID_REGEX.test(input.categoryId)) {
+        throw new Error(`Invalid categoryId: "${String(input?.categoryId)}"`);
     }
     if (!input?.title?.trim()) {
         throw new Error("title is required");
@@ -47,6 +35,16 @@ function assertCreateInput(userId: string, input: CreateWearableInput) {
     }
 }
 
+function buildHeaders(accessToken?: string) {
+    const headers: Record<string, string> = {
+        Accept: "application/json",
+    };
+    if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+    }
+    return headers;
+}
+
 async function readErrorBody(res: Response): Promise<string> {
     const contentType = res.headers.get("content-type") ?? "";
     try {
@@ -61,13 +59,17 @@ async function readErrorBody(res: Response): Promise<string> {
 }
 
 export async function createWearableMultipart(
-    userId: string,
-    input: CreateWearableInput
+    input: CreateWearableInput,
+    accessToken?: string
 ): Promise<Wearable> {
-    assertCreateInput(userId, input);
+    if (!accessToken) {
+        throw new Error("accessToken is required");
+    }
+
+    assertCreateInput(input);
 
     const formData = new FormData();
-    formData.append("category", input.category);
+    formData.append("categoryId", input.categoryId);
     formData.append("title", input.title.trim());
     formData.append("description", (input.description ?? "").trim());
     formData.append("tags", normalizeTags(input.tags));
@@ -87,8 +89,7 @@ export async function createWearableMultipart(
     const res = await fetch(url, {
         method: "POST",
         headers: {
-            Accept: "application/json",
-            "X-User-Id": userId,
+            ...buildHeaders(accessToken),
             // DO NOT set Content-Type manually for FormData in RN
         },
         body: formData,
