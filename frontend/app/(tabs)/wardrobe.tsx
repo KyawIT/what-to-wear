@@ -1,9 +1,10 @@
-import {ScrollView, FlatList, Dimensions, View} from "react-native";
+import {ScrollView, FlatList, Dimensions} from "react-native";
 import { Image } from "expo-image";
 import React, { useEffect, useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
+import { getKeycloakAccessToken } from "@/lib/keycloak";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
@@ -27,17 +28,9 @@ import {
 } from "@/components/ui/modal";
 import { Badge, BadgeText } from "@/components/ui/badge";
 import { Divider } from "@/components/ui/divider";
-import { Calendar ,
-  Shirt,
-  LayoutGrid,
-  Watch,
-  Footprints,
-  HardHat,
-  Gem,
-} from "lucide-react-native";
+import { Calendar, Shirt, LayoutGrid } from "lucide-react-native";
 
 import {
-  WearableCategory,
   WearableResponseDto,
 } from "@/api/backend/wearable.model";
 import {
@@ -45,32 +38,14 @@ import {
   fetchAllWearables,
   fetWearableById,
 } from "@/api/backend/wearable.api";
+import {
+  fetchWearableCategories,
+  WearableCategoryDto,
+} from "@/api/backend/category.api";
 import { colors } from "@/lib/theme";
 
 type TabType = "items" | "outfits";
-type CategoryFilter = "ALL" | WearableCategory;
-
-// Category configuration with icons
-const CATEGORIES: {
-  key: CategoryFilter;
-  label: string;
-  icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-}[] = [
-  { key: "ALL", label: "All", icon: LayoutGrid },
-  { key: "SHIRT", label: "Shirts", icon: Shirt },
-  { key: "PANTS", label: "Pants", icon: ({ size, color }) => (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontSize: size * 0.7, color }}>👖</Text>
-    </View>
-  )},
-  { key: "JACKET", label: "Jackets", icon: ({ size, color, strokeWidth }) => (
-    <Shirt size={size} color={color} strokeWidth={strokeWidth} />
-  )},
-  { key: "SHOES", label: "Shoes", icon: Footprints },
-  { key: "WATCH", label: "Watches", icon: Watch },
-  { key: "HAT", label: "Hats", icon: HardHat },
-  { key: "ACCESSORY", label: "Accessories", icon: Gem },
-];
+type CategoryFilter = string;
 
 const Wardrobe = () => {
   const { data } = authClient.useSession();
@@ -79,6 +54,8 @@ const Wardrobe = () => {
   const [wearables, setWearables] = useState<WearableResponseDto[]>([]);
   const [loadingWearables, setLoadingWearables] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categories, setCategories] = useState<WearableCategoryDto[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -94,13 +71,14 @@ const Wardrobe = () => {
     const fetchData = async () => {
       setLoadingWearables(true);
       try {
+        const accessToken = await getKeycloakAccessToken(data.user.id);
         let items: WearableResponseDto[];
         if (activeCategory === "ALL") {
-          items = await fetchAllWearables(data.user.id);
+          items = await fetchAllWearables(accessToken);
         } else {
           items = await fetchWearablesByCategory(
-            data.user.id,
-            activeCategory as WearableCategory
+            activeCategory,
+            accessToken
           );
         }
         setWearables(items);
@@ -115,6 +93,25 @@ const Wardrobe = () => {
     fetchData();
   }, [activeCategory, data?.user?.id]);
 
+  useEffect(() => {
+    if (!data?.user?.id) return;
+    (async () => {
+      try {
+        const token = await getKeycloakAccessToken(data.user.id);
+        setCategories(await fetchWearableCategories(token));
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    })();
+  }, [data?.user?.id]);
+
+  const activeCategoryName =
+    activeCategory === "ALL"
+      ? "All"
+      : categories.find((c) => c.id === activeCategory)?.name ?? "";
+
   const filteredWearables = useMemo(() => {
     if (!searchQuery.trim()) return wearables;
     const query = searchQuery.toLowerCase().trim();
@@ -122,20 +119,6 @@ const Wardrobe = () => {
       item.title.toLowerCase().includes(query)
     );
   }, [wearables, searchQuery]);
-
-  const renderCategoryIcon = (
-    category: typeof CATEGORIES[number],
-    isActive: boolean
-  ) => {
-    const IconComponent = category.icon;
-    return (
-      <IconComponent
-        size={24}
-        color={isActive ? colors.primary : colors.textMuted}
-        strokeWidth={isActive ? 2.5 : 2}
-      />
-    );
-  };
 
   const renderWearableItem = ({ item }: { item: WearableResponseDto }) => (
     <Pressable
@@ -145,7 +128,8 @@ const Wardrobe = () => {
         setLoadingDetail(true);
         setSelectedWearable(null);
         try {
-          const detail = await fetWearableById(data.user.id, item.id);
+          const accessToken = await getKeycloakAccessToken(data.user.id);
+          const detail = await fetWearableById(item.id, accessToken);
           setSelectedWearable(detail);
         } catch (err) {
           console.error("Failed to fetch wearable detail:", err);
@@ -245,34 +229,73 @@ const Wardrobe = () => {
                 style={{ marginHorizontal: -16, paddingVertical: 16 }}
                 contentContainerStyle={{ paddingHorizontal: 16 }}
               >
-                {CATEGORIES.map((category) => (
-                  <Pressable
-                    key={category.key}
-                    onPress={() => setActiveCategory(category.key)}
+                <Pressable
+                    key="ALL"
+                    onPress={() => setActiveCategory("ALL")}
                     className="items-center mr-4"
                     style={{ minWidth: 56 }}
                   >
                     <Box
                       className={`h-14 w-14 rounded-full items-center justify-center mb-2 ${
-                        activeCategory === category.key
+                        activeCategory === "ALL"
                           ? "bg-primary-100 border-2 border-primary-500"
                           : "bg-background-100"
                       }`}
                     >
-                      {renderCategoryIcon(category, activeCategory === category.key)}
+                      <LayoutGrid
+                        size={24}
+                        color={activeCategory === "ALL" ? colors.primary : colors.textMuted}
+                      />
                     </Box>
                     <Text
                       size="xs"
                       className={
-                        activeCategory === category.key
+                        activeCategory === "ALL"
                           ? "text-primary-500 font-semibold"
                           : "text-typography-400"
                       }
                     >
-                      {category.label}
+                      All
                     </Text>
                   </Pressable>
-                ))}
+                  {!loadingCategories && categories.map((cat) => {
+                    const isActive = activeCategory === cat.id;
+                    const letter = cat.name.charAt(0).toUpperCase();
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        onPress={() => setActiveCategory(cat.id)}
+                        className="items-center mr-4"
+                        style={{ minWidth: 56 }}
+                      >
+                        <Box
+                          className={`h-14 w-14 rounded-full items-center justify-center mb-2 ${
+                            isActive
+                              ? "bg-primary-100 border-2 border-primary-500"
+                              : "bg-background-100"
+                          }`}
+                        >
+                          <Text
+                            className="font-bold text-xl"
+                            style={{ color: isActive ? colors.primary : colors.textMuted }}
+                          >
+                            {letter}
+                          </Text>
+                        </Box>
+                        <Text
+                          size="xs"
+                          numberOfLines={1}
+                          className={
+                            isActive
+                              ? "text-primary-500 font-semibold"
+                              : "text-typography-400"
+                          }
+                        >
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
               </ScrollView>
 
               {/* Search Bar */}
@@ -309,7 +332,7 @@ const Wardrobe = () => {
                     ? "No items found"
                     : activeCategory === "ALL"
                     ? "Your wardrobe is empty"
-                    : `No ${activeCategory.toLowerCase()} items yet`}
+                    : `No ${activeCategoryName} items yet`}
                 </Heading>
                 <Text size="sm" className="text-center text-typography-400">
                   {searchQuery
@@ -396,7 +419,7 @@ const Wardrobe = () => {
                     {selectedWearable.title}
                   </Heading>
                   <Text size="sm" className="text-typography-400">
-                    {selectedWearable.category}
+                    {selectedWearable.categoryName}
                   </Text>
                 </VStack>
 
