@@ -180,4 +180,21 @@ public class WearablesUtil {
         }
     }
 
+    public void deleteWearableImage(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            return;
+        }
+
+        try {
+            minio.removeObject(
+                    RemoveObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .build()
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to delete wearable image from MinIO: " + objectKey);
+        }
+    }
+
 }
