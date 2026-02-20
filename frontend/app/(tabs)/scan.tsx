@@ -8,22 +8,10 @@ import { X, Check, Camera, ChevronDown } from "lucide-react-native";
 
 import ImagePermissionGate from "@/components/common/ImagePermissionGate";
 import GridImageCell from "@/components/common/GridImageCell";
+import { colors } from "@/lib/theme";
 
 const W = Dimensions.get("window").width;
 const SIZE = W / 3;
-
-// Beige theme colors
-const colors = {
-  background: "#FAF7F2",
-  backgroundSecondary: "#F5EFE6",
-  primary: "#D4A574",
-  secondary: "#8B7355",
-  accent: "#4A3728",
-  textPrimary: "#3D2E22",
-  textSecondary: "#6B5B4F",
-  textMuted: "#9B8B7F",
-  border: "#E8DED3",
-};
 
 type GridItem =
   | { type: "camera"; id: "camera" }

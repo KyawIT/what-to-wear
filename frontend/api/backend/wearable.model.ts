@@ -1,7 +1,8 @@
 export type Wearable = {
     id: string;
     userId: string;
-    category: WearableCategory;
+    categoryId: string;
+    categoryName: string;
     title: string;
     description?: string | null;
     cutoutImageKey?: string | null;
@@ -11,7 +12,7 @@ export type Wearable = {
 };
 
 export type CreateWearableInput = {
-    category: WearableCategory;
+    categoryId: string;
     title: string;
     description?: string;
     tags: string[];
@@ -22,19 +23,11 @@ export type CreateWearableInput = {
     };
 };
 
-export type WearableCategory =
-    | "SHIRT"
-    | "PANTS"
-    | "JACKET"
-    | "SHOES"
-    | "WATCH"
-    | "HAT"
-    | "ACCESSORY";
-
 export type WearableResponseDto = {
     id: string;
     userId: string;
-    category: WearableCategory;
+    categoryId: string;
+    categoryName: string;
     title: string;
     description?: string | null;
     tags: string[];
@@ -45,20 +38,3 @@ export type WearableResponseDto = {
     createdAt: string; // Instant
     updatedAt?: string | null; // Instant
 };
-
-const WEARABLE_CATEGORY_VALUES: readonly WearableCategory[] = [
-    "SHIRT",
-    "PANTS",
-    "JACKET",
-    "SHOES",
-    "WATCH",
-    "HAT",
-    "ACCESSORY",
-];
-
-export function toWearableCategory(value: string): WearableCategory {
-    if (WEARABLE_CATEGORY_VALUES.includes(value as WearableCategory)) {
-        return value as WearableCategory;
-    }
-    throw new Error(`Invalid WearableCategory: ${value}`);
-}

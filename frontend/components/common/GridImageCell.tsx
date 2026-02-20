@@ -3,6 +3,7 @@ import { View, Pressable, Animated } from "react-native";
 import { Image } from "expo-image";
 import * as MediaLibrary from "expo-media-library";
 import { Check } from "lucide-react-native";
+import { colors } from "@/lib/theme";
 
 type Props = {
     item: MediaLibrary.Asset;
@@ -17,7 +18,7 @@ export default function GridImageCell({
                                           size,
                                           isActive,
                                           onPress,
-                                          activeBorderColor = "#3B82F6",
+                                          activeBorderColor = colors.primary,
                                       }: Props) {
     const opacity = useRef(new Animated.Value(1)).current;
     const checkScale = useRef(new Animated.Value(0)).current;

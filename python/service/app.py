@@ -7,6 +7,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import io
+import os
 import sys
 from pathlib import Path
 from typing import Dict
@@ -39,8 +40,8 @@ embedder: ImageEmbedder = None
 repository: WearableRepository = None
 
 # Configuration
-QDRANT_HOST = "localhost"
-QDRANT_PORT = 6333
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = "wearables"
 MODEL_NAME = "clip-ViT-B-32"
 SCORE_THRESHOLD = 0.7  # Minimum similarity score

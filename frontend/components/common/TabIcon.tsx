@@ -1,13 +1,7 @@
 import { View, Text } from "react-native";
 import React from "react";
 import { LayoutGrid, User, Sparkles, Shirt, Camera } from "lucide-react-native";
-
-// Beige theme colors
-const colors = {
-  active: "#D4A574",
-  inactive: "#9B8B7F",
-  activeBg: "#D4A57420",
-};
+import { colors } from "@/lib/theme";
 
 interface TabIconProps {
   iconType: string;
@@ -15,7 +9,7 @@ interface TabIconProps {
 }
 
 const TabIcon = ({ iconType, focused }: TabIconProps) => {
-  const color = focused ? colors.active : colors.inactive;
+  const color = focused ? colors.primary : colors.textMuted;
   const size = 24;
 
   const renderIcon = () => {
@@ -41,7 +35,7 @@ const TabIcon = ({ iconType, focused }: TabIconProps) => {
       style={{
         width: 48,
         height: 48,
-        backgroundColor: focused ? colors.activeBg : "transparent",
+        backgroundColor: focused ? `${colors.primary}20` : "transparent",
       }}
     >
       {renderIcon()}

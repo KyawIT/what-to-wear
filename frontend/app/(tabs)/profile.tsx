@@ -1,18 +1,12 @@
-import { Text, ScrollView, View } from "react-native";
+import { Text, ScrollView, View, StyleSheet } from "react-native";
 import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { ButtonText, Button } from "@/components/ui/button";
 import { Avatar, AvatarFallbackText, AvatarImage } from "@/components/ui/avatar";
-import { Box } from "@/components/ui/box";
-import { HStack } from "@/components/ui/hstack";
-import { VStack } from "@/components/ui/vstack";
-import { Divider } from "@/components/ui/divider";
 import { Pressable } from "@/components/ui/pressable";
 import {
-  Settings,
   User,
   Shield,
   HelpCircle,
@@ -21,25 +15,14 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
-
-// Beige theme colors
-const colors = {
-  background: "#FAF7F2",
-  backgroundSecondary: "#F5EFE6",
-  primary: "#D4A574",
-  secondary: "#8B7355",
-  accent: "#4A3728",
-  textPrimary: "#3D2E22",
-  textSecondary: "#6B5B4F",
-  textMuted: "#9B8B7F",
-  border: "#E8DED3",
-  cardBg: "#FFFFFF",
-  error: "#C75050",
-};
+import { fetchAllOutfits } from "@/api/backend/outfit.api";
+import { colors } from "@/lib/theme";
+import { getKeycloakAccessToken } from "@/lib/keycloak";
 
 const Profile = () => {
   const { data } = authClient.useSession();
   const [totalItemsCount, setTotalItemsCount] = useState(0);
+  const [outfitsCount, setOutfitsCount] = useState(0);
 
   const handleFullLogout = async () => {
     const clientId = process.env.EXPO_PUBLIC_KC_CLIENT_ID as string;
@@ -64,7 +47,6 @@ const Profile = () => {
     }
   };
 
-  // Get initials for avatar fallback
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -74,229 +56,313 @@ const Profile = () => {
       .slice(0, 2);
   };
 
+  const formatMemberSince = (date: Date | string | undefined) => {
+    if (!date) return "N/A";
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  };
+
   useEffect(() => {
     if (!data?.user?.id) return;
 
     (async () => {
       try {
-        const allItems = await fetchAllWearables(data.user.id);
+        const accessToken = await getKeycloakAccessToken(data.user.id);
+        const [allItems, allOutfits] = await Promise.all([
+          fetchAllWearables(accessToken),
+          fetchAllOutfits(accessToken),
+        ]);
         setTotalItemsCount(allItems.length);
+        setOutfitsCount(allOutfits.length);
       } catch (err) {
         console.error("Failed to fetch total wearables:", err);
       }
     })();
   }, [data?.user?.id]);
 
-  const SettingsItem = ({
-    icon,
-    label,
-    onPress,
-  }: {
-    icon: React.ReactNode;
-    label: string;
-    onPress?: () => void;
-  }) => (
-    <Pressable
-      className="py-4 active:opacity-60"
-      onPress={onPress}
-    >
-      <HStack className="items-center justify-between">
-        <HStack className="items-center">
-          <View
-            className="h-9 w-9 rounded-full items-center justify-center mr-3"
-            style={{ backgroundColor: `${colors.primary}15` }}
-          >
-            {icon}
-          </View>
-          <Text style={{ color: colors.textPrimary, fontSize: 15 }}>{label}</Text>
-        </HStack>
-        <ChevronRight size={20} color={colors.textMuted} />
-      </HStack>
-    </Pressable>
-  );
+  const settingsItems = [
+    { icon: <User size={18} color={colors.secondary} />, label: "Account", route: "/profile/account" as const },
+    { icon: <Shield size={18} color={colors.secondary} />, label: "Privacy", route: "/profile/privacy" as const },
+    { icon: <HelpCircle size={18} color={colors.secondary} />, label: "Help & Support", route: "/profile/help" as const },
+    { icon: <Info size={18} color={colors.secondary} />, label: "About", route: "/profile/about" as const },
+  ];
 
   return (
     <SafeAreaView
-      className="flex-1"
-      style={{ backgroundColor: colors.background }}
+      style={[styles.container, { backgroundColor: colors.background }]}
       edges={["top"]}
     >
-      {/* Header */}
-      <HStack
-        className="h-14 items-center justify-between px-4"
-        style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-      >
-        <Text
-          className="text-xl font-bold"
-          style={{ color: colors.textPrimary }}
-        >
-          {data?.user?.name || "Profile"}
-        </Text>
-        <Pressable
-          className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
-          style={{ backgroundColor: `${colors.secondary}15` }}
-        >
-          <Settings size={20} color={colors.textSecondary} />
-        </Pressable>
-      </HStack>
+      <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.headerLabel, { color: colors.textMuted }]}>
+            Profile
+          </Text>
+        </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Profile Info Section */}
-        <Box className="px-4 pt-6 pb-4">
-          <HStack className="items-center justify-between mb-6">
-            {/* Avatar */}
-            <Avatar
-              size="xl"
-              className="border-3"
-              style={{ borderColor: colors.primary, borderWidth: 3 }}
-            >
-              {data?.user?.image ? (
-                <AvatarImage source={{ uri: data.user.image }} />
-              ) : (
-                <AvatarFallbackText
-                  className="font-semibold"
-                  style={{ color: colors.primary }}
-                >
-                  {data?.user?.name ? getInitials(data.user.name) : "U"}
-                </AvatarFallbackText>
-              )}
-            </Avatar>
+        {/* Hero Profile Section */}
+        <View style={styles.heroSection}>
+          <Avatar size="xl" style={styles.avatar}>
+            {data?.user?.image ? (
+              <AvatarImage source={{ uri: data.user.image }} />
+            ) : (
+              <AvatarFallbackText
+                style={[styles.avatarFallback, { color: colors.primary }]}
+              >
+                {data?.user?.name ? getInitials(data.user.name) : "U"}
+              </AvatarFallbackText>
+            )}
+          </Avatar>
 
-            {/* Stats */}
-            <HStack className="flex-1 justify-around ml-6">
-              <VStack className="items-center">
-                <Text
-                  className="text-xl font-bold"
-                  style={{ color: colors.textPrimary }}
-                >
-                  0
-                </Text>
-                <Text className="text-sm" style={{ color: colors.textMuted }}>
-                  Posts
-                </Text>
-              </VStack>
-              <VStack className="items-center">
-                <Text
-                  className="text-xl font-bold"
-                  style={{ color: colors.textPrimary }}
-                >
-                  0
-                </Text>
-                <Text className="text-sm" style={{ color: colors.textMuted }}>
-                  Outfits
-                </Text>
-              </VStack>
-              <VStack className="items-center">
-                <Text
-                  className="text-xl font-bold"
-                  style={{ color: colors.textPrimary }}
-                >
-                  {totalItemsCount}
-                </Text>
-                <Text className="text-sm" style={{ color: colors.textMuted }}>
-                  Items
-                </Text>
-              </VStack>
-            </HStack>
-          </HStack>
+          <Text style={[styles.name, { color: colors.textPrimary }]}>
+            {data?.user?.name || "User"}
+          </Text>
+          <Text style={[styles.email, { color: colors.textMuted }]}>
+            {data?.user?.email}
+          </Text>
 
-          {/* Name and Email */}
-          <VStack className="mb-4">
-            <Text
-              className="text-base font-semibold mb-1"
-              style={{ color: colors.textPrimary }}
-            >
-              {data?.user?.name}
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        </View>
+
+        {/* Stats Card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+              {outfitsCount}
             </Text>
-            <Text className="text-sm" style={{ color: colors.textSecondary }}>
-              {data?.user?.email}
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+              Outfits
             </Text>
-          </VStack>
+          </View>
 
-        </Box>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+              {totalItemsCount}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+              Items
+            </Text>
+          </View>
+
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+              {formatMemberSince(data?.user?.createdAt)}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+              Member Since
+            </Text>
+          </View>
+        </View>
 
         {/* Settings Section */}
-        <Box
-          className="mx-4 mt-6 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: colors.cardBg }}
-        >
-          <Box className="px-4 pt-4 pb-2">
-            <Text
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: colors.textMuted }}
-            >
-              Settings
-            </Text>
-          </Box>
-
-          <Box className="px-4">
-            <SettingsItem
-              icon={<User size={18} color={colors.secondary} />}
-              label="Account Information"
-            />
-            <Divider style={{ backgroundColor: colors.border }} />
-
-            <SettingsItem
-              icon={<Shield size={18} color={colors.secondary} />}
-              label="Privacy"
-            />
-            <Divider style={{ backgroundColor: colors.border }} />
-
-            <SettingsItem
-              icon={<HelpCircle size={18} color={colors.secondary} />}
-              label="Help & Support"
-            />
-            <Divider style={{ backgroundColor: colors.border }} />
-
-            <SettingsItem
-              icon={<Info size={18} color={colors.secondary} />}
-              label="About"
-            />
-          </Box>
-        </Box>
-
-        {/* Logout Button */}
-        <Box className="px-4 py-6">
-          <Pressable
-            className="h-12 rounded-xl items-center justify-center flex-row active:opacity-80"
-            style={{
-              backgroundColor: `${colors.error}10`,
-              borderWidth: 1,
-              borderColor: `${colors.error}30`,
-            }}
-            onPress={handleFullLogout}
-          >
-            <LogOut size={18} color={colors.error} />
-            <Text
-              className="font-semibold ml-2"
-              style={{ color: colors.error }}
-            >
-              Log Out
-            </Text>
-          </Pressable>
-        </Box>
-
-        {/* Account Details Footer */}
-        <Box className="px-4 pb-8">
-          <Text
-            className="text-xs text-center mb-2"
-            style={{ color: colors.textMuted }}
-          >
-            Account created on{" "}
-            {data?.user?.createdAt
-              ? new Date(data.user.createdAt).toLocaleDateString()
-              : "N/A"}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+            GENERAL
           </Text>
-          <Text
-            className="text-xs text-center"
-            style={{ color: `${colors.textMuted}80` }}
-          >
-            User ID: {data?.user?.id?.slice(0, 8)}...
+        </View>
+
+        <View style={styles.settingsCard}>
+          {settingsItems.map((item, index) => (
+            <React.Fragment key={item.label}>
+              {index > 0 && (
+                <View
+                  style={[styles.settingsDivider, { backgroundColor: colors.border }]}
+                />
+              )}
+              <Pressable
+                style={styles.settingsItem}
+                onPress={() => router.push(item.route)}
+              >
+                <View style={styles.settingsItemLeft}>
+                  <View
+                    style={[
+                      styles.iconCircle,
+                      { backgroundColor: `${colors.primary}12` },
+                    ]}
+                  >
+                    {item.icon}
+                  </View>
+                  <Text style={[styles.settingsLabel, { color: colors.textPrimary }]}>
+                    {item.label}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </Pressable>
+            </React.Fragment>
+          ))}
+        </View>
+
+        {/* Sign Out */}
+        <Pressable style={styles.signOut} onPress={handleFullLogout}>
+          <LogOut size={16} color={colors.error} />
+          <Text style={[styles.signOutText, { color: colors.error }]}>
+            Sign Out
           </Text>
-        </Box>
+        </Pressable>
+
+        {/* Footer */}
+        <Text style={[styles.footer, { color: colors.textMuted }]}>
+          v1.0.0 · What to Wear
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  heroSection: {
+    alignItems: "center",
+    paddingTop: 24,
+    paddingBottom: 8,
+    paddingHorizontal: 24,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    shadowColor: "#D4A574",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  avatarFallback: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 32,
+  },
+  name: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 24,
+    marginTop: 16,
+  },
+  email: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    marginTop: 4,
+  },
+  divider: {
+    height: 1,
+    width: 40,
+    marginTop: 24,
+  },
+  statsCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    marginHorizontal: 24,
+    marginTop: 24,
+    paddingVertical: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statNumber: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 20,
+  },
+  statLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    alignSelf: "center",
+  },
+  sectionHeader: {
+    paddingHorizontal: 24,
+    marginTop: 32,
+    marginBottom: 12,
+  },
+  sectionLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    letterSpacing: 1.5,
+  },
+  settingsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    marginHorizontal: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  settingsItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  settingsItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  settingsLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+  },
+  settingsDivider: {
+    height: 1,
+    marginLeft: 64,
+  },
+  signOut: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 32,
+    paddingVertical: 8,
+  },
+  signOutText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    marginLeft: 8,
+  },
+  footer: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 24,
+    marginBottom: 40,
+    opacity: 0.6,
+  },
+});
 
 export default Profile;

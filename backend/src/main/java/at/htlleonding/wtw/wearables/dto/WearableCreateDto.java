@@ -5,8 +5,8 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 public class WearableCreateDto {
 
-    @RestForm("category")
-    public String category;
+    @RestForm("categoryId")
+    public String categoryId;
 
     @RestForm("title")
     public String title;
@@ -21,4 +21,3 @@ public class WearableCreateDto {
     @RestForm("file")
     public FileUpload file;
 }
-

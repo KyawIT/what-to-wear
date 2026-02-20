@@ -65,6 +65,18 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest
 
+      - name: Build and push python image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./python/service
+          file: ./python/service/docker/Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest
+
       - name: Build summary
         run: |
           {
@@ -72,6 +84,7 @@ jobs:
             echo ""
             echo "- Backend image: ghcr.io/${OWNER_LC}/wtw-backend:latest"
             echo "- Rembg image: ghcr.io/${OWNER_LC}/wtw-rembg:latest"
+            echo "- Python image: ghcr.io/${OWNER_LC}/wtw-python:latest"
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
@@ -84,13 +97,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload production compose file
+      - name: Upload production compose + Keycloak assets
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          source: docker/docker-compose.prod.yml
+          source: docker/docker-compose.prod.yml,docker/keycloak-theme,docker/wtw-realm.json
           target: ${{ secrets.DEPLOY_PATH }}
 
       - name: Deploy on server
@@ -98,6 +111,7 @@ jobs:
         env:
           BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest
           REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest
+          PYTHON_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
@@ -105,7 +119,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          envs: BACKEND_IMAGE,REMBG_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD
+          envs: BACKEND_IMAGE,REMBG_IMAGE,PYTHON_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD
           script: |
             set -e
             cd "$DEPLOY_PATH"
@@ -121,4 +135,5 @@ jobs:
             echo "- Deploy path: ${{ secrets.DEPLOY_PATH }}"
             echo "- Backend image: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest"
             echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest"
+            echo "- Python image: ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest"
           } >> "$GITHUB_STEP_SUMMARY"

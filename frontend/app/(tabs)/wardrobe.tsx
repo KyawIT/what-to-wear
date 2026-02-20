@@ -1,9 +1,10 @@
-import {ScrollView, FlatList, Dimensions, View} from "react-native";
+import { ScrollView, FlatList, Dimensions, Alert } from "react-native";
 import { Image } from "expo-image";
 import React, { useEffect, useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
+import { getKeycloakAccessToken } from "@/lib/keycloak";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
@@ -27,49 +28,41 @@ import {
 } from "@/components/ui/modal";
 import { Badge, BadgeText } from "@/components/ui/badge";
 import { Divider } from "@/components/ui/divider";
-import { Calendar ,
-  Shirt,
-  LayoutGrid,
-  Watch,
-  Footprints,
-  HardHat,
-  Gem,
-} from "lucide-react-native";
+import {
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+} from "@/components/ui/alert-dialog";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Calendar, Shirt, LayoutGrid } from "lucide-react-native";
 
 import {
-  WearableCategory,
   WearableResponseDto,
 } from "@/api/backend/wearable.model";
 import {
   fetchWearablesByCategory,
   fetchAllWearables,
   fetWearableById,
+  deleteWearableById,
 } from "@/api/backend/wearable.api";
+import {
+  fetchAllOutfits,
+  fetchOutfitById,
+  deleteOutfitById,
+} from "@/api/backend/outfit.api";
+import {
+  fetchWearableCategories,
+  WearableCategoryDto,
+} from "@/api/backend/category.api";
+import { OutfitResponseDto } from "@/api/backend/outfit.model";
+import { colors } from "@/lib/theme";
 
 type TabType = "items" | "outfits";
-type CategoryFilter = "ALL" | WearableCategory;
-
-// Category configuration with icons
-const CATEGORIES: {
-  key: CategoryFilter;
-  label: string;
-  icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-}[] = [
-  { key: "ALL", label: "All", icon: LayoutGrid },
-  { key: "SHIRT", label: "Shirts", icon: Shirt },
-  { key: "PANTS", label: "Pants", icon: ({ size, color }) => (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontSize: size * 0.7, color }}>👖</Text>
-    </View>
-  )},
-  { key: "JACKET", label: "Jackets", icon: ({ size, color, strokeWidth }) => (
-    <Shirt size={size} color={color} strokeWidth={strokeWidth} />
-  )},
-  { key: "SHOES", label: "Shoes", icon: Footprints },
-  { key: "WATCH", label: "Watches", icon: Watch },
-  { key: "HAT", label: "Hats", icon: HardHat },
-  { key: "ACCESSORY", label: "Accessories", icon: Gem },
-];
+type CategoryFilter = string;
+type DeleteTargetType = "wearable" | "outfit";
 
 const Wardrobe = () => {
   const { data } = authClient.useSession();
@@ -77,12 +70,22 @@ const Wardrobe = () => {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("ALL");
   const [wearables, setWearables] = useState<WearableResponseDto[]>([]);
   const [loadingWearables, setLoadingWearables] = useState(false);
+  const [outfits, setOutfits] = useState<OutfitResponseDto[]>([]);
+  const [loadingOutfits, setLoadingOutfits] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categories, setCategories] = useState<WearableCategoryDto[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [selectedWearable, setSelectedWearable] = useState<WearableResponseDto | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [showOutfitModal, setShowOutfitModal] = useState(false);
+  const [selectedOutfit, setSelectedOutfit] = useState<OutfitResponseDto | null>(null);
+  const [loadingOutfitDetail, setLoadingOutfitDetail] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTargetType, setDeleteTargetType] = useState<DeleteTargetType | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const screenWidth = Dimensions.get("window").width;
   const ITEM_SIZE = (screenWidth - 48) / 2;
@@ -93,13 +96,14 @@ const Wardrobe = () => {
     const fetchData = async () => {
       setLoadingWearables(true);
       try {
+        const accessToken = await getKeycloakAccessToken(data.user.id);
         let items: WearableResponseDto[];
         if (activeCategory === "ALL") {
-          items = await fetchAllWearables(data.user.id);
+          items = await fetchAllWearables(accessToken);
         } else {
           items = await fetchWearablesByCategory(
-            data.user.id,
-            activeCategory as WearableCategory
+            activeCategory,
+            accessToken
           );
         }
         setWearables(items);
@@ -114,6 +118,43 @@ const Wardrobe = () => {
     fetchData();
   }, [activeCategory, data?.user?.id]);
 
+  useEffect(() => {
+    if (!data?.user?.id || activeTab !== "outfits") return;
+
+    (async () => {
+      setLoadingOutfits(true);
+      try {
+        const accessToken = await getKeycloakAccessToken(data.user.id);
+        const list = await fetchAllOutfits(accessToken);
+        setOutfits(list);
+      } catch (err) {
+        console.error("Failed to fetch outfits:", err);
+        setOutfits([]);
+      } finally {
+        setLoadingOutfits(false);
+      }
+    })();
+  }, [data?.user?.id, activeTab]);
+
+  useEffect(() => {
+    if (!data?.user?.id) return;
+    (async () => {
+      try {
+        const token = await getKeycloakAccessToken(data.user.id);
+        setCategories(await fetchWearableCategories(token));
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    })();
+  }, [data?.user?.id]);
+
+  const activeCategoryName =
+    activeCategory === "ALL"
+      ? "All"
+      : categories.find((c) => c.id === activeCategory)?.name ?? "";
+
   const filteredWearables = useMemo(() => {
     if (!searchQuery.trim()) return wearables;
     const query = searchQuery.toLowerCase().trim();
@@ -122,19 +163,11 @@ const Wardrobe = () => {
     );
   }, [wearables, searchQuery]);
 
-  const renderCategoryIcon = (
-    category: typeof CATEGORIES[number],
-    isActive: boolean
-  ) => {
-    const IconComponent = category.icon;
-    return (
-      <IconComponent
-        size={24}
-        color={isActive ? "#D4A574" : "#9B8B7F"}
-        strokeWidth={isActive ? 2.5 : 2}
-      />
-    );
-  };
+  const filteredOutfits = useMemo(() => {
+    if (!searchQuery.trim()) return outfits;
+    const query = searchQuery.toLowerCase().trim();
+    return outfits.filter((outfit) => outfit.title.toLowerCase().includes(query));
+  }, [outfits, searchQuery]);
 
   const renderWearableItem = ({ item }: { item: WearableResponseDto }) => (
     <Pressable
@@ -144,7 +177,8 @@ const Wardrobe = () => {
         setLoadingDetail(true);
         setSelectedWearable(null);
         try {
-          const detail = await fetWearableById(data.user.id, item.id);
+          const accessToken = await getKeycloakAccessToken(data.user.id);
+          const detail = await fetWearableById(item.id, accessToken);
           setSelectedWearable(detail);
         } catch (err) {
           console.error("Failed to fetch wearable detail:", err);
@@ -170,15 +204,146 @@ const Wardrobe = () => {
           />
         ) : (
           <Center className="flex-1">
-            <Shirt size={32} color="#9B8B7F" />
-            <Text size="xs" className="text-center px-2 mt-2 text-typography-400" numberOfLines={2}>
-              {item.title}
-            </Text>
+            <Shirt size={32} color={colors.textMuted} />
           </Center>
         )}
+
+        <Box
+          className="absolute left-2 right-2 bottom-2 px-3 py-1.5"
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: 0,
+          }}
+        >
+          <Text
+            size="xs"
+            numberOfLines={1}
+            className="text-center font-medium"
+            style={{ color: colors.textPrimary }}
+          >
+            {item.title}
+          </Text>
+        </Box>
       </Card>
     </Pressable>
   );
+
+  const renderOutfitItem = ({ item }: { item: OutfitResponseDto }) => (
+    <Pressable
+      onPress={async () => {
+        if (!data?.user?.id) return;
+        setShowOutfitModal(true);
+        setLoadingOutfitDetail(true);
+        setSelectedOutfit(null);
+        try {
+          const accessToken = await getKeycloakAccessToken(data.user.id);
+          const detail = await fetchOutfitById(item.id, accessToken);
+          setSelectedOutfit(detail);
+        } catch (err) {
+          console.error("Failed to fetch outfit detail:", err);
+        } finally {
+          setLoadingOutfitDetail(false);
+        }
+      }}
+      className="active:opacity-80 mb-4"
+    >
+      <Card
+        variant="elevated"
+        className="overflow-hidden bg-white rounded-lg shadow-sm"
+        style={{
+          width: ITEM_SIZE,
+          height: ITEM_SIZE * 1.2,
+        }}
+      >
+        {item.imageUrl ? (
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="cover"
+          />
+        ) : (
+          <Center className="flex-1">
+            <LayoutGrid size={32} color={colors.textMuted} />
+          </Center>
+        )}
+
+        <Box
+          className="absolute left-2 right-2 bottom-2 px-3 py-1.5"
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: 0,
+          }}
+        >
+          <Text
+            size="xs"
+            numberOfLines={1}
+            className="text-center font-medium"
+            style={{ color: colors.textPrimary }}
+          >
+            {item.title}
+          </Text>
+        </Box>
+      </Card>
+    </Pressable>
+  );
+
+  const handleOpenDeleteWearableConfirm = () => {
+    if (!selectedWearable) return;
+    setDeleteTargetType("wearable");
+    setShowDeleteConfirm(true);
+  };
+
+  const handleOpenDeleteOutfitConfirm = () => {
+    if (!selectedOutfit) return;
+    setDeleteTargetType("outfit");
+    setShowDeleteConfirm(true);
+  };
+
+  const handleCloseDeleteConfirm = () => {
+    if (isDeleting) return;
+    setShowDeleteConfirm(false);
+    setDeleteTargetType(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!data?.user?.id || !deleteTargetType) return;
+
+    try {
+      setIsDeleting(true);
+      const accessToken = await getKeycloakAccessToken(data.user.id);
+
+      if (deleteTargetType === "wearable") {
+        if (!selectedWearable) return;
+        const result = await deleteWearableById(selectedWearable.id, accessToken);
+        if (!result.success) {
+          Alert.alert("Delete failed", result.message ?? "Could not delete clothing item.");
+          return;
+        }
+        setWearables((prev) => prev.filter((item) => item.id !== selectedWearable.id));
+        setSelectedWearable(null);
+        setShowModal(false);
+        Alert.alert("Deleted", "Clothing item deleted successfully.");
+      } else {
+        if (!selectedOutfit) return;
+        const result = await deleteOutfitById(selectedOutfit.id, accessToken);
+        if (!result.success) {
+          Alert.alert("Delete failed", result.message ?? "Could not delete outfit.");
+          return;
+        }
+        setOutfits((prev) => prev.filter((item) => item.id !== selectedOutfit.id));
+        setSelectedOutfit(null);
+        setShowOutfitModal(false);
+        Alert.alert("Deleted", "Outfit deleted successfully.");
+      }
+
+      setShowDeleteConfirm(false);
+      setDeleteTargetType(null);
+    } catch {
+      Alert.alert("Delete failed", "Something went wrong. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
@@ -193,7 +358,10 @@ const Wardrobe = () => {
       <Box className="px-4 pt-4">
         <HStack className="rounded-full p-1 bg-background-100">
           <Pressable
-            onPress={() => setActiveTab("items")}
+            onPress={() => {
+              setActiveTab("items");
+              setSearchQuery("");
+            }}
             className={`flex-1 py-2 rounded-full items-center ${
               activeTab === "items" ? "bg-background-0" : ""
             }`}
@@ -207,7 +375,10 @@ const Wardrobe = () => {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setActiveTab("outfits")}
+            onPress={() => {
+              setActiveTab("outfits");
+              setSearchQuery("");
+            }}
             className={`flex-1 py-2 rounded-full items-center ${
               activeTab === "outfits" ? "bg-background-0" : ""
             }`}
@@ -244,34 +415,73 @@ const Wardrobe = () => {
                 style={{ marginHorizontal: -16, paddingVertical: 16 }}
                 contentContainerStyle={{ paddingHorizontal: 16 }}
               >
-                {CATEGORIES.map((category) => (
-                  <Pressable
-                    key={category.key}
-                    onPress={() => setActiveCategory(category.key)}
+                <Pressable
+                    key="ALL"
+                    onPress={() => setActiveCategory("ALL")}
                     className="items-center mr-4"
                     style={{ minWidth: 56 }}
                   >
                     <Box
                       className={`h-14 w-14 rounded-full items-center justify-center mb-2 ${
-                        activeCategory === category.key
+                        activeCategory === "ALL"
                           ? "bg-primary-100 border-2 border-primary-500"
                           : "bg-background-100"
                       }`}
                     >
-                      {renderCategoryIcon(category, activeCategory === category.key)}
+                      <LayoutGrid
+                        size={24}
+                        color={activeCategory === "ALL" ? colors.primary : colors.textMuted}
+                      />
                     </Box>
                     <Text
                       size="xs"
                       className={
-                        activeCategory === category.key
+                        activeCategory === "ALL"
                           ? "text-primary-500 font-semibold"
                           : "text-typography-400"
                       }
                     >
-                      {category.label}
+                      All
                     </Text>
                   </Pressable>
-                ))}
+                  {!loadingCategories && categories.map((cat) => {
+                    const isActive = activeCategory === cat.id;
+                    const letter = cat.name.charAt(0).toUpperCase();
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        onPress={() => setActiveCategory(cat.id)}
+                        className="items-center mr-4"
+                        style={{ minWidth: 56 }}
+                      >
+                        <Box
+                          className={`h-14 w-14 rounded-full items-center justify-center mb-2 ${
+                            isActive
+                              ? "bg-primary-100 border-2 border-primary-500"
+                              : "bg-background-100"
+                          }`}
+                        >
+                          <Text
+                            className="font-bold text-xl"
+                            style={{ color: isActive ? colors.primary : colors.textMuted }}
+                          >
+                            {letter}
+                          </Text>
+                        </Box>
+                        <Text
+                          size="xs"
+                          numberOfLines={1}
+                          className={
+                            isActive
+                              ? "text-primary-500 font-semibold"
+                              : "text-typography-400"
+                          }
+                        >
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
               </ScrollView>
 
               {/* Search Bar */}
@@ -301,14 +511,14 @@ const Wardrobe = () => {
             ) : (
               <Center className="pt-12 px-4">
                 <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
-                  <Shirt size={40} color="#D4A574" strokeWidth={1.5} />
+                  <Shirt size={40} color={colors.primary} strokeWidth={1.5} />
                 </Box>
                 <Heading size="md" className="mb-2 text-center text-typography-600">
                   {searchQuery
                     ? "No items found"
                     : activeCategory === "ALL"
                     ? "Your wardrobe is empty"
-                    : `No ${activeCategory.toLowerCase()} items yet`}
+                    : `No ${activeCategoryName} items yet`}
                 </Heading>
                 <Text size="sm" className="text-center text-typography-400">
                   {searchQuery
@@ -321,27 +531,67 @@ const Wardrobe = () => {
           renderItem={renderWearableItem}
         />
       ) : (
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingTop: 48, alignItems: "center", paddingHorizontal: 32 }}
-        >
-          <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
-            <LayoutGrid size={40} color="#D4A574" strokeWidth={1.5} />
-          </Box>
-          <Heading size="md" className="mb-2 text-center text-typography-600">
-            Outfits coming soon
-          </Heading>
-          <Text size="sm" className="text-center text-typography-400">
-            Create and save your favorite outfit combinations
-          </Text>
-        </ScrollView>
+        <FlatList
+          data={filteredOutfits}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 100,
+            flexGrow: 1,
+          }}
+          columnWrapperStyle={filteredOutfits.length > 0 ? { justifyContent: "space-between" } : undefined}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <Box className="pt-4">
+              <Input
+                variant="rounded"
+                size="xl"
+                className="mb-4 bg-background-100 border-outline-200"
+              >
+                <InputSlot className="pl-4">
+                  <InputIcon as={SearchIcon} className="text-typography-400" />
+                </InputSlot>
+                <InputField
+                  placeholder="Search outfits..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  className="text-typography-800"
+                />
+              </Input>
+            </Box>
+          }
+          ListEmptyComponent={
+            loadingOutfits ? (
+              <Center className="pt-12">
+                <Spinner size="large" className="text-primary-500" />
+                <Text className="text-typography-400 mt-4">Loading...</Text>
+              </Center>
+            ) : (
+              <Center className="pt-12 px-4">
+                <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
+                  <LayoutGrid size={40} color={colors.primary} strokeWidth={1.5} />
+                </Box>
+                <Heading size="md" className="mb-2 text-center text-typography-600">
+                  {searchQuery ? "No outfits found" : "No outfits yet"}
+                </Heading>
+                <Text size="sm" className="text-center text-typography-400">
+                  {searchQuery
+                    ? "Try a different search term"
+                    : "Create and save your favorite outfit combinations"}
+                </Text>
+              </Center>
+            )
+          }
+          renderItem={renderOutfitItem}
+        />
       )}
 
       {/* Floating Action Button */}
       <Fab
         size="lg"
         placement="bottom right"
-        onPress={() => router.push("/scan")}
+        onPress={() => router.push(activeTab === "outfits" ? "/create" : "/scan")}
         className="bg-primary-500 shadow-hard-2"
       >
         <FabIcon as={AddIcon} className="text-typography-0" />
@@ -379,7 +629,7 @@ const Wardrobe = () => {
                     />
                   ) : (
                     <Center className="flex-1">
-                      <Shirt size={40} color="#9B8B7F" />
+                      <Shirt size={40} color={colors.textMuted} />
                       <Text
                         size="sm"
                         className="text-center px-2 mt-2 text-typography-400"
@@ -395,7 +645,7 @@ const Wardrobe = () => {
                     {selectedWearable.title}
                   </Heading>
                   <Text size="sm" className="text-typography-400">
-                    {selectedWearable.category}
+                    {selectedWearable.categoryName}
                   </Text>
                 </VStack>
 
@@ -418,7 +668,7 @@ const Wardrobe = () => {
                 <Divider className="bg-outline-200" />
 
                 <HStack className="items-center gap-2">
-                  <Calendar size={16} color="#9B8B7F" />
+                  <Calendar size={16} color={colors.textMuted} />
                   <Text size="sm" className="text-typography-500">
                     Added{" "}
                     {new Date(selectedWearable.createdAt).toLocaleDateString()}
@@ -433,11 +683,167 @@ const Wardrobe = () => {
               </Center>
             )}
           </ModalBody>
-          <ModalFooter>
-
+          <ModalFooter className="w-full">
+            <Button
+              action="negative"
+              className="w-full bg-error-600 data-[hover=true]:bg-error-700 data-[active=true]:bg-error-800"
+              onPress={handleOpenDeleteWearableConfirm}
+              isDisabled={!selectedWearable || loadingDetail || isDeleting}
+            >
+              <ButtonText>Delete</ButtonText>
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      <Modal isOpen={showOutfitModal} onClose={() => setShowOutfitModal(false)} size="md">
+        <ModalBackdrop />
+        <ModalContent className={"rounded-3xl"}>
+          <ModalHeader>
+            <Heading size="md" className="text-typography-800">
+              Outfit Details
+            </Heading>
+            <ModalCloseButton onPress={() => setShowOutfitModal(false)}>
+              <Icon as={CloseIcon} className="text-typography-500" />
+            </ModalCloseButton>
+          </ModalHeader>
+          <ModalBody>
+            {loadingOutfitDetail ? (
+              <Center className="py-8">
+                <Spinner size="large" className="text-primary-500" />
+                <Text className="text-typography-400 mt-3">Loading...</Text>
+              </Center>
+            ) : selectedOutfit ? (
+              <VStack className="gap-4">
+                <Card
+                  variant="elevated"
+                  className="overflow-hidden"
+                  style={{ height: 220 }}
+                >
+                  {selectedOutfit.imageUrl ? (
+                    <Image
+                      source={{ uri: selectedOutfit.imageUrl }}
+                      style={{ width: "100%", height: "100%" }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <Center className="flex-1">
+                      <LayoutGrid size={40} color={colors.textMuted} />
+                      <Text
+                        size="sm"
+                        className="text-center px-2 mt-2 text-typography-400"
+                      >
+                        {selectedOutfit.title}
+                      </Text>
+                    </Center>
+                  )}
+                </Card>
+
+                <VStack className="gap-1">
+                  <Heading size="lg" className="text-typography-800">
+                    {selectedOutfit.title}
+                  </Heading>
+                  <Text size="sm" className="text-typography-400">
+                    {selectedOutfit.wearables?.length ?? 0} item(s)
+                  </Text>
+                </VStack>
+
+                {selectedOutfit.description ? (
+                  <Text size="sm" className="text-typography-700">
+                    {selectedOutfit.description}
+                  </Text>
+                ) : null}
+
+                {selectedOutfit.tags?.length ? (
+                  <HStack className="flex-wrap gap-2">
+                    {selectedOutfit.tags.map((tag) => (
+                      <Badge key={tag} variant="solid" className="bg-primary-100">
+                        <BadgeText className="text-primary-700">{tag}</BadgeText>
+                      </Badge>
+                    ))}
+                  </HStack>
+                ) : null}
+
+                {selectedOutfit.wearables?.length ? (
+                  <VStack className="gap-2">
+                    <Text size="sm" className="text-typography-500">
+                      Included items
+                    </Text>
+                    <HStack className="flex-wrap gap-2">
+                      {selectedOutfit.wearables.map((wearable) => (
+                        <Badge key={wearable.id} variant="outline">
+                          <BadgeText>{wearable.title}</BadgeText>
+                        </Badge>
+                      ))}
+                    </HStack>
+                  </VStack>
+                ) : null}
+
+                <Divider className="bg-outline-200" />
+
+                <HStack className="items-center gap-2">
+                  <Calendar size={16} color={colors.textMuted} />
+                  <Text size="sm" className="text-typography-500">
+                    Added{" "}
+                    {new Date(selectedOutfit.createdAt).toLocaleDateString()}
+                  </Text>
+                </HStack>
+              </VStack>
+            ) : (
+              <Center className="py-8">
+                <Text className="text-typography-400">
+                  Unable to load outfit details.
+                </Text>
+              </Center>
+            )}
+          </ModalBody>
+          <ModalFooter className="w-full">
+            <Button
+              action="negative"
+              className="w-full bg-error-600 data-[hover=true]:bg-error-700 data-[active=true]:bg-error-800"
+              onPress={handleOpenDeleteOutfitConfirm}
+              isDisabled={!selectedOutfit || loadingOutfitDetail || isDeleting}
+            >
+              <ButtonText>Delete</ButtonText>
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <AlertDialog isOpen={showDeleteConfirm} onClose={handleCloseDeleteConfirm} size="md">
+        <AlertDialogBackdrop />
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <Heading size="sm" className="text-typography-800">
+              Confirm Deletion
+            </Heading>
+          </AlertDialogHeader>
+          <AlertDialogBody>
+            <Text size="sm" className="text-typography-600">
+              {deleteTargetType === "wearable"
+                ? "Delete this clothing item permanently? It will also be removed from any outfits that use it."
+                : "Delete this outfit permanently? This action cannot be undone."}
+            </Text>
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button
+              action="secondary"
+              variant="outline"
+              onPress={handleCloseDeleteConfirm}
+              isDisabled={isDeleting}
+            >
+              <ButtonText>Cancel</ButtonText>
+            </Button>
+            <Button
+              action="negative"
+              onPress={handleConfirmDelete}
+              isDisabled={isDeleting}
+            >
+              <ButtonText>{isDeleting ? "Deleting..." : "Delete"}</ButtonText>
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SafeAreaView>
   );
 };

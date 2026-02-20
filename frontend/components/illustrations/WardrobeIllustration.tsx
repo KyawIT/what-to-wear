@@ -1,5 +1,6 @@
 import * as React from "react";
 import Svg, { Path, Circle, Rect, Ellipse, G } from "react-native-svg";
+import { colors } from "@/lib/theme";
 
 interface WardrobeIllustrationProps {
   width?: number;
@@ -12,9 +13,9 @@ interface WardrobeIllustrationProps {
 export const WardrobeIllustration: React.FC<WardrobeIllustrationProps> = ({
   width = 280,
   height = 220,
-  primaryColor = "#D4A574",
-  secondaryColor = "#8B7355",
-  accentColor = "#4A3728",
+  primaryColor = colors.primary,
+  secondaryColor = colors.secondary,
+  accentColor = colors.accent,
 }) => {
   return (
     <Svg width={width} height={height} viewBox="0 0 280 220" fill="none">

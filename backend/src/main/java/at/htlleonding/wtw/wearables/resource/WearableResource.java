@@ -1,12 +1,17 @@
 package at.htlleonding.wtw.wearables.resource;
 
 import at.htlleonding.wtw.wearables.dto.WearableCreateDto;
+import at.htlleonding.wtw.wearables.dto.WearablePredictRequestDto;
+import at.htlleonding.wtw.wearables.dto.WearablePredictResponseDto;
 import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
-import at.htlleonding.wtw.wearables.model.Wearable;
-import at.htlleonding.wtw.wearables.model.WearableCategory;
+import at.htlleonding.wtw.wearables.service.WearableCategoryService;
+import at.htlleonding.wtw.wearables.service.WearablePredictionService;
 import at.htlleonding.wtw.wearables.service.WearableService;
+import io.quarkus.security.Authenticated;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -15,41 +20,53 @@ import java.util.*;
 import static at.htlleonding.wtw.wearables.util.WearablesUtil.*;
 
 @Path("/wearable")
+@Authenticated
 @Consumes(MediaType.MULTIPART_FORM_DATA)
 @Produces(MediaType.APPLICATION_JSON)
 public class WearableResource {
 
     private final WearableService service;
+    private final WearableCategoryService categoryService;
+    private final WearablePredictionService predictionService;
 
-    public WearableResource(WearableService service) {
+    @Inject
+    JsonWebToken jwt;
+
+    public WearableResource(
+            WearableService service,
+            WearableCategoryService categoryService,
+            WearablePredictionService predictionService
+    ) {
         this.service = service;
+        this.categoryService = categoryService;
+        this.predictionService = predictionService;
     }
 
 
     @GET
     @Path("/category")
     public List<String> getAllCategory() {
-        return Arrays.stream(WearableCategory.values())
-                .map(Enum::name)
+        return categoryService.listByUser(requireUserId()).stream()
+                .map(c -> c.name())
                 .toList();
     }
 
     @POST
-    public Wearable create(
-            @HeaderParam("X-User-Id") String userIdHeader,
+    public WearableResponseDto create(
             WearableCreateDto form
     ) {
         if (form == null) {
             throw new BadRequestException("Body is required");
         }
 
-        WearableCategory category = parseCategory(form.category);
         List<String> tags = parseTags(form.tags);
+        UUID categoryId = parseCategoryId(form.categoryId);
+        String userId = requireUserId();
 
         try (InputStream in = Files.newInputStream(form.file.uploadedFile())) {
             return service.create(
-                    userIdHeader,
-                    category,
+                    userId,
+                    categoryId,
                     form.title,
                     form.description,
                     tags,
@@ -64,25 +81,15 @@ public class WearableResource {
     }
 
     @GET
-    public List<WearableResponseDto> getMyWearables(
-            @HeaderParam("X-User-Id") String userId
-    ) {
-        if (userId == null || userId.isBlank()) {
-            throw new BadRequestException("Missing X-User-Id header");
-        }
-
-        return service.getByUserId(userId.trim());
+    public List<WearableResponseDto> getMyWearables() {
+        return service.getByUserId(requireUserId());
     }
 
     @GET
     @Path("/{id}")
     public WearableResponseDto getById(
-            @HeaderParam("X-User-Id") String userId,
             @PathParam("id") String idParam
     ) {
-        if (userId == null || userId.isBlank()) {
-            throw new BadRequestException("Missing X-User-Id header");
-        }
         if (idParam == null || idParam.isBlank()) {
             throw new BadRequestException("id path param is required");
         }
@@ -94,29 +101,70 @@ public class WearableResource {
             throw new BadRequestException("Invalid id");
         }
 
-        return service.getByWearableId(id);
+        return service.getByWearableId(requireUserId(), id);
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public void deleteById(
+            @PathParam("id") String idParam
+    ) {
+        if (idParam == null || idParam.isBlank()) {
+            throw new BadRequestException("id path param is required");
+        }
+
+        UUID id;
+        try {
+            id = UUID.fromString(idParam.trim());
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid id");
+        }
+
+        service.delete(requireUserId(), id);
     }
 
     @GET
     @Path("/by-category")
     public List<WearableResponseDto> getByCategory(
-            @HeaderParam("X-User-Id") String userId,
-            @QueryParam("category") String categoryParam
+            @QueryParam("categoryId") String categoryIdParam
     ) {
-        if (userId == null || userId.isBlank()) {
-            throw new BadRequestException("Missing X-User-Id header");
-        }
-        if (categoryParam == null || categoryParam.isBlank()) {
-            throw new BadRequestException("category query param is required");
+        if (categoryIdParam == null || categoryIdParam.isBlank()) {
+            throw new BadRequestException("categoryId query param is required");
         }
 
-        WearableCategory category;
+        UUID categoryId = parseCategoryId(categoryIdParam);
+        return service.getByUserIdAndCategory(requireUserId(), categoryId);
+    }
+
+    @POST
+    @Path("/predict")
+    public WearablePredictResponseDto predict(
+            WearablePredictRequestDto form
+    ) {
+        requireUserId();
+        if (form == null || form.file == null) {
+            throw new BadRequestException("file is required");
+        }
+
+        return predictionService.predict(form.file);
+    }
+
+    private static UUID parseCategoryId(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new BadRequestException("categoryId is required");
+        }
         try {
-            category = WearableCategory.valueOf(categoryParam.trim().toUpperCase());
+            return UUID.fromString(raw.trim());
         } catch (Exception e) {
-            throw new BadRequestException("Invalid category");
+            throw new BadRequestException("Invalid categoryId");
         }
+    }
 
-        return service.getByUserIdAndCategory(userId.trim(), category);
+    private String requireUserId() {
+        String sub = jwt.getSubject();
+        if (sub == null || sub.isBlank()) {
+            throw new NotAuthorizedException("Missing sub claim");
+        }
+        return sub.trim();
     }
 }
