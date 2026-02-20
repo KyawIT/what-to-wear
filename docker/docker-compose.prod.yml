@@ -89,6 +89,27 @@ services:
       - traefik.http.middlewares.wtw-rembg-stripprefix.stripprefix.prefixes=/rembg
       - traefik.http.services.wtw-rembg.loadbalancer.server.port=8080
 
+  wtw-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: wtw-qdrant
+    restart: unless-stopped
+    networks:
+      - wtw_internal
+    volumes:
+      - wtw_qdrant:/qdrant/storage
+
+  wtw-python:
+    image: ${PYTHON_IMAGE}
+    container_name: wtw-python
+    restart: unless-stopped
+    depends_on:
+      - wtw-qdrant
+    networks:
+      - wtw_internal
+    environment:
+      QDRANT_HOST: wtw-qdrant
+      QDRANT_PORT: "6333"
+
   wtw-backend:
     image: ${BACKEND_IMAGE}
     container_name: wtw-backend
@@ -96,6 +117,7 @@ services:
     depends_on:
       - wtw-db
       - wtw-minio
+      - wtw-python
     networks:
       - wtw_internal
       - proxy_default
@@ -112,6 +134,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       APP_MINIO_PUBLIC_BASE_URL: ${APP_MINIO_PUBLIC_BASE_URL}
+      APP_PYTHON_PREDICT_URL: http://wtw-python:8000/predict
     labels:
       - traefik.enable=true
       - traefik.http.routers.wtw-backend.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api`)
@@ -124,6 +147,7 @@ volumes:
   wtw_data:
   wtw_minio_data:
   wtw_minio_config:
+  wtw_qdrant:
 
 networks:
   proxy_default:
