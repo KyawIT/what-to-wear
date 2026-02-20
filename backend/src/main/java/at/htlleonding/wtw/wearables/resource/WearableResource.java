@@ -1,8 +1,11 @@
 package at.htlleonding.wtw.wearables.resource;
 
 import at.htlleonding.wtw.wearables.dto.WearableCreateDto;
+import at.htlleonding.wtw.wearables.dto.WearablePredictRequestDto;
+import at.htlleonding.wtw.wearables.dto.WearablePredictResponseDto;
 import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
 import at.htlleonding.wtw.wearables.service.WearableCategoryService;
+import at.htlleonding.wtw.wearables.service.WearablePredictionService;
 import at.htlleonding.wtw.wearables.service.WearableService;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
@@ -24,13 +27,19 @@ public class WearableResource {
 
     private final WearableService service;
     private final WearableCategoryService categoryService;
+    private final WearablePredictionService predictionService;
 
     @Inject
     JsonWebToken jwt;
 
-    public WearableResource(WearableService service, WearableCategoryService categoryService) {
+    public WearableResource(
+            WearableService service,
+            WearableCategoryService categoryService,
+            WearablePredictionService predictionService
+    ) {
         this.service = service;
         this.categoryService = categoryService;
+        this.predictionService = predictionService;
     }
 
 
@@ -95,6 +104,25 @@ public class WearableResource {
         return service.getByWearableId(requireUserId(), id);
     }
 
+    @DELETE
+    @Path("/{id}")
+    public void deleteById(
+            @PathParam("id") String idParam
+    ) {
+        if (idParam == null || idParam.isBlank()) {
+            throw new BadRequestException("id path param is required");
+        }
+
+        UUID id;
+        try {
+            id = UUID.fromString(idParam.trim());
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid id");
+        }
+
+        service.delete(requireUserId(), id);
+    }
+
     @GET
     @Path("/by-category")
     public List<WearableResponseDto> getByCategory(
@@ -106,6 +134,19 @@ public class WearableResource {
 
         UUID categoryId = parseCategoryId(categoryIdParam);
         return service.getByUserIdAndCategory(requireUserId(), categoryId);
+    }
+
+    @POST
+    @Path("/predict")
+    public WearablePredictResponseDto predict(
+            WearablePredictRequestDto form
+    ) {
+        requireUserId();
+        if (form == null || form.file == null) {
+            throw new BadRequestException("file is required");
+        }
+
+        return predictionService.predict(form.file);
     }
 
     private static UUID parseCategoryId(String raw) {

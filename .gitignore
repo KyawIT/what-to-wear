@@ -4,6 +4,8 @@ minio
 .claude
 .idea
 /AGENTS.md
+/backend/AGENTS.md
 /CLAUDE.md
 /docker/.env.prod
 /wtw-realm.json
+/python/preprocessed.zip

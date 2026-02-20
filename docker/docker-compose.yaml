@@ -24,14 +24,11 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_SPI_THEME_CACHE_THEMES: "false"
       KC_SPI_THEME_CACHE_TEMPLATES: "false"
-
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://wtw-db:5432/db
       KC_DB_USERNAME: app
       KC_DB_PASSWORD: app
       KC_DB_SCHEMA: keycloak
-
-      # Disable HTTPS requirement for local dev
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
@@ -76,48 +73,17 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-  
+
   wtw-qdrant:
     image: qdrant/qdrant:latest
     container_name: wtw-qdrant
     restart: unless-stopped
     ports:
-      - "6333:6333"   # REST
-      - "6334:6334"   # gRPC
+      - "6333:6333"
+      - "6334:6334"
     volumes:
       - wtw_qdrant:/qdrant/storage
 
-  # ============================================================================
-  # OPTION 1: ML Processing Container (für Dataset Preprocessing & Indexing)
-  # Verwende diesen Container für:
-  # - preprocess_dataset.py (Person Detection, Tag Extraction)
-  # - qdrant_indexer.py (Bilder in Qdrant indexieren)
-  # ============================================================================
-  #wtw-ml:
-  #  build:
-  #    context: ../python
-  #    dockerfile: embedding/docker/Dockerfile
-  #  container_name: wtw-ml
-  #  restart: unless-stopped
-  #  depends_on:
-  #    - wtw-qdrant
-  #  environment:
-  #    QDRANT_HOST: wtw-qdrant
-  #    QDRANT_PORT: "6333"
-  #  volumes:
-  #    - ../python/embedding/dataset:/data/input
-  #    - ../python/embedding/preprocessed:/data/output
-  #    - ../python/embedding/scripts:/app/scripts
-  #    - ../python/embedding/config:/app/config
-  #  working_dir: /app
-  #  command: ["tail", "-f", "/dev/null"]
-  #
-  # ============================================================================
-  # OPTION 2: Python Service Container (für FastAPI Backend)
-  # Verwende diesen Container für:
-  # - FastAPI Server mit /predict Endpoint
-  # - Bildklassifikation über Qdrant Vector Search
-  # ============================================================================
   python-service:
     build:
       context: ../python/service
@@ -129,8 +95,6 @@ services:
     environment:
       QDRANT_HOST: wtw-qdrant
       QDRANT_PORT: "6333"
-    ports:
-      - "8084:8000"  # FastAPI Server
     volumes:
       - ../python/service:/app/service
     working_dir: /app
@@ -139,6 +103,35 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  wtw-backend:
+    build:
+      context: ../backend
+      dockerfile: src/main/docker/Dockerfile
+    container_name: wtw-backend
+    restart: unless-stopped
+    depends_on:
+      - wtw-db
+      - wtw-minio
+      - wtw-keycloak
+      - python-service
+    ports:
+      - "8080:8080"
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://wtw-db:5432/db
+      QUARKUS_DATASOURCE_USERNAME: app
+      QUARKUS_DATASOURCE_PASSWORD: app
+      QUARKUS_MINIO_ENDPOINT: http://wtw-minio:9000
+      QUARKUS_MINIO_REGION: eu-central-1
+      QUARKUS_MINIO_HOST: wtw-minio
+      QUARKUS_MINIO_PORT: 9000
+      QUARKUS_MINIO_SECURE: "false"
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: adminadmin
+      APP_MINIO_PUBLIC_BASE_URL: http://localhost:9000
+      OIDC_AUTH_SERVER_URL: http://wtw-keycloak:8080/realms/wtw
+      OIDC_CLIENT_ID: wtw-client
+      APP_PYTHON_PREDICT_URL: http://python-service:8000/predict
 
 volumes:
   wtw_data:

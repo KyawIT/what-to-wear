@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import {
@@ -50,6 +50,8 @@ import { authClient } from "@/lib/auth-client";
 import { dataUriToFileUri } from "@/lib/image/image.utils";
 import { colors } from "@/lib/theme";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { predictWearableTags } from "@/api/backend/predict.api";
+import { suggestWearableMetadata } from "@/lib/ai/metadata-suggestions";
 
 const SUGGESTED_TAGS = [
   "Casual",
@@ -63,6 +65,11 @@ const CREATE_NEW_VALUE = "__create_new__";
 type Params = {
   id?: string;
   uri?: string;
+};
+
+type SuggestedTagOption = {
+  value: string;
+  isAi: boolean;
 };
 
 export default function PreviewScreen() {
@@ -79,6 +86,10 @@ export default function PreviewScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [predictingTags, setPredictingTags] = useState(false);
+  const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
+  const [aiPredictionError, setAiPredictionError] = useState<string | null>(null);
+  const [hasAutoFilledMetadata, setHasAutoFilledMetadata] = useState(false);
 
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -100,11 +111,107 @@ export default function PreviewScreen() {
     })();
   }, [data?.user?.id]);
 
+  useEffect(() => {
+    if (!cutoutUri || loading || error || !data?.user?.id) {
+      if (!cutoutUri) {
+        setAiSuggestedTags([]);
+        setPredictingTags(false);
+        setAiPredictionError(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setPredictingTags(true);
+        setAiPredictionError(null);
+        const accessToken = await getKeycloakAccessToken(data.user.id);
+        const file = cutoutUri.startsWith("data:")
+          ? await dataUriToFileUri(cutoutUri, `predict_${Date.now()}.png`)
+          : {
+              uri: cutoutUri,
+              mime: "image/png",
+              name: `predict_${Date.now()}.png`,
+            };
+
+        const predictionResult = await predictWearableTags(
+          {
+            file: {
+              uri: file.uri,
+              name: file.name,
+              type: file.mime,
+            },
+          },
+          accessToken
+        );
+
+        if (cancelled) return;
+
+        if (predictionResult.ok) {
+          const normalized = (predictionResult.data.tags ?? [])
+            .map(normalizeTagForDisplay)
+            .filter(Boolean);
+          setAiSuggestedTags(normalized);
+          setAiPredictionError(null);
+          return;
+        }
+
+        // Fallback: some runtimes/proxies reject URI multipart parts;
+        // retry as Blob while keeping backend endpoint unchanged.
+        if (predictionResult.error.includes('loc":["body","file"]')) {
+          const blob = await (await fetch(cutoutUri)).blob();
+          const retryResult = await predictWearableTags(
+            {
+              file: {
+                blob,
+                name: `predict_${Date.now()}.png`,
+                type: "image/png",
+              },
+            },
+            accessToken
+          );
+
+          if (cancelled) return;
+
+          if (retryResult.ok) {
+            const normalized = (retryResult.data.tags ?? [])
+              .map(normalizeTagForDisplay)
+              .filter(Boolean);
+            setAiSuggestedTags(normalized);
+            setAiPredictionError(null);
+            return;
+          }
+
+          setAiSuggestedTags([]);
+          setAiPredictionError(buildAiPredictionMessage(retryResult.error));
+          return;
+        }
+
+        setAiSuggestedTags([]);
+        setAiPredictionError(buildAiPredictionMessage(predictionResult.error));
+      } catch (predictError) {
+        if (cancelled) return;
+        setAiSuggestedTags([]);
+        setAiPredictionError(buildAiPredictionMessage(predictError));
+      } finally {
+        if (!cancelled) {
+          setPredictingTags(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cutoutUri, loading, error, data?.user?.id]);
+
   const onBack = () => router.back();
   const retake = () => router.back();
 
   const addTag = (raw: string) => {
-    const v = raw.trim().toLowerCase();
+    const v = normalizeTagForDisplay(raw);
     if (!v) return;
 
     setTags((prev) =>
@@ -118,14 +225,24 @@ export default function PreviewScreen() {
   };
 
   // Filter suggestions to exclude already added tags
-  const availableSuggestions = useMemo(
-    () =>
-      SUGGESTED_TAGS.filter(
-        (suggestion) =>
-          !tags.some((t) => t.toLowerCase() === suggestion.toLowerCase())
-      ),
-    [tags]
-  );
+  const availableSuggestions = useMemo(() => {
+    const byValue = new Map<string, SuggestedTagOption>();
+
+    for (const suggestion of SUGGESTED_TAGS) {
+      const key = suggestion.toLowerCase();
+      byValue.set(key, { value: suggestion, isAi: false });
+    }
+
+    for (const suggestion of aiSuggestedTags) {
+      const key = suggestion.toLowerCase();
+      byValue.set(key, { value: suggestion, isAi: true });
+    }
+
+    return [...byValue.values()].filter(
+      (suggestion) =>
+        !tags.some((t) => t.toLowerCase() === suggestion.value.toLowerCase())
+    );
+  }, [tags, aiSuggestedTags]);
 
   const handleCategoryChange = (value: string) => {
     if (value === CREATE_NEW_VALUE) {
@@ -172,6 +289,41 @@ export default function PreviewScreen() {
   const selectedCategoryName = categories.find(
     (c) => c.id === selectedCategoryId
   )?.name;
+
+  const applyMetadataSuggestion = useCallback((
+    options: { force?: boolean } = {}
+  ) => {
+    const suggestion = suggestWearableMetadata({
+      categoryName: selectedCategoryName,
+      tags: aiSuggestedTags.length > 0 ? aiSuggestedTags : tags,
+    });
+
+    const shouldSetTitle = options.force || !title.trim();
+    const shouldSetDescription = options.force || !description.trim();
+
+    if (shouldSetTitle) {
+      setTitle(suggestion.name);
+    }
+    if (shouldSetDescription) {
+      setDescription(suggestion.description);
+    }
+  }, [selectedCategoryName, aiSuggestedTags, tags, title, description]);
+
+  useEffect(() => {
+    if (hasAutoFilledMetadata) return;
+    if (title.trim() || description.trim()) return;
+    if (!selectedCategoryName && aiSuggestedTags.length === 0) return;
+
+    applyMetadataSuggestion();
+    setHasAutoFilledMetadata(true);
+  }, [
+    hasAutoFilledMetadata,
+    title,
+    description,
+    selectedCategoryName,
+    aiSuggestedTags,
+    applyMetadataSuggestion,
+  ]);
 
   const onUse = async () => {
     if (!cutoutUri) return;
@@ -384,9 +536,32 @@ export default function PreviewScreen() {
             {/* Title */}
             <Box className="mb-5">
               <HStack className="items-center justify-between mb-2">
-                <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                  Title
-                </Text>
+                <HStack className="items-center">
+                  <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                    Title
+                  </Text>
+                  <Pressable
+                    onPress={() => applyMetadataSuggestion({ force: true })}
+                    className="ml-2 active:opacity-70"
+                  >
+                    <HStack
+                      className="items-center rounded-full px-2.5 py-1"
+                      style={{
+                        backgroundColor: `${colors.primary}15`,
+                        borderWidth: 1,
+                        borderColor: `${colors.primary}30`,
+                      }}
+                    >
+                      <Sparkles size={12} color={colors.primary} />
+                      <Text
+                        className="text-xs font-semibold ml-1"
+                        style={{ color: colors.primary }}
+                      >
+                        Auto Fill
+                      </Text>
+                    </HStack>
+                  </Pressable>
+                </HStack>
                 <Text className="text-xs" style={{ color: colors.textMuted }}>
                   {title.trim().length}/60
                 </Text>
@@ -685,36 +860,62 @@ export default function PreviewScreen() {
               )}
 
               {/* Suggested tags - always visible, filtered */}
-              {availableSuggestions.length > 0 && (
+              {(availableSuggestions.length > 0 || aiPredictionError) && (
                 <Box className="mt-3">
-                  <Text
-                    className="text-xs font-medium mb-2 uppercase tracking-wide"
-                    style={{ color: colors.textMuted }}
-                  >
-                    Suggestions
-                  </Text>
-                  <HStack className="flex-wrap">
-                    {availableSuggestions.map((suggestion) => (
-                      <Pressable
-                        key={suggestion}
-                        onPress={() => addTag(suggestion)}
-                        className="mr-2 mb-2 active:opacity-70"
+                  <HStack className="items-center mb-2">
+                    <Text
+                      className="text-xs font-medium uppercase tracking-wide"
+                      style={{ color: colors.textMuted }}
+                    >
+                      Suggestions
+                    </Text>
+                    {predictingTags && (
+                      <Text
+                        className="text-xs ml-2"
+                        style={{ color: colors.primary }}
                       >
-                        <Box
-                          className="rounded-full px-3 py-2"
-                          style={{
-                            backgroundColor: colors.backgroundSecondary,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                          }}
-                        >
-                          <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                            + {suggestion}
-                          </Text>
-                        </Box>
-                      </Pressable>
-                    ))}
+                        ✨ AI predicting...
+                      </Text>
+                    )}
                   </HStack>
+                  {aiPredictionError && (
+                    <Box
+                      className="rounded-xl px-3 py-3 mb-2"
+                      style={{
+                        backgroundColor: `${colors.warning}15`,
+                        borderWidth: 1,
+                        borderColor: `${colors.warning}50`,
+                      }}
+                    >
+                      <Text className="text-sm" style={{ color: colors.textPrimary }}>
+                        {aiPredictionError}
+                      </Text>
+                    </Box>
+                  )}
+                  {availableSuggestions.length > 0 && (
+                    <HStack className="flex-wrap">
+                      {availableSuggestions.map((suggestion) => (
+                        <Pressable
+                          key={`${suggestion.isAi ? "ai" : "default"}-${suggestion.value.toLowerCase()}`}
+                          onPress={() => addTag(suggestion.value)}
+                          className="mr-2 mb-2 active:opacity-70"
+                        >
+                          <Box
+                            className="rounded-full px-3 py-2"
+                            style={{
+                              backgroundColor: colors.backgroundSecondary,
+                              borderWidth: 1,
+                              borderColor: suggestion.isAi ? `${colors.primary}80` : colors.border,
+                            }}
+                          >
+                            <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                              + {suggestion.isAi ? `✨ ${suggestion.value}` : suggestion.value}
+                            </Text>
+                          </Box>
+                        </Pressable>
+                      ))}
+                    </HStack>
+                  )}
                 </Box>
               )}
             </Box>
@@ -793,4 +994,25 @@ export default function PreviewScreen() {
       </Box>
     </KeyboardAvoidingView>
   );
+}
+
+function buildAiPredictionMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = raw.toLowerCase();
+
+  if (normalized.includes("low confidence")) {
+    return "I couldn't confidently suggest tags for this image. Try another photo.";
+  }
+
+  if (normalized.includes('loc":["body","file"]')) {
+    return "Couldn't read image. Please retake.";
+  }
+
+  return "AI suggestions unavailable.";
+}
+
+function normalizeTagForDisplay(raw: string): string {
+  const cleaned = raw.trim().toLowerCase();
+  if (!cleaned) return "";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }

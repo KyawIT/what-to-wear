@@ -2,8 +2,10 @@ package at.htlleonding.wtw.wearables.service;
 
 import at.htlleonding.wtw.wearables.dto.UploadResultDto;
 import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
+import at.htlleonding.wtw.wearables.model.Outfit;
 import at.htlleonding.wtw.wearables.model.Wearable;
 import at.htlleonding.wtw.wearables.model.WearableCategory;
+import at.htlleonding.wtw.wearables.repository.OutfitRepository;
 import at.htlleonding.wtw.wearables.repository.WearableCategoryRepository;
 import at.htlleonding.wtw.wearables.repository.WearableRepository;
 import at.htlleonding.wtw.wearables.util.WearablesUtil;
@@ -20,15 +22,18 @@ import java.util.UUID;
 public class WearableService {
 
     private final WearableRepository repo;
+    private final OutfitRepository outfitRepo;
     private final WearableCategoryRepository categoryRepo;
     private final WearablesUtil wearablesUtil;
 
     public WearableService(
             WearableRepository repo,
+            OutfitRepository outfitRepo,
             WearableCategoryRepository categoryRepo,
             WearablesUtil wearablesUtil
     ) {
         this.repo = repo;
+        this.outfitRepo = outfitRepo;
         this.categoryRepo = categoryRepo;
         this.wearablesUtil = wearablesUtil;
     }
@@ -205,5 +210,36 @@ public class WearableService {
                 wearable.createdAt,
                 wearable.updatedAt
         );
+    }
+
+    @Transactional
+    public void delete(String userId, UUID wearableId) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (wearableId == null) {
+            throw new IllegalArgumentException("wearableId is required");
+        }
+
+        String userIdTrim = userId.trim();
+        Wearable wearable = repo.find("id = ?1 and userId = ?2", wearableId, userIdTrim).firstResult();
+        if (wearable == null) {
+            throw new NotFoundException("Wearable not found");
+        }
+
+        List<Outfit> outfits = outfitRepo.list("userId = ?1 and ?2 member of wearables", userIdTrim, wearable);
+        for (Outfit outfit : outfits) {
+            if (outfit.wearables == null || outfit.wearables.isEmpty()) {
+                continue;
+            }
+            outfit.wearables.removeIf(linkedWearable -> wearableId.equals(linkedWearable.id));
+        }
+        outfitRepo.flush();
+
+        if (wearable.cutoutImageKey != null && !wearable.cutoutImageKey.isBlank()) {
+            wearablesUtil.deleteWearableImage(wearable.cutoutImageKey);
+        }
+
+        repo.delete(wearable);
     }
 }
