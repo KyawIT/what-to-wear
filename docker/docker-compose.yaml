@@ -84,11 +84,11 @@ services:
     volumes:
       - wtw_qdrant:/qdrant/storage
 
-  python-service:
+  wtw-embeddings:
     build:
-      context: ../python/service
-      dockerfile: docker/Dockerfile
-    container_name: python-service
+      context: ../python/embedding
+      dockerfile: ../../docker/embedding/Dockerfile
+    container_name: wtw-embeddings
     restart: unless-stopped
     depends_on:
       - wtw-qdrant
@@ -96,7 +96,31 @@ services:
       QDRANT_HOST: wtw-qdrant
       QDRANT_PORT: "6333"
     volumes:
-      - ../python/service:/app/service
+      - ./python/embedding/preprocessed_dataset:/data/input
+      - ./python/embedding/preprocessed_dataset/images-output:/data/output
+    working_dir: /app
+    command: ["tail", "-f", "/dev/null"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  wtw-python:
+    build:
+      context: ../python/core
+      dockerfile: ../../docker/python-service/Dockerfile
+    container_name: wtw-python
+    restart: unless-stopped
+    depends_on:
+      - wtw-qdrant
+    environment:
+      QDRANT_HOST: wtw-qdrant
+      QDRANT_PORT: "6333"
+    ports:
+      - "8084:8000"
+    volumes:
+      - ../python/core:/app
     working_dir: /app
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
@@ -114,7 +138,7 @@ services:
       - wtw-db
       - wtw-minio
       - wtw-keycloak
-      - python-service
+      - wtw-python
     ports:
       - "8080:8080"
     environment:
@@ -131,7 +155,7 @@ services:
       APP_MINIO_PUBLIC_BASE_URL: http://localhost:9000
       OIDC_AUTH_SERVER_URL: http://wtw-keycloak:8080/realms/wtw
       OIDC_CLIENT_ID: wtw-client
-      APP_PYTHON_PREDICT_URL: http://python-service:8000/predict
+      APP_PYTHON_PREDICT_URL: http://wtw-python:8000/predict
 
 volumes:
   wtw_data:

@@ -1,0 +1,92 @@
+{
+  "SHOES": [
+    "boots",
+    "flip-flops",
+    "heels",
+    "sandals",
+    "shoes",
+    "chelsea boots",
+    "sneakers",
+    "knee-high boots"
+  ],
+  "BOTTOM": [
+    "chinos",
+    "dress",
+    "jeans",
+    "leggings",
+    "joggers",
+    "pants",
+    "shorts",
+    "skirt",
+    "maxi dress",
+    "mini skirt",
+    "midi skirt",
+    "trousers",
+    "cargo pants",
+    "evening dress"
+  ],
+  "TOP": {
+    "SHIRT": [
+      "shirt",
+      "tshirt",
+      "t-shirt",
+      "polo shirt"
+    ],
+    "HOODIE": [
+      "cardigan",
+      "hoodie",
+      "sweater"
+    ],
+    "JACKET": [
+      "blazer",
+      "coat",
+      "jacket",
+      "raincoat",
+      "denim jacket",
+      "puffer jacket",
+      "biker jacket"
+    ]
+  },
+  "ACCESSORY": {
+    "UNDERWEAR": [
+      "bra",
+      "boxers",
+      "socks",
+      "tights",
+      "ankle socks",
+      "sports bra",
+      "fishnet tights",
+      "braclet"
+    ],
+    "HEAD": [
+      "hat",
+      "beanie",
+      "cap",
+      "fedora hat"
+    ],
+    "ARMS": [
+      "bracelet",
+      "gloves",
+      "watch"
+    ],
+    "BAG": [
+      "backpack",
+      "bag",
+      "wallet",
+      "handbag",
+      "crossbody bag"
+    ],
+    "GENERAL": [
+      "belt",
+      "necklace",
+      "scarf",
+      "sunglasses",
+      "tie",
+      "silk scarf"
+    ]
+  },
+  "SWIMWEAR": [
+    "swimsuit",
+    "bikini"
+  ]
+}

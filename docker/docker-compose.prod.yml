@@ -98,9 +98,11 @@ services:
     volumes:
       - wtw_qdrant:/qdrant/storage
 
-  wtw-python:
-    image: ${PYTHON_IMAGE}
-    container_name: wtw-python
+  python-service:
+    build:
+      context: ../python/core
+      dockerfile: ../docker/python-service/Dockerfile
+    container_name: python-service
     restart: unless-stopped
     depends_on:
       - wtw-qdrant
@@ -109,6 +111,11 @@ services:
     environment:
       QDRANT_HOST: wtw-qdrant
       QDRANT_PORT: "6333"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   wtw-backend:
     image: ${BACKEND_IMAGE}
@@ -117,7 +124,7 @@ services:
     depends_on:
       - wtw-db
       - wtw-minio
-      - wtw-python
+      - python-service
     networks:
       - wtw_internal
       - proxy_default
