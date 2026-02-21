@@ -8,4 +8,4 @@ minio
 /CLAUDE.md
 /docker/.env.prod
 /wtw-realm.json
-/python/preprocessed.zip
+/python/neuronalnetwork/
