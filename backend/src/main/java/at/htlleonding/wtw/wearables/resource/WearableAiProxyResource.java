@@ -4,6 +4,7 @@ import at.htlleonding.wtw.wearables.dto.WearableAiOutfitAiRequestDto;
 import at.htlleonding.wtw.wearables.dto.WearableAiWearableDeleteRequestDto;
 import at.htlleonding.wtw.wearables.dto.WearableAiWearableUploadRequestDto;
 import at.htlleonding.wtw.wearables.dto.WearableAiWearableUpdateRequestDto;
+import at.htlleonding.wtw.wearables.security.AuthenticatedUserProvider;
 import at.htlleonding.wtw.wearables.service.WearableAiProxyService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,7 +22,6 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 
 @Path("/wearableai")
 @Authenticated
@@ -30,16 +30,16 @@ public class WearableAiProxyResource {
 
     private final WearableAiProxyService proxyService;
     private final ObjectMapper objectMapper;
-    private final JsonWebToken jwt;
+    private final AuthenticatedUserProvider authenticatedUserProvider;
 
     public WearableAiProxyResource(
             WearableAiProxyService proxyService,
             ObjectMapper objectMapper,
-            JsonWebToken jwt
+            AuthenticatedUserProvider authenticatedUserProvider
     ) {
         this.proxyService = proxyService;
         this.objectMapper = objectMapper;
-        this.jwt = jwt;
+        this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
     @GET
@@ -217,10 +217,6 @@ public class WearableAiProxyResource {
     }
 
     private String requireUserId() {
-        String sub = jwt.getSubject();
-        if (sub == null || sub.isBlank()) {
-            throw new jakarta.ws.rs.NotAuthorizedException("Missing sub claim");
-        }
-        return sub.trim();
+        return authenticatedUserProvider.requireUserId();
     }
 }
