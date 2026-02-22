@@ -1,10 +1,12 @@
 """Image embedding utilities using SentenceTransformers."""
+import logging
 import torch
 from sentence_transformers import SentenceTransformer
 from PIL import Image
-import numpy as np
 from pathlib import Path
 from typing import List, Union
+
+logger = logging.getLogger(__name__)
 
 
 class ImageEmbedder:
@@ -17,11 +19,11 @@ class ImageEmbedder:
         Args:
             model_name: Name of the SentenceTransformer model to use
         """
-        print(f"Loading model: {model_name}")
+        logger.info("Loading image embedding model: %s", model_name)
         self.model = SentenceTransformer(model_name)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(self.device)
-        print(f"Model loaded on device: {self.device}")
+        logger.info("Image embedding model loaded on device: %s", self.device)
     
     def embed_image(self, image_path: Union[str, Path]) -> List[float]:
         """
