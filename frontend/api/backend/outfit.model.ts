@@ -12,6 +12,13 @@ export type CreateOutfitInput = {
   };
 };
 
+export type UpdateOutfitInput = {
+  title: string;
+  description?: string;
+  tags?: string[];
+  wearableIds: string[];
+};
+
 export type OutfitResponseDto = {
   id: string;
   userId: string;
