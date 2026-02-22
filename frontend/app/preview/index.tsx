@@ -2,25 +2,17 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TextInput,
-  Alert,
-  View,
-  Text as RNText,
-  StyleSheet,
-} from "react-native";
+  KeyboardAvoidingView, Platform, ScrollView, TextInput, Alert, View, Text as RNText } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Center } from "@/components/ui/center";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
 import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { Button, ButtonText } from "@/components/ui/button";
 import { AppHeader } from "@/components/navigation/app-header";
+import NoImageSelectedState from "@/components/common/NoImageSelectedState";
+import RemoveBgErrorCallout from "@/components/common/RemoveBgErrorCallout";
+import SuggestedTagsSection, { SuggestedTagOption } from "@/components/common/SuggestedTagsSection";
 
 import { useRemoveBackground } from "@/hooks/useRemoveBackground";
 import {
@@ -56,6 +48,7 @@ import { colors } from "@/lib/theme";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
 import { predictWearableTags } from "@/api/backend/predict.api";
 import { suggestWearableMetadata } from "@/lib/ai/metadata-suggestions";
+import { s } from "../../styles/screens/preview/index.styles";
 
 const SUGGESTED_TAGS = [
   "Casual",
@@ -69,11 +62,6 @@ const CREATE_NEW_VALUE = "__create_new__";
 type Params = {
   id?: string;
   uri?: string;
-};
-
-type SuggestedTagOption = {
-  value: string;
-  isAi: boolean;
 };
 
 export default function PreviewScreen() {
@@ -378,19 +366,7 @@ export default function PreviewScreen() {
     !loading && cutoutUri && tags.length > 0 && selectedCategoryId && title.trim();
 
   if (!id && !uri) {
-    return (
-      <Center className="flex-1 px-6" style={{ backgroundColor: colors.background }}>
-        <RNText style={s.emptyTitle}>No image selected</RNText>
-        <Button
-          variant="outline"
-          action="secondary"
-          onPress={onBack}
-          className="mt-4 rounded-xl"
-        >
-          <ButtonText style={{ color: colors.textPrimary }}>Go back</ButtonText>
-        </Button>
-      </Center>
-    );
+    return <NoImageSelectedState onBack={onBack} />;
   }
 
   return (
@@ -469,47 +445,12 @@ export default function PreviewScreen() {
         >
           {/* Error */}
           {error && (
-            <Box
-              className="mt-4 rounded-2xl p-4"
-              style={{
-                backgroundColor: `${colors.error}10`,
-                borderWidth: 1,
-                borderColor: `${colors.error}30`,
-              }}
-            >
-              <HStack className="items-center mb-2">
-                <Text className="text-2xl mr-2">⚠️</Text>
-                <RNText style={s.errorTitle}>Something went wrong</RNText>
-              </HStack>
-              <RNText style={s.errorBody}>{error}</RNText>
-
-              <HStack className="mt-4 space-x-3">
-                <Pressable
-                  onPress={retry}
-                  className="flex-1 mr-3 rounded-xl py-3 items-center active:opacity-80"
-                  style={{
-                    backgroundColor: `${colors.error}15`,
-                    borderWidth: 1,
-                    borderColor: `${colors.error}30`,
-                  }}
-                  disabled={loading}
-                >
-                  <HStack className="items-center">
-                    <RotateCcw size={16} color={colors.error} />
-                    <RNText style={s.retryText}>Retry</RNText>
-                  </HStack>
-                </Pressable>
-
-                <Pressable
-                  onPress={retake}
-                  className="flex-1 rounded-xl py-3 items-center active:opacity-80"
-                  style={{ backgroundColor: colors.error }}
-                  disabled={loading}
-                >
-                  <RNText style={s.retakeText}>Retake Photo</RNText>
-                </Pressable>
-              </HStack>
-            </Box>
+            <RemoveBgErrorCallout
+              error={error}
+              loading={loading}
+              onRetry={retry}
+              onRetake={retake}
+            />
           )}
 
           {/* Form Section */}
@@ -786,53 +727,12 @@ export default function PreviewScreen() {
                 </Box>
               )}
 
-              {/* Suggested tags */}
-              {(availableSuggestions.length > 0 || aiPredictionError) && (
-                <Box className="mt-3">
-                  <HStack className="items-center mb-2">
-                    <RNText style={s.suggestionsLabel}>Suggestions</RNText>
-                    {predictingTags && (
-                      <RNText style={s.aiPredicting}>AI predicting...</RNText>
-                    )}
-                  </HStack>
-                  {aiPredictionError && (
-                    <Box
-                      className="rounded-xl px-3 py-3 mb-2"
-                      style={{
-                        backgroundColor: `${colors.warning}15`,
-                        borderWidth: 1,
-                        borderColor: `${colors.warning}50`,
-                      }}
-                    >
-                      <RNText style={s.aiErrorText}>{aiPredictionError}</RNText>
-                    </Box>
-                  )}
-                  {availableSuggestions.length > 0 && (
-                    <HStack className="flex-wrap">
-                      {availableSuggestions.map((suggestion) => (
-                        <Pressable
-                          key={`${suggestion.isAi ? "ai" : "default"}-${suggestion.value.toLowerCase()}`}
-                          onPress={() => addTag(suggestion.value)}
-                          className="mr-2 mb-2 active:opacity-70"
-                        >
-                          <Box
-                            className="rounded-full px-3 py-2"
-                            style={{
-                              backgroundColor: colors.backgroundSecondary,
-                              borderWidth: 1,
-                              borderColor: suggestion.isAi ? `${colors.primary}80` : colors.border,
-                            }}
-                          >
-                            <RNText style={s.suggestionText}>
-                              + {suggestion.isAi ? `✨ ${suggestion.value}` : suggestion.value}
-                            </RNText>
-                          </Box>
-                        </Pressable>
-                      ))}
-                    </HStack>
-                  )}
-                </Box>
-              )}
+              <SuggestedTagsSection
+                availableSuggestions={availableSuggestions}
+                predictingTags={predictingTags}
+                aiPredictionError={aiPredictionError}
+                onAddTag={addTag}
+              />
             </Box>
           </Box>
 
@@ -896,156 +796,6 @@ export default function PreviewScreen() {
     </SafeAreaView>
   );
 }
-
-const s = StyleSheet.create({
-  headerTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 18,
-    color: "#3D2E22",
-    letterSpacing: -0.3,
-  },
-  cancelText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 15,
-    color: "#6B5B4F",
-    marginLeft: 4,
-  },
-  saveText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
-  loadingLabel: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    color: "#3D2E22",
-    textAlign: "center",
-    marginTop: 8,
-  },
-  errorTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 16,
-    color: "#D25037",
-  },
-  errorBody: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#D25037",
-  },
-  retryText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    color: "#D25037",
-    marginLeft: 8,
-  },
-  retakeText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-  fieldLabel: {
-    fontFamily: "PlayfairDisplay_500Medium",
-    fontSize: 14,
-    color: "#3D2E22",
-  },
-  autoFillText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    color: "#D4A574",
-    marginLeft: 4,
-  },
-  charCount: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    color: "#9B8B7F",
-  },
-  textInput: {
-    fontFamily: "Inter_400Regular",
-    color: "#3D2E22",
-    fontSize: 15,
-    flex: 1,
-    paddingVertical: 0,
-  },
-  newCatLabel: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-    color: "#D4A574",
-    marginLeft: 4,
-  },
-  createBtnText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
-  catError: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: "#D25037",
-    marginTop: 8,
-  },
-  selectedCatHint: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: "#9B8B7F",
-    marginTop: 6,
-    marginLeft: 4,
-  },
-  tagCount: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: "#9B8B7F",
-    marginLeft: 8,
-  },
-  clearAll: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-    color: "#D25037",
-  },
-  addBtnText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-  tagText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    color: "#D4A574",
-    marginLeft: 6,
-  },
-  suggestionsLabel: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    color: "#9B8B7F",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  aiPredicting: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: "#D4A574",
-    marginLeft: 8,
-  },
-  aiErrorText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#3D2E22",
-  },
-  suggestionText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#6B5B4F",
-  },
-  retakeButtonText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 15,
-    color: "#6B5B4F",
-    marginLeft: 8,
-  },
-  emptyTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 18,
-    color: "#3D2E22",
-  },
-});
 
 function buildAiPredictionMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
