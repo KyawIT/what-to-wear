@@ -21,6 +21,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +36,7 @@ public class WearablePredictionService {
 
     public WearablePredictionService(
             ObjectMapper objectMapper,
-            @ConfigProperty(name = "app.python.predict-url", defaultValue = "http://localhost:8084/predict")
+            @ConfigProperty(name = "app.python.predict-url", defaultValue = "http://wtw-python:8000/wearables/predict")
             String predictUrl
     ) {
         this.objectMapper = objectMapper;
@@ -132,8 +134,15 @@ public class WearablePredictionService {
             );
         } catch (WebApplicationException e) {
             throw e;
+        } catch (UnknownHostException | SocketTimeoutException e) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                            .type(MediaType.TEXT_PLAIN)
+                            .entity("Prediction service unavailable")
+                            .build()
+            );
         } catch (IOException e) {
-            throw new InternalServerErrorException("Failed to process uploaded image", e);
+            throw new InternalServerErrorException("Failed to process prediction response", e);
         } catch (Exception e) {
             throw new WebApplicationException(
                     Response.status(Response.Status.SERVICE_UNAVAILABLE)
