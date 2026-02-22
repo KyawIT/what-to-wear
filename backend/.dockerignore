@@ -1,5 +1,8 @@
+# Exclude everything by default from build context
 *
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
+
+# Keep only the packaged Quarkus JVM artifact layout used by src/main/docker/Dockerfile
+!target/
+target/*
+!target/quarkus-app/
+!target/quarkus-app/**
