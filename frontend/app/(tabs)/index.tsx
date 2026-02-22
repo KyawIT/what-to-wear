@@ -436,50 +436,52 @@ const Index = () => {
 
     return (
       <View style={styles.outfitCard}>
-        <View style={styles.outfitHeader}>
-          <Sparkles size={14} color={colors.primary} />
-          <RNText style={styles.outfitLabel}>
-            {item.id.replace("outfit-", "Outfit ")}
-          </RNText>
-        </View>
+        <View style={styles.outfitCardContent}>
+          <View style={styles.outfitHeader}>
+            <Sparkles size={14} color={colors.primary} />
+            <RNText style={styles.outfitLabel}>
+              {item.id.replace("outfit-", "Outfit ")}
+            </RNText>
+          </View>
 
-        <View style={styles.outfitGrid}>
-          {item.items.slice(0, 4).map((w) => (
-            <View key={w.id} style={styles.outfitItemThumb}>
-              {w.cutoutImageUrl ? (
-                <Image
-                  source={{ uri: w.cutoutImageUrl }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="contain"
-                />
-              ) : (
-                <Center className="flex-1">
-                  <RNText style={styles.thumbPlaceholder}>
-                    {(w.categoryName ?? "?").charAt(0)}
-                  </RNText>
-                </Center>
-              )}
-            </View>
-          ))}
-        </View>
-
-        {item.items.length > 4 && (
-          <RNText style={styles.moreItems}>
-            +{item.items.length - 4} more
-          </RNText>
-        )}
-
-        <HStack className="flex-wrap gap-1 mt-2">
-          {[...new Set(item.items.map((w) => w.categoryName).filter(Boolean))]
-            .slice(0, 3)
-            .map((cat) => (
-              <Badge key={cat} variant="solid" className="bg-primary-100" size="sm">
-                <BadgeText className="text-primary-700" style={{ fontSize: 10 }}>
-                  {cat}
-                </BadgeText>
-              </Badge>
+          <View style={styles.outfitGrid}>
+            {item.items.slice(0, 4).map((w) => (
+              <View key={w.id} style={styles.outfitItemThumb}>
+                {w.cutoutImageUrl ? (
+                  <Image
+                    source={{ uri: w.cutoutImageUrl }}
+                    style={{ width: "100%", height: "100%" }}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <Center className="flex-1">
+                    <RNText style={styles.thumbPlaceholder}>
+                      {(w.categoryName ?? "?").charAt(0)}
+                    </RNText>
+                  </Center>
+                )}
+              </View>
             ))}
-        </HStack>
+          </View>
+
+          {item.items.length > 4 && (
+            <RNText style={styles.moreItems}>
+              +{item.items.length - 4} more
+            </RNText>
+          )}
+
+          <HStack className="flex-wrap gap-1 mt-2">
+            {[...new Set(item.items.map((w) => w.categoryName).filter(Boolean))]
+              .slice(0, 3)
+              .map((cat) => (
+                <Badge key={cat} variant="solid" className="bg-primary-100" size="sm">
+                  <BadgeText className="text-primary-700" style={{ fontSize: 10 }}>
+                    {cat}
+                  </BadgeText>
+                </Badge>
+              ))}
+          </HStack>
+        </View>
 
         <Pressable
           onPress={() => handleSaveOutfit(item)}
@@ -668,11 +670,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#F0E8DC",
+    justifyContent: "space-between" as const,
     shadowColor: "#C9BAAA",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
+  },
+  outfitCardContent: {
+    flex: 1,
   },
   outfitHeader: {
     flexDirection: "row",
