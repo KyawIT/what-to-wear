@@ -1,4 +1,4 @@
-import {WearableResponseDto} from "@/api/backend/wearable.model";
+import {UpdateWearableInput, WearableResponseDto} from "@/api/backend/wearable.model";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080")
     .replace(/\/+$/, "");
@@ -127,4 +127,46 @@ export async function deleteWearableById(
     }
 
     return { success: true };
+}
+
+export async function updateWearableById(
+    wearableId: string,
+    input: UpdateWearableInput,
+    accessToken?: string
+): Promise<WearableResponseDto> {
+    if (!accessToken) {
+        throw new Error("accessToken is required");
+    }
+    if (!wearableId?.trim()) {
+        throw new Error("wearableId is required");
+    }
+    if (!input?.categoryId?.trim()) {
+        throw new Error("categoryId is required");
+    }
+    if (!input?.title?.trim()) {
+        throw new Error("title is required");
+    }
+
+    const payload = {
+        categoryId: input.categoryId.trim(),
+        title: input.title.trim(),
+        description: (input.description ?? "").trim(),
+        tags: (input.tags ?? []).map((tag) => tag.trim()).filter(Boolean),
+    };
+
+    const res = await fetch(`${BASE_URL}${ENDPOINT}/${encodeURIComponent(wearableId)}`, {
+        method: "PUT",
+        headers: {
+            ...buildHeaders(accessToken),
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to update wearable (${res.status}): ${text}`);
+    }
+
+    return res.json();
 }
