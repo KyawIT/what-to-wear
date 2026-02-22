@@ -38,6 +38,9 @@ public class OutfitService {
         this.wearablesUtil = wearablesUtil;
     }
 
+    /**
+     * Creates an outfit with optional outfit image and linked wearables.
+     */
     @Transactional
     public OutfitResponseDto create(
             String userId,
@@ -55,17 +58,7 @@ public class OutfitService {
 
         String userIdTrim = userId.trim();
 
-        // Resolve wearables — all must belong to this user
-        List<Wearable> wearables = new ArrayList<>();
-        if (wearableIds != null) {
-            for (UUID wId : wearableIds) {
-                Wearable w = wearableRepo.find("id = ?1 and userId = ?2", wId, userIdTrim).firstResult();
-                if (w == null) {
-                    throw new IllegalArgumentException("Wearable not found: " + wId);
-                }
-                wearables.add(w);
-            }
-        }
+        List<Wearable> wearables = resolveWearables(userIdTrim, wearableIds);
 
         Outfit outfit = new Outfit();
         outfit.userId = userIdTrim;
@@ -160,16 +153,7 @@ public class OutfitService {
             throw new NotFoundException("Outfit not found");
         }
 
-        List<Wearable> wearables = new ArrayList<>();
-        if (wearableIds != null) {
-            for (UUID wearableId : wearableIds) {
-                Wearable wearable = wearableRepo.find("id = ?1 and userId = ?2", wearableId, userIdTrim).firstResult();
-                if (wearable == null) {
-                    throw new IllegalArgumentException("Wearable not found: " + wearableId);
-                }
-                wearables.add(wearable);
-            }
-        }
+        List<Wearable> wearables = resolveWearables(userIdTrim, wearableIds);
 
         outfit.title = title.trim();
         outfit.description = normalize(description);
@@ -231,5 +215,21 @@ public class OutfitService {
                 out.add(x);
         }
         return out;
+    }
+
+    private List<Wearable> resolveWearables(String userId, List<UUID> wearableIds) {
+        List<Wearable> wearables = new ArrayList<>();
+        if (wearableIds == null) {
+            return wearables;
+        }
+
+        for (UUID wearableId : wearableIds) {
+            Wearable wearable = wearableRepo.find("id = ?1 and userId = ?2", wearableId, userId).firstResult();
+            if (wearable == null) {
+                throw new IllegalArgumentException("Wearable not found: " + wearableId);
+            }
+            wearables.add(wearable);
+        }
+        return wearables;
     }
 }
