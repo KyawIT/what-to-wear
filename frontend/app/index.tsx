@@ -1,12 +1,14 @@
-import { Text, View, ScrollView, TouchableOpacity } from "react-native";
+import { Text, View, ScrollView, TouchableOpacity, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { authClient } from "@/lib/auth-client";
 import { router, useNavigationContainerRef } from "expo-router";
 import { useEffect } from "react";
-import { LinearGradient } from "expo-linear-gradient";
-import { WardrobeIllustration } from "@/components/illustrations/WardrobeIllustration";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@/lib/theme";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const MASCOT_WIDTH = Math.min(SCREEN_WIDTH * 0.65, 280);
+const MASCOT_HEIGHT = MASCOT_WIDTH * 1.22;
 
 export default function Index() {
   const { data: isAuthenticated } = authClient.useSession();
@@ -21,121 +23,203 @@ export default function Index() {
 
   return (
     <View className="flex-1 bg-background-50">
-      <LinearGradient
-        colors={[colors.background, colors.backgroundSecondary, colors.background]}
-        locations={[0, 0.5, 1]}
-        className="flex-1"
+      <ScrollView
+        contentContainerClassName="flex-grow"
+        contentContainerStyle={{
+          paddingTop: insets.top + 16,
+          paddingBottom: insets.bottom + 28,
+        }}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerClassName="flex-grow px-6"
-          contentContainerStyle={{
-            paddingTop: insets.top + 40,
-            paddingBottom: insets.bottom + 20,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Main Illustration */}
-          <View className="items-center mb-8">
-            <View className="bg-background-0 rounded-3xl p-5 shadow-lg">
-              <WardrobeIllustration
-                width={260}
-                height={200}
-                primaryColor={colors.primary}
-                secondaryColor={colors.secondary}
-                accentColor={colors.accent}
-              />
-            </View>
-          </View>
+        {/* Mascot Hero */}
+        <View className="items-center mb-6">
+          <View
+            style={{
+              width: MASCOT_WIDTH + 60,
+              height: MASCOT_WIDTH + 60,
+              borderRadius: (MASCOT_WIDTH + 60) / 2,
+              backgroundColor: "#F0E8DC",
+              position: "absolute",
+              top: (MASCOT_HEIGHT - MASCOT_WIDTH - 60) / 2 + 20,
+              opacity: 0.4,
+            }}
+          />
 
-          {/* Logo */}
-          <View className="items-center mb-4">
-            <View className="rounded-full bg-background-0 p-1 border-2 border-outline-200">
+          <Image
+            source={require("../assets/logo/logo-5xl.png")}
+            style={{
+              width: MASCOT_WIDTH,
+              height: MASCOT_HEIGHT,
+            }}
+            contentFit="contain"
+          />
+        </View>
+
+        {/* Brand Name */}
+        <View className="items-center mb-2">
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontSize: 36,
+              color: colors.textPrimary,
+              letterSpacing: -0.5,
+            }}
+          >
+            What to Wear
+          </Text>
+        </View>
+
+        {/* Tagline */}
+        <View className="items-center mb-10">
+          <Text
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 14,
+              color: colors.textMuted,
+              letterSpacing: 0.2,
+            }}
+          >
+            Your personal wardrobe curator
+          </Text>
+        </View>
+
+        {/* Feature Card */}
+        <View className="px-6 mb-10">
+          <View
+            style={{
+              backgroundColor: colors.white,
+              borderRadius: 20,
+              padding: 20,
+              shadowColor: "#C9BAAA",
+              shadowOpacity: 0.1,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 2,
+              borderWidth: 1,
+              borderColor: "#F0E8DC",
+            }}
+          >
+            <View className="flex-row items-center mb-4">
               <Image
-                source={require("../assets/logo/logo-lg.png")}
-                style={{
-                  width: 100,
-                  height: 100,
-                }}
-                contentFit="contain"
+                source={require("../assets/logo/logo-3xl.png")}
+                style={{ width: 32, height: 32, borderRadius: 16 }}
+                contentFit="cover"
               />
+              <Text
+                style={{
+                  fontFamily: "PlayfairDisplay_500Medium",
+                  fontSize: 15,
+                  color: colors.textPrimary,
+                  marginLeft: 12,
+                }}
+              >
+                Let me help you get dressed
+              </Text>
+            </View>
+
+            <View style={{ height: 1, backgroundColor: "#F0E8DC", marginBottom: 16 }} />
+
+            <View className="flex-row justify-around">
+              <View className="items-center">
+                <Text style={{ fontSize: 20, marginBottom: 6 }}>👕</Text>
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.textSecondary }}>
+                  Organize
+                </Text>
+              </View>
+              <View className="items-center">
+                <Text style={{ fontSize: 20, marginBottom: 6 }}>✨</Text>
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.textSecondary }}>
+                  Style
+                </Text>
+              </View>
+              <View className="items-center">
+                <Text style={{ fontSize: 20, marginBottom: 6 }}>📸</Text>
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.textSecondary }}>
+                  Scan
+                </Text>
+              </View>
             </View>
           </View>
+        </View>
 
-          {/* Title */}
-          <Text className="text-center text-4xl font-extrabold mb-2 tracking-tight text-typography-800">
-            What To Wear
-          </Text>
+        {/* Spacer */}
+        <View className="flex-1 min-h-4" />
 
-          {/* Subtitle */}
-          <Text className="text-center text-base mb-8 leading-6 text-typography-600">
-            Your personal wardrobe assistant.{"\n"}Scan it, Style it, Wear it.
-          </Text>
-
-          {/* Feature cards */}
-          <View className="flex-row justify-center gap-4 mb-10">
-            {/* Organize Card */}
-            <View className="items-center bg-background-0 py-4 px-3 rounded-2xl w-24 border border-outline-200">
-              <View className="h-12 w-12 rounded-full items-center justify-center mb-2 bg-primary-100">
-                <Text className="text-2xl">👕</Text>
-              </View>
-              <Text className="text-xs font-semibold text-center text-typography-800">
-                Organize
-              </Text>
-            </View>
-
-            {/* Style Card */}
-            <View className="items-center bg-background-0 py-4 px-3 rounded-2xl w-24 border border-outline-200">
-              <View className="h-12 w-12 rounded-full items-center justify-center mb-2 bg-secondary-100">
-                <Text className="text-2xl">✨</Text>
-              </View>
-              <Text className="text-xs font-semibold text-center text-typography-800">
-                Style
-              </Text>
-            </View>
-
-            {/* Scan Card */}
-            <View className="items-center bg-background-0 py-4 px-3 rounded-2xl w-24 border border-outline-200">
-              <View className="h-12 w-12 rounded-full items-center justify-center mb-2 bg-tertiary-100">
-                <Text className="text-2xl">📷</Text>
-              </View>
-              <Text className="text-xs font-semibold text-center text-typography-800">
-                Scan
-              </Text>
-            </View>
-          </View>
-
-          {/* Spacer */}
-          <View className="flex-1 min-h-8" />
-
-          {/* Login Button */}
-          <View className="w-full max-w-md self-center">
-            <TouchableOpacity
-              activeOpacity={0.8}
-              className="w-full h-14 rounded-2xl items-center justify-center shadow-lg bg-primary-500"
-              onPress={async () =>
-                await authClient.signIn.oauth2({
-                  providerId: "keycloak",
-                  callbackURL: "/",
-                })
-              }
+        {/* CTA */}
+        <View className="px-6">
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={async () =>
+              await authClient.signIn.oauth2({
+                providerId: "keycloak",
+                callbackURL: "/",
+              })
+            }
+            style={{
+              width: "100%",
+              height: 52,
+              borderRadius: 26,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colors.textPrimary,
+              shadowColor: colors.textPrimary,
+              shadowOpacity: 0.2,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Inter_600SemiBold",
+                fontSize: 15,
+                color: "#FAF7F2",
+                letterSpacing: 0.5,
+              }}
             >
-              <Text className="text-typography-0 font-bold text-lg">Get Started</Text>
-            </TouchableOpacity>
+              Get Started
+            </Text>
+          </TouchableOpacity>
 
-            {/* Secondary action */}
-            <Text className="text-center text-sm mt-4 px-5 leading-5 text-typography-400">
-              By continuing, you agree to our{" "}
-              <Text className="font-medium text-typography-600">
-                Terms of Service
-              </Text>
-              {" "}and{" "}
-              <Text className="font-medium text-typography-600">
-                Privacy Policy
+          <TouchableOpacity
+            activeOpacity={0.6}
+            onPress={async () =>
+              await authClient.signIn.oauth2({
+                providerId: "keycloak",
+                callbackURL: "/",
+              })
+            }
+            className="mt-4"
+          >
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 13,
+                color: colors.textMuted,
+                textAlign: "center",
+              }}
+            >
+              Already have an account?{" "}
+              <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.textPrimary }}>
+                Sign In
               </Text>
             </Text>
-          </View>
-        </ScrollView>
-      </LinearGradient>
+          </TouchableOpacity>
+
+          <Text
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 11,
+              color: colors.textMuted,
+              textAlign: "center",
+              marginTop: 16,
+              opacity: 0.6,
+            }}
+          >
+            Terms & Privacy Policy
+          </Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }

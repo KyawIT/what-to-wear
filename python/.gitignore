@@ -1,0 +1,11 @@
+# Python cache and virtual env
+.venv/
+__pycache__/
+*.pyc
+
+# Local datasets and archives
+preprocessed_dataset/
+preprocessed_dataset.zip
+
+# macOS
+.DS_Store

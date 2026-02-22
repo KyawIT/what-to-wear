@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, FlatList, Pressable, Dimensions, Text } from "react-native";
+import { View, FlatList, Pressable, Dimensions, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import * as MediaLibrary from "expo-media-library";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import { X, Check, Camera, ChevronDown } from "lucide-react-native";
 
 import ImagePermissionGate from "@/components/common/ImagePermissionGate";
 import GridImageCell from "@/components/common/GridImageCell";
+import { AppHeader } from "@/components/navigation/app-header";
 import { colors } from "@/lib/theme";
 
 const W = Dimensions.get("window").width;
@@ -77,44 +78,37 @@ const Scan = () => {
       style={{ backgroundColor: colors.background }}
       edges={["top"]}
     >
-      {/* Header */}
-      <View
-        className="h-14 flex-row items-center justify-between px-4"
-        style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-      >
-        <Pressable
-          className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
-          style={{ backgroundColor: `${colors.secondary}15` }}
-          onPress={() => router.push("/")}
-        >
-          <X size={22} color={colors.textSecondary} strokeWidth={2} />
-        </Pressable>
-
-        <Text
-          className="text-lg font-semibold"
-          style={{ color: colors.textPrimary }}
-        >
-          Select Photo
-        </Text>
-
-        <Pressable
-          className="h-10 px-4 items-center justify-center rounded-full active:opacity-60"
-          style={{
-            backgroundColor: selectedId ? colors.primary : colors.border,
-          }}
-          onPress={onNext}
-          disabled={!selectedId}
-        >
-          <Text
-            className="text-sm font-semibold"
-            style={{
-              color: selectedId ? "#FFFFFF" : colors.textMuted,
-            }}
+      <AppHeader
+        title="Select Photo"
+        titleStyle={styles.headerTitle}
+        left={(
+          <Pressable
+            style={styles.closeButton}
+            onPress={() => router.push("/")}
           >
-            Next
-          </Text>
-        </Pressable>
-      </View>
+            <X size={22} color={colors.textSecondary} strokeWidth={2} />
+          </Pressable>
+        )}
+        right={(
+          <Pressable
+            style={[
+              styles.nextButton,
+              { backgroundColor: selectedId ? colors.primary : "#E8DED3" },
+            ]}
+            onPress={onNext}
+            disabled={!selectedId}
+          >
+            <Text
+              style={[
+                styles.nextText,
+                { color: selectedId ? "#FFFFFF" : colors.textMuted },
+              ]}
+            >
+              Next
+            </Text>
+          </Pressable>
+        )}
+      />
 
       <ImagePermissionGate
         permission={permission}
@@ -149,12 +143,7 @@ const Scan = () => {
                 style={{ backgroundColor: colors.backgroundSecondary }}
               >
                 <Camera size={48} color={colors.textMuted} strokeWidth={1.5} />
-                <Text
-                  className="mt-3 text-base"
-                  style={{ color: colors.textMuted }}
-                >
-                  Select a photo
-                </Text>
+                <Text style={styles.selectPhotoText}>Select a photo</Text>
               </View>
             )}
 
@@ -172,29 +161,13 @@ const Scan = () => {
           </View>
 
           {/* Grid Gallery Header */}
-          <View
-            className="h-12 flex-row items-center justify-between px-4"
-            style={{
-              backgroundColor: colors.background,
-              borderTopWidth: 1,
-              borderTopColor: colors.border,
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border,
-            }}
-          >
+          <View style={styles.galleryHeader}>
             <Pressable className="flex-row items-center active:opacity-60">
-              <Text
-                className="text-sm font-semibold mr-1"
-                style={{ color: colors.textPrimary }}
-              >
-                Recent
-              </Text>
+              <Text style={styles.galleryLabel}>Recent</Text>
               <ChevronDown size={16} color={colors.textSecondary} />
             </Pressable>
 
-            <Text className="text-xs" style={{ color: colors.textMuted }}>
-              {assets.length} photos
-            </Text>
+            <Text style={styles.photoCount}>{assets.length} photos</Text>
           </View>
 
           {/* Grid */}
@@ -226,16 +199,7 @@ const Scan = () => {
                         <Camera size={24} color={colors.primary} />
                       </View>
 
-                      <Text
-                        style={{
-                          marginTop: 8,
-                          fontSize: 12,
-                          color: colors.textSecondary,
-                          fontWeight: "500",
-                        }}
-                      >
-                        Camera
-                      </Text>
+                      <Text style={styles.cameraLabel}>Camera</Text>
                     </View>
                   </Pressable>
                 );
@@ -259,5 +223,68 @@ const Scan = () => {
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  closeButton: {
+    height: 40,
+    width: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+    backgroundColor: "#8B735512",
+  },
+  headerTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
+  },
+  nextButton: {
+    height: 40,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+  },
+  nextText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  selectPhotoText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    color: "#9B8B7F",
+    marginTop: 12,
+  },
+  galleryHeader: {
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    backgroundColor: "#FAF7F2",
+    borderTopWidth: 1,
+    borderTopColor: "#F0E8DC",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0E8DC",
+  },
+  galleryLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    color: "#3D2E22",
+    marginRight: 4,
+  },
+  photoCount: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#9B8B7F",
+  },
+  cameraLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: "#6B5B4F",
+    marginTop: 8,
+  },
+});
 
 export default Scan;

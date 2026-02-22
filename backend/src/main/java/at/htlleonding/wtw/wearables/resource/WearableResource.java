@@ -4,6 +4,7 @@ import at.htlleonding.wtw.wearables.dto.WearableCreateDto;
 import at.htlleonding.wtw.wearables.dto.WearablePredictRequestDto;
 import at.htlleonding.wtw.wearables.dto.WearablePredictResponseDto;
 import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
+import at.htlleonding.wtw.wearables.dto.WearableUpdateRequestDto;
 import at.htlleonding.wtw.wearables.service.WearableCategoryService;
 import at.htlleonding.wtw.wearables.service.WearablePredictionService;
 import at.htlleonding.wtw.wearables.service.WearableService;
@@ -121,6 +122,45 @@ public class WearableResource {
         }
 
         service.delete(requireUserId(), id);
+    }
+
+    @PUT
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public WearableResponseDto updateById(
+            @PathParam("id") String idParam,
+            WearableUpdateRequestDto request
+    ) {
+        if (idParam == null || idParam.isBlank()) {
+            throw new BadRequestException("id path param is required");
+        }
+        if (request == null) {
+            throw new BadRequestException("Body is required");
+        }
+        if (request.title() == null || request.title().isBlank()) {
+            throw new BadRequestException("title is required");
+        }
+
+        UUID id;
+        try {
+            id = UUID.fromString(idParam.trim());
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid id");
+        }
+
+        UUID categoryId = parseCategoryId(request.categoryId());
+        try {
+            return service.update(
+                    requireUserId(),
+                    id,
+                    categoryId,
+                    request.title(),
+                    request.description(),
+                    request.tags()
+            );
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(e.getMessage());
+        }
     }
 
     @GET

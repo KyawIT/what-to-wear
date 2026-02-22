@@ -8,7 +8,10 @@ import {
   TextInput,
   Alert,
   View,
+  Text as RNText,
+  StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Center } from "@/components/ui/center";
 import { Box } from "@/components/ui/box";
@@ -17,6 +20,7 @@ import { VStack } from "@/components/ui/vstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
+import { AppHeader } from "@/components/navigation/app-header";
 
 import { useRemoveBackground } from "@/hooks/useRemoveBackground";
 import {
@@ -158,8 +162,6 @@ export default function PreviewScreen() {
           return;
         }
 
-        // Fallback: some runtimes/proxies reject URI multipart parts;
-        // retry as Blob while keeping backend endpoint unchanged.
         if (predictionResult.error.includes('loc":["body","file"]')) {
           const blob = await (await fetch(cutoutUri)).blob();
           const retryResult = await predictWearableTags(
@@ -224,7 +226,6 @@ export default function PreviewScreen() {
     setTags((prev) => prev.filter((t) => t !== tag));
   };
 
-  // Filter suggestions to exclude already added tags
   const availableSuggestions = useMemo(() => {
     const byValue = new Map<string, SuggestedTagOption>();
 
@@ -379,9 +380,7 @@ export default function PreviewScreen() {
   if (!id && !uri) {
     return (
       <Center className="flex-1 px-6" style={{ backgroundColor: colors.background }}>
-        <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-          No image selected
-        </Text>
+        <RNText style={s.emptyTitle}>No image selected</RNText>
         <Button
           variant="outline"
           action="secondary"
@@ -395,50 +394,43 @@ export default function PreviewScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <Box className="flex-1" style={{ backgroundColor: colors.background }}>
-        {/* Top bar */}
-        <HStack
-          className="pt-14 px-4 pb-3 items-center justify-between"
-          style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-        >
-          <Pressable onPress={onBack} className="active:opacity-60">
-            <HStack className="items-center">
-              <X size={20} color={colors.textSecondary} />
-              <Text
-                className="text-base font-medium ml-1"
-                style={{ color: colors.textSecondary }}
-              >
-                Cancel
-              </Text>
-            </HStack>
-          </Pressable>
-
-          <Text className="text-base font-semibold" style={{ color: colors.textPrimary }}>
-            New Item
-          </Text>
-
-          <Pressable
-            onPress={onUse}
-            className="active:opacity-60 rounded-full px-4 py-2"
-            style={{
-              backgroundColor: isFormValid ? colors.primary : colors.border,
-            }}
-            disabled={!isFormValid || submitting}
-          >
-            <Text
-              className="text-sm font-semibold"
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <Box className="flex-1" style={{ backgroundColor: colors.background }}>
+        <AppHeader
+          title="New Item"
+          titleStyle={s.headerTitle}
+          left={(
+            <Pressable onPress={onBack} className="active:opacity-60">
+              <HStack className="items-center">
+                <X size={20} color={colors.textSecondary} />
+                <RNText style={s.cancelText}>Cancel</RNText>
+              </HStack>
+            </Pressable>
+          )}
+          right={(
+            <Pressable
+              onPress={onUse}
+              className="active:opacity-60 rounded-full px-4 py-2"
               style={{
-                color: isFormValid ? "#FFFFFF" : colors.textMuted,
+                backgroundColor: isFormValid ? colors.primary : "#E8DED3",
               }}
+              disabled={!isFormValid || submitting}
             >
-              {submitting ? "Saving..." : "Save"}
-            </Text>
-          </Pressable>
-        </HStack>
+              <RNText
+                style={[
+                  s.saveText,
+                  { color: isFormValid ? "#FFFFFF" : colors.textMuted },
+                ]}
+              >
+                {submitting ? "Saving..." : "Save"}
+              </RNText>
+            </Pressable>
+          )}
+        />
 
         {/* Image preview */}
         <Box className="px-4 pt-4">
@@ -462,12 +454,7 @@ export default function PreviewScreen() {
                   style={{ backgroundColor: colors.cardBg }}
                 >
                   <Sparkles size={28} color={colors.primary} />
-                  <Text
-                    className="font-medium text-center mt-2"
-                    style={{ color: colors.textPrimary }}
-                  >
-                    Removing background...
-                  </Text>
+                  <RNText style={s.loadingLabel}>Removing background...</RNText>
                 </View>
               </Box>
             )}
@@ -492,13 +479,9 @@ export default function PreviewScreen() {
             >
               <HStack className="items-center mb-2">
                 <Text className="text-2xl mr-2">⚠️</Text>
-                <Text className="font-semibold text-base" style={{ color: colors.error }}>
-                  Something went wrong
-                </Text>
+                <RNText style={s.errorTitle}>Something went wrong</RNText>
               </HStack>
-              <Text className="text-sm leading-5" style={{ color: colors.error }}>
-                {error}
-              </Text>
+              <RNText style={s.errorBody}>{error}</RNText>
 
               <HStack className="mt-4 space-x-3">
                 <Pressable
@@ -513,9 +496,7 @@ export default function PreviewScreen() {
                 >
                   <HStack className="items-center">
                     <RotateCcw size={16} color={colors.error} />
-                    <Text className="ml-2 font-medium" style={{ color: colors.error }}>
-                      Retry
-                    </Text>
+                    <RNText style={s.retryText}>Retry</RNText>
                   </HStack>
                 </Pressable>
 
@@ -525,7 +506,7 @@ export default function PreviewScreen() {
                   style={{ backgroundColor: colors.error }}
                   disabled={loading}
                 >
-                  <Text className="font-medium text-white">Retake Photo</Text>
+                  <RNText style={s.retakeText}>Retake Photo</RNText>
                 </Pressable>
               </HStack>
             </Box>
@@ -537,9 +518,7 @@ export default function PreviewScreen() {
             <Box className="mb-5">
               <HStack className="items-center justify-between mb-2">
                 <HStack className="items-center">
-                  <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                    Title
-                  </Text>
+                  <RNText style={s.fieldLabel}>Title</RNText>
                   <Pressable
                     onPress={() => applyMetadataSuggestion({ force: true })}
                     className="ml-2 active:opacity-70"
@@ -553,18 +532,11 @@ export default function PreviewScreen() {
                       }}
                     >
                       <Sparkles size={12} color={colors.primary} />
-                      <Text
-                        className="text-xs font-semibold ml-1"
-                        style={{ color: colors.primary }}
-                      >
-                        Auto Fill
-                      </Text>
+                      <RNText style={s.autoFillText}>Auto Fill</RNText>
                     </HStack>
                   </Pressable>
                 </HStack>
-                <Text className="text-xs" style={{ color: colors.textMuted }}>
-                  {title.trim().length}/60
-                </Text>
+                <RNText style={s.charCount}>{title.trim().length}/60</RNText>
               </HStack>
 
               <Box
@@ -581,12 +553,7 @@ export default function PreviewScreen() {
                     onChangeText={setTitle}
                     placeholder="e.g. Vintage Nike Windbreaker"
                     placeholderTextColor={colors.textMuted}
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      flex: 1,
-                      paddingVertical: 0,
-                    }}
+                    style={s.textInput}
                     maxLength={60}
                     returnKeyType="next"
                   />
@@ -596,12 +563,7 @@ export default function PreviewScreen() {
 
             {/* Category Picker */}
             <Box className="mb-5">
-              <Text
-                className="text-sm font-semibold mb-2"
-                style={{ color: colors.textPrimary }}
-              >
-                Category
-              </Text>
+              <RNText style={[s.fieldLabel, { marginBottom: 8 }]}>Category</RNText>
 
               <Select
                 selectedValue={selectedCategoryId || (showCreateCategory ? CREATE_NEW_VALUE : "")}
@@ -626,6 +588,7 @@ export default function PreviewScreen() {
                       color: (selectedCategoryId || showCreateCategory)
                         ? colors.textPrimary
                         : colors.textMuted,
+                      fontFamily: "Inter_400Regular",
                     }}
                   />
                   <SelectIcon
@@ -671,12 +634,7 @@ export default function PreviewScreen() {
                 >
                   <HStack className="items-center mb-2">
                     <Plus size={14} color={colors.primary} />
-                    <Text
-                      className="text-xs font-semibold ml-1"
-                      style={{ color: colors.primary }}
-                    >
-                      New category
-                    </Text>
+                    <RNText style={s.newCatLabel}>New category</RNText>
                   </HStack>
 
                   <HStack className="items-center">
@@ -696,12 +654,7 @@ export default function PreviewScreen() {
                         }}
                         placeholder="Category name..."
                         placeholderTextColor={colors.textMuted}
-                        style={{
-                          color: colors.textPrimary,
-                          fontSize: 14,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                        }}
+                        style={[s.textInput, { fontSize: 14, paddingHorizontal: 12, paddingVertical: 8 }]}
                         autoFocus
                         maxLength={100}
                         returnKeyType="done"
@@ -717,20 +670,22 @@ export default function PreviewScreen() {
                         backgroundColor:
                           newCategoryName.trim() && !creatingCategory
                             ? colors.primary
-                            : colors.border,
+                            : "#E8DED3",
                       }}
                     >
-                      <Text
-                        className="text-sm font-semibold"
-                        style={{
-                          color:
-                            newCategoryName.trim() && !creatingCategory
-                              ? "#FFFFFF"
-                              : colors.textMuted,
-                        }}
+                      <RNText
+                        style={[
+                          s.createBtnText,
+                          {
+                            color:
+                              newCategoryName.trim() && !creatingCategory
+                                ? "#FFFFFF"
+                                : colors.textMuted,
+                          },
+                        ]}
                       >
                         {creatingCategory ? "..." : "Create"}
-                      </Text>
+                      </RNText>
                     </Pressable>
 
                     <Pressable
@@ -742,24 +697,16 @@ export default function PreviewScreen() {
                   </HStack>
 
                   {createCategoryError ? (
-                    <Text
-                      className="text-xs mt-2"
-                      style={{ color: colors.error }}
-                    >
-                      {createCategoryError}
-                    </Text>
+                    <RNText style={s.catError}>{createCategoryError}</RNText>
                   ) : null}
                 </Box>
               )}
 
               {/* Show selected category name as confirmation */}
               {selectedCategoryName && !showCreateCategory && (
-                <Text
-                  className="text-xs mt-1.5 ml-1"
-                  style={{ color: colors.textMuted }}
-                >
+                <RNText style={s.selectedCatHint}>
                   Selected: {selectedCategoryName}
-                </Text>
+                </RNText>
               )}
             </Box>
 
@@ -768,21 +715,12 @@ export default function PreviewScreen() {
               <HStack className="items-center justify-between mb-2">
                 <HStack className="items-center">
                   <Tag size={16} color={colors.textPrimary} />
-                  <Text
-                    className="text-sm font-semibold ml-2"
-                    style={{ color: colors.textPrimary }}
-                  >
-                    Tags
-                  </Text>
-                  <Text className="text-xs ml-2" style={{ color: colors.textMuted }}>
-                    ({tags.length})
-                  </Text>
+                  <RNText style={[s.fieldLabel, { marginLeft: 8 }]}>Tags</RNText>
+                  <RNText style={s.tagCount}>({tags.length})</RNText>
                 </HStack>
                 {tags.length > 0 && (
                   <Pressable onPress={() => setTags([])}>
-                    <Text className="text-xs font-medium" style={{ color: colors.error }}>
-                      Clear all
-                    </Text>
+                    <RNText style={s.clearAll}>Clear all</RNText>
                   </Pressable>
                 )}
               </HStack>
@@ -797,19 +735,13 @@ export default function PreviewScreen() {
                 }}
               >
                 <HStack className="items-center px-4 py-3">
-                  <Text style={{ color: colors.textMuted, fontSize: 16 }}>#</Text>
+                  <RNText style={{ color: colors.textMuted, fontSize: 16, fontFamily: "Inter_400Regular" }}>#</RNText>
                   <TextInput
                     value={tagInput}
                     onChangeText={setTagInput}
                     placeholder="Type a tag..."
                     placeholderTextColor={colors.textMuted}
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      flex: 1,
-                      paddingVertical: 0,
-                      marginLeft: 8,
-                    }}
+                    style={[s.textInput, { marginLeft: 8 }]}
                     autoCapitalize="none"
                     returnKeyType="done"
                     onSubmitEditing={() => addTag(tagInput)}
@@ -820,7 +752,7 @@ export default function PreviewScreen() {
                       className="ml-2 rounded-full px-4 py-1.5 active:opacity-80"
                       style={{ backgroundColor: colors.primary }}
                     >
-                      <Text className="text-white text-sm font-semibold">Add</Text>
+                      <RNText style={s.addBtnText}>Add</RNText>
                     </Pressable>
                   )}
                 </HStack>
@@ -845,12 +777,7 @@ export default function PreviewScreen() {
                           }}
                         >
                           <Check size={14} color={colors.primary} />
-                          <Text
-                            className="text-sm font-medium ml-1.5"
-                            style={{ color: colors.primary }}
-                          >
-                            {t}
-                          </Text>
+                          <RNText style={s.tagText}>{t}</RNText>
                           <X size={14} color={colors.primary} style={{ marginLeft: 6 }} />
                         </HStack>
                       </Pressable>
@@ -859,23 +786,13 @@ export default function PreviewScreen() {
                 </Box>
               )}
 
-              {/* Suggested tags - always visible, filtered */}
+              {/* Suggested tags */}
               {(availableSuggestions.length > 0 || aiPredictionError) && (
                 <Box className="mt-3">
                   <HStack className="items-center mb-2">
-                    <Text
-                      className="text-xs font-medium uppercase tracking-wide"
-                      style={{ color: colors.textMuted }}
-                    >
-                      Suggestions
-                    </Text>
+                    <RNText style={s.suggestionsLabel}>Suggestions</RNText>
                     {predictingTags && (
-                      <Text
-                        className="text-xs ml-2"
-                        style={{ color: colors.primary }}
-                      >
-                        ✨ AI predicting...
-                      </Text>
+                      <RNText style={s.aiPredicting}>AI predicting...</RNText>
                     )}
                   </HStack>
                   {aiPredictionError && (
@@ -887,9 +804,7 @@ export default function PreviewScreen() {
                         borderColor: `${colors.warning}50`,
                       }}
                     >
-                      <Text className="text-sm" style={{ color: colors.textPrimary }}>
-                        {aiPredictionError}
-                      </Text>
+                      <RNText style={s.aiErrorText}>{aiPredictionError}</RNText>
                     </Box>
                   )}
                   {availableSuggestions.length > 0 && (
@@ -908,9 +823,9 @@ export default function PreviewScreen() {
                               borderColor: suggestion.isAi ? `${colors.primary}80` : colors.border,
                             }}
                           >
-                            <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                            <RNText style={s.suggestionText}>
                               + {suggestion.isAi ? `✨ ${suggestion.value}` : suggestion.value}
-                            </Text>
+                            </RNText>
                           </Box>
                         </Pressable>
                       ))}
@@ -924,12 +839,8 @@ export default function PreviewScreen() {
           {/* Description */}
           <Box className="mb-5">
             <HStack className="items-center justify-between mb-2">
-              <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                Description
-              </Text>
-              <Text className="text-xs" style={{ color: colors.textMuted }}>
-                {description.trim().length}/200
-              </Text>
+              <RNText style={s.fieldLabel}>Description</RNText>
+              <RNText style={s.charCount}>{description.trim().length}/200</RNText>
             </HStack>
 
             <Box
@@ -946,13 +857,7 @@ export default function PreviewScreen() {
                     onChangeText={setDescription}
                     placeholder="Add details about color, material, condition..."
                     placeholderTextColor={colors.textMuted}
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      paddingVertical: 0,
-                      minHeight: 80,
-                      textAlignVertical: "top",
-                    }}
+                    style={[s.textInput, { minHeight: 80, textAlignVertical: "top" }]}
                     maxLength={200}
                     multiline
                     numberOfLines={4}
@@ -977,12 +882,7 @@ export default function PreviewScreen() {
               >
                 <HStack className="items-center">
                   <RotateCcw size={18} color={colors.textSecondary} />
-                  <Text
-                    className="font-medium ml-2"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    Retake Photo
-                  </Text>
+                  <RNText style={s.retakeButtonText}>Retake Photo</RNText>
                 </HStack>
               </Pressable>
             )}
@@ -991,10 +891,161 @@ export default function PreviewScreen() {
           {/* Bottom spacing */}
           <Box className="h-8" />
         </ScrollView>
-      </Box>
-    </KeyboardAvoidingView>
+        </Box>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  headerTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
+  },
+  cancelText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    color: "#6B5B4F",
+    marginLeft: 4,
+  },
+  saveText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  loadingLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    color: "#3D2E22",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  errorTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 16,
+    color: "#D25037",
+  },
+  errorBody: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#D25037",
+  },
+  retryText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    color: "#D25037",
+    marginLeft: 8,
+  },
+  retakeText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    color: "#FFFFFF",
+  },
+  fieldLabel: {
+    fontFamily: "PlayfairDisplay_500Medium",
+    fontSize: 14,
+    color: "#3D2E22",
+  },
+  autoFillText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    color: "#D4A574",
+    marginLeft: 4,
+  },
+  charCount: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: "#9B8B7F",
+  },
+  textInput: {
+    fontFamily: "Inter_400Regular",
+    color: "#3D2E22",
+    fontSize: 15,
+    flex: 1,
+    paddingVertical: 0,
+  },
+  newCatLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: "#D4A574",
+    marginLeft: 4,
+  },
+  createBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  catError: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#D25037",
+    marginTop: 8,
+  },
+  selectedCatHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#9B8B7F",
+    marginTop: 6,
+    marginLeft: 4,
+  },
+  tagCount: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#9B8B7F",
+    marginLeft: 8,
+  },
+  clearAll: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: "#D25037",
+  },
+  addBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: "#FFFFFF",
+  },
+  tagText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    color: "#D4A574",
+    marginLeft: 6,
+  },
+  suggestionsLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    color: "#9B8B7F",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  aiPredicting: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#D4A574",
+    marginLeft: 8,
+  },
+  aiErrorText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#3D2E22",
+  },
+  suggestionText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#6B5B4F",
+  },
+  retakeButtonText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    color: "#6B5B4F",
+    marginLeft: 8,
+  },
+  emptyTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#3D2E22",
+  },
+});
 
 function buildAiPredictionMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");

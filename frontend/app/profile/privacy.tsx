@@ -1,11 +1,9 @@
 import React from "react";
-import { Text, ScrollView, View } from "react-native";
+import { Text, ScrollView, View, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Box } from "@/components/ui/box";
-import { HStack } from "@/components/ui/hstack";
-import { VStack } from "@/components/ui/vstack";
 import { Pressable } from "@/components/ui/pressable";
+import { AppHeader } from "@/components/navigation/app-header";
 import {
     ChevronLeft,
     Database,
@@ -24,81 +22,51 @@ const PrivacySection = ({
     title: string;
     items: string[];
 }) => (
-    <Box
-        className="mx-4 mt-4 rounded-2xl overflow-hidden"
-        style={{ backgroundColor: colors.cardBg }}
-    >
-        <HStack className="items-center px-4 pt-4 pb-2">
-            <View
-                className="h-9 w-9 rounded-full items-center justify-center mr-3"
-                style={{ backgroundColor: `${colors.primary}15` }}
-            >
+    <View style={styles.card}>
+        <View style={styles.cardTitleRow}>
+            <View style={styles.iconCircle}>
                 {icon}
             </View>
-            <Text
-                className="text-base font-semibold"
-                style={{ color: colors.textPrimary }}
-            >
-                {title}
-            </Text>
-        </HStack>
+            <Text style={styles.cardTitle}>{title}</Text>
+        </View>
 
-        <VStack className="px-4 pb-4">
+        <View style={styles.cardBody}>
             {items.map((item, index) => (
-                <HStack key={index} className="items-start mt-3">
-                    <View
-                        className="h-1.5 w-1.5 rounded-full mt-2 mr-3"
-                        style={{ backgroundColor: colors.primary }}
-                    />
-                    <Text
-                        className="text-sm leading-5 flex-1"
-                        style={{ color: colors.textSecondary }}
-                    >
-                        {item}
-                    </Text>
-                </HStack>
+                <View key={index} style={styles.bulletRow}>
+                    <View style={styles.bullet} />
+                    <Text style={styles.bulletText}>{item}</Text>
+                </View>
             ))}
-        </VStack>
-    </Box>
+        </View>
+    </View>
 );
 
 export default function PrivacyScreen() {
     return (
         <SafeAreaView
-            className="flex-1"
-            style={{ backgroundColor: colors.background }}
+            style={[styles.container, { backgroundColor: colors.background }]}
             edges={["top"]}
         >
-            {/* Header */}
-            <HStack
-                className="h-14 items-center px-4"
-                style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-            >
-                <Pressable
-                    onPress={() => router.back()}
-                    className="h-10 w-10 items-center justify-center rounded-full active:opacity-60 mr-2"
-                    style={{ backgroundColor: `${colors.secondary}15` }}
-                >
-                    <ChevronLeft size={22} color={colors.textSecondary} />
-                </Pressable>
-                <Text
-                    className="text-xl font-bold"
-                    style={{ color: colors.textPrimary }}
-                >
-                    Privacy
-                </Text>
-            </HStack>
-
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                {/* Intro */}
-                <Box className="px-4 pt-6 pb-2">
-                    <Text
-                        className="text-sm leading-5"
-                        style={{ color: colors.textSecondary }}
+            <AppHeader
+                title="Privacy"
+                titleStyle={styles.headerTitle}
+                left={(
+                    <Pressable
+                        onPress={() => router.back()}
+                        style={styles.backButton}
                     >
-                        Your privacy matters to us. Here&apos;s how we handle your data in What to Wear.
+                        <ChevronLeft size={22} color={colors.textSecondary} />
+                    </Pressable>
+                )}
+            />
+
+            <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
+                {/* Intro */}
+                <View style={styles.intro}>
+                    <Text style={styles.introText}>
+                        Your privacy matters. Here&apos;s how we handle your data.
                     </Text>
-                </Box>
+                </View>
 
                 <PrivacySection
                     icon={<Database size={18} color={colors.secondary} />}
@@ -142,15 +110,115 @@ export default function PrivacyScreen() {
                     ]}
                 />
 
-                <Box className="px-4 pt-6 pb-10">
-                    <Text
-                        className="text-xs text-center"
-                        style={{ color: colors.textMuted }}
-                    >
-                        Last updated: February 2026
-                    </Text>
-                </Box>
+                <Text style={styles.footer}>
+                    Last updated: February 2026
+                </Text>
             </ScrollView>
         </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    flex: {
+        flex: 1,
+    },
+    backButton: {
+        height: 40,
+        width: 40,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 20,
+        backgroundColor: "#8B735512",
+        marginRight: 8,
+    },
+    headerTitle: {
+        fontFamily: "PlayfairDisplay_600SemiBold",
+        fontSize: 20,
+        color: "#3D2E22",
+        letterSpacing: -0.3,
+    },
+    intro: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        paddingBottom: 4,
+    },
+    introText: {
+        fontFamily: "Inter_400Regular",
+        fontSize: 14,
+        lineHeight: 21,
+        color: "#6B5B4F",
+    },
+    card: {
+        marginHorizontal: 20,
+        marginTop: 16,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: "#F0E8DC",
+        shadowColor: "#C9BAAA",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 2,
+        overflow: "hidden",
+    },
+    cardTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 8,
+    },
+    iconCircle: {
+        height: 36,
+        width: 36,
+        borderRadius: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#D4A57415",
+        marginRight: 12,
+    },
+    cardTitle: {
+        fontFamily: "PlayfairDisplay_600SemiBold",
+        fontSize: 16,
+        color: "#3D2E22",
+        letterSpacing: -0.2,
+    },
+    cardBody: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+    },
+    bulletRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginTop: 10,
+    },
+    bullet: {
+        height: 5,
+        width: 5,
+        borderRadius: 2.5,
+        backgroundColor: "#D4A574",
+        marginTop: 7,
+        marginRight: 12,
+    },
+    bulletText: {
+        fontFamily: "Inter_400Regular",
+        fontSize: 13.5,
+        lineHeight: 20,
+        color: "#6B5B4F",
+        flex: 1,
+    },
+    footer: {
+        fontFamily: "PlayfairDisplay_400Regular",
+        fontSize: 12,
+        textAlign: "center",
+        color: "#9B8B7F",
+        paddingTop: 28,
+        paddingBottom: 40,
+        opacity: 0.7,
+        letterSpacing: 0.3,
+    },
+});

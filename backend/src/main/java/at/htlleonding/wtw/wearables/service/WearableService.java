@@ -25,17 +25,20 @@ public class WearableService {
     private final OutfitRepository outfitRepo;
     private final WearableCategoryRepository categoryRepo;
     private final WearablesUtil wearablesUtil;
+    private final WearableAiWearableSyncService pythonWearableSyncService;
 
     public WearableService(
             WearableRepository repo,
             OutfitRepository outfitRepo,
             WearableCategoryRepository categoryRepo,
-            WearablesUtil wearablesUtil
+            WearablesUtil wearablesUtil,
+            WearableAiWearableSyncService pythonWearableSyncService
     ) {
         this.repo = repo;
         this.outfitRepo = outfitRepo;
         this.categoryRepo = categoryRepo;
         this.wearablesUtil = wearablesUtil;
+        this.pythonWearableSyncService = pythonWearableSyncService;
     }
 
     @Transactional
@@ -111,7 +114,7 @@ public class WearableService {
     @Transactional
     public List<WearableResponseDto> getByUserId(String userId) {
         String userIdTrim = (userId == null) ? null : userId.trim();
-        List<Wearable> wearables = repo.list("userId", userIdTrim);
+        List<Wearable> wearables = repo.find("userId = ?1 order by createdAt desc", userIdTrim).list();
 
         List<WearableResponseDto> out = new ArrayList<>(wearables.size());
         for (Wearable w : wearables) {
@@ -152,7 +155,7 @@ public class WearableService {
         }
 
         List<Wearable> wearables =
-                repo.list("userId = ?1 and category = ?2", userIdTrim, category);
+                repo.find("userId = ?1 and category = ?2 order by createdAt desc", userIdTrim, category).list();
 
         List<WearableResponseDto> out = new ArrayList<>(wearables.size());
 
@@ -203,6 +206,73 @@ public class WearableService {
                 wearable.title,
                 wearable.description,
                 (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags),
+                wearable.cutoutImageKey,
+                (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
+                        ? null
+                        : wearablesUtil.presignedGetUrl(wearable.cutoutImageKey, 600),
+                wearable.createdAt,
+                wearable.updatedAt
+        );
+    }
+
+    @Transactional
+    public WearableResponseDto update(
+            String userId,
+            UUID wearableId,
+            UUID categoryId,
+            String title,
+            String description,
+            List<String> tags
+    ) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (wearableId == null) {
+            throw new IllegalArgumentException("wearableId is required");
+        }
+        if (categoryId == null) {
+            throw new IllegalArgumentException("categoryId is required");
+        }
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("title is required");
+        }
+
+        String userIdTrim = userId.trim();
+        Wearable wearable = repo.find("id = ?1 and userId = ?2", wearableId, userIdTrim).firstResult();
+        if (wearable == null) {
+            throw new NotFoundException("Wearable not found");
+        }
+
+        WearableCategory category = categoryRepo
+                .find("id = ?1 and userId = ?2", categoryId, userIdTrim)
+                .firstResult();
+        if (category == null) {
+            throw new IllegalArgumentException("category not found");
+        }
+
+        wearable.category = category;
+        wearable.title = title.trim();
+        wearable.description = normalize(description);
+        wearable.tags = (tags == null) ? List.of() : normalizeTags(tags);
+
+        repo.flush();
+
+        List<String> normalizedTags = (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags);
+        pythonWearableSyncService.syncWearableUpdateAsync(
+                userIdTrim,
+                wearable.id,
+                category.name,
+                normalizedTags
+        );
+
+        return new WearableResponseDto(
+                wearable.id,
+                wearable.userId,
+                (wearable.category == null) ? null : wearable.category.id,
+                (wearable.category == null) ? null : wearable.category.name,
+                wearable.title,
+                wearable.description,
+                normalizedTags,
                 wearable.cutoutImageKey,
                 (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
                         ? null

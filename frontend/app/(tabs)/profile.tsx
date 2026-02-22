@@ -6,6 +6,7 @@ import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Avatar, AvatarFallbackText, AvatarImage } from "@/components/ui/avatar";
 import { Pressable } from "@/components/ui/pressable";
+import { AppHeader } from "@/components/navigation/app-header";
 import {
   User,
   Shield,
@@ -68,6 +69,9 @@ const Profile = () => {
     (async () => {
       try {
         const accessToken = await getKeycloakAccessToken(data.user.id);
+        if (__DEV__) {
+          console.log("[Profile] Access token:", accessToken);
+        }
         const [allItems, allOutfits] = await Promise.all([
           fetchAllWearables(accessToken),
           fetchAllOutfits(accessToken),
@@ -92,13 +96,9 @@ const Profile = () => {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={["top"]}
     >
+      <AppHeader title="Profile" titleStyle={styles.headerTitle} />
+
       <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.headerLabel, { color: colors.textMuted }]}>
-            Profile
-          </Text>
-        </View>
 
         {/* Hero Profile Section */}
         <View style={styles.heroSection}>
@@ -114,10 +114,10 @@ const Profile = () => {
             )}
           </Avatar>
 
-          <Text style={[styles.name, { color: colors.textPrimary }]}>
+          <Text style={styles.name}>
             {data?.user?.name || "User"}
           </Text>
-          <Text style={[styles.email, { color: colors.textMuted }]}>
+          <Text style={styles.email}>
             {data?.user?.email}
           </Text>
 
@@ -127,10 +127,10 @@ const Profile = () => {
         {/* Stats Card */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+            <Text style={styles.statNumber}>
               {outfitsCount}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+            <Text style={styles.statLabel}>
               Outfits
             </Text>
           </View>
@@ -138,10 +138,10 @@ const Profile = () => {
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
 
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+            <Text style={styles.statNumber}>
               {totalItemsCount}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+            <Text style={styles.statLabel}>
               Items
             </Text>
           </View>
@@ -149,10 +149,10 @@ const Profile = () => {
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
 
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+            <Text style={styles.statNumber}>
               {formatMemberSince(data?.user?.createdAt)}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+            <Text style={styles.statLabel}>
               Member Since
             </Text>
           </View>
@@ -160,7 +160,7 @@ const Profile = () => {
 
         {/* Settings Section */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+          <Text style={styles.sectionLabel}>
             GENERAL
           </Text>
         </View>
@@ -186,7 +186,7 @@ const Profile = () => {
                   >
                     {item.icon}
                   </View>
-                  <Text style={[styles.settingsLabel, { color: colors.textPrimary }]}>
+                  <Text style={styles.settingsLabel}>
                     {item.label}
                   </Text>
                 </View>
@@ -199,13 +199,13 @@ const Profile = () => {
         {/* Sign Out */}
         <Pressable style={styles.signOut} onPress={handleFullLogout}>
           <LogOut size={16} color={colors.error} />
-          <Text style={[styles.signOutText, { color: colors.error }]}>
+          <Text style={styles.signOutText}>
             Sign Out
           </Text>
         </Pressable>
 
         {/* Footer */}
-        <Text style={[styles.footer, { color: colors.textMuted }]}>
+        <Text style={styles.footer}>
           v1.0.0 · What to Wear
         </Text>
       </ScrollView>
@@ -220,15 +220,11 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  headerLabel: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    letterSpacing: 0.5,
+  headerTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 20,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
   },
   heroSection: {
     alignItems: "center",
@@ -252,13 +248,16 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 24,
+    fontSize: 26,
     marginTop: 16,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
   },
   email: {
     fontFamily: "Inter_400Regular",
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 4,
+    color: "#9B8B7F",
   },
   divider: {
     height: 1,
@@ -272,10 +271,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     marginTop: 24,
     paddingVertical: 20,
-    shadowColor: "#000",
+    borderWidth: 1,
+    borderColor: "#F0E8DC",
+    shadowColor: "#C9BAAA",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
   },
   statItem: {
@@ -285,11 +286,14 @@ const styles = StyleSheet.create({
   statNumber: {
     fontFamily: "PlayfairDisplay_600SemiBold",
     fontSize: 20,
+    color: "#3D2E22",
   },
   statLabel: {
     fontFamily: "Inter_400Regular",
-    fontSize: 12,
+    fontSize: 11.5,
     marginTop: 4,
+    color: "#9B8B7F",
+    letterSpacing: 0.2,
   },
   statDivider: {
     width: 1,
@@ -305,15 +309,18 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 11,
     letterSpacing: 1.5,
+    color: "#9B8B7F",
   },
   settingsCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     marginHorizontal: 24,
-    shadowColor: "#000",
+    borderWidth: 1,
+    borderColor: "#F0E8DC",
+    shadowColor: "#C9BAAA",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
   },
   settingsItem: {
@@ -338,6 +345,7 @@ const styles = StyleSheet.create({
   settingsLabel: {
     fontFamily: "Inter_500Medium",
     fontSize: 15,
+    color: "#3D2E22",
   },
   settingsDivider: {
     height: 1,
@@ -352,16 +360,19 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontFamily: "Inter_500Medium",
-    fontSize: 15,
+    fontSize: 14,
     marginLeft: 8,
+    color: "#D25037",
   },
   footer: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "PlayfairDisplay_400Regular",
     fontSize: 12,
     textAlign: "center",
     marginTop: 24,
     marginBottom: 40,
+    color: "#9B8B7F",
     opacity: 0.6,
+    letterSpacing: 0.3,
   },
 });
 

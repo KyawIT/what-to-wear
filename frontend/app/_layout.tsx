@@ -36,18 +36,25 @@ export default function RootLayout() {
             <SafeAreaProvider>
                 <GluestackUIProvider>
                     <StatusBar hidden={true} />
-                    <Stack>
+                    <Stack
+                        screenOptions={{
+                            headerShown: false,
+                            animation: "slide_from_right",
+                            gestureEnabled: true,
+                            fullScreenGestureEnabled: true,
+                        }}
+                    >
                         <Stack.Protected guard={isAuthenticated !== null}>
-                            <Stack.Screen name={"(tabs)"} options={{ headerShown: false }} />
-                            <Stack.Screen name={"preview/index"} options={{ headerShown: false }} />
-                            <Stack.Screen name={"profile/account"} options={{ headerShown: false }} />
-                            <Stack.Screen name={"profile/privacy"} options={{ headerShown: false }} />
-                            <Stack.Screen name={"profile/help"} options={{ headerShown: false }} />
-                            <Stack.Screen name={"profile/about"} options={{ headerShown: false }} />
-                            <Stack.Screen name={"compose/index"} options={{ headerShown: false }} />
+                            <Stack.Screen name={"(tabs)"} />
+                            <Stack.Screen name={"preview/index"} />
+                            <Stack.Screen name={"profile/account"} />
+                            <Stack.Screen name={"profile/privacy"} />
+                            <Stack.Screen name={"profile/help"} />
+                            <Stack.Screen name={"profile/about"} />
+                            <Stack.Screen name={"compose/index"} />
                         </Stack.Protected>
                         <Stack.Protected guard={isAuthenticated === null}>
-                            <Stack.Screen name={"index"} options={{ headerShown: false }} />
+                            <Stack.Screen name={"index"} />
                         </Stack.Protected>
                     </Stack>
                 </GluestackUIProvider>

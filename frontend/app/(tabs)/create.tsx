@@ -1,14 +1,22 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   ScrollView,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Dimensions,
   View,
+  Text as RNText,
+  StyleSheet,
 } from "react-native";
 import { Image } from "expo-image";
+import Animated, {
+  Easing,
+  interpolate,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 
@@ -25,10 +33,9 @@ import { colors } from "@/lib/theme";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { Heading } from "@/components/ui/heading";
 import { Center } from "@/components/ui/center";
 import { Spinner } from "@/components/ui/spinner";
+import { AppHeader } from "@/components/navigation/app-header";
 
 import {
   ChevronLeft,
@@ -42,7 +49,6 @@ import {
 
 // --- Constants ---
 const PREVIEW_THUMB_SIZE = 56;
-const MAX_NAME_LENGTH = 40;
 
 const screenWidth = Dimensions.get("window").width;
 const GRID_GAP = 12;
@@ -62,7 +68,6 @@ const Create = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Form state
-  // Now simply tracking an array/set of selected wearable IDs globally
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
 
   // Filter state
@@ -76,16 +81,48 @@ const Create = () => {
   }, [allWearables, selectedItemIds]);
 
   const displayWearables = useMemo(() => {
-    if (!activeCategoryId) return allWearables; // "All" selected
+    if (!activeCategoryId) return allWearables;
     return allWearables.filter((w) => w.categoryId === activeCategoryId);
   }, [allWearables, activeCategoryId]);
 
   const isFormValid = selectedWearables.length >= 2;
+  const isListMode = selectedWearables.length > 0;
+  const previewProgress = useSharedValue(0);
+
+  useEffect(() => {
+    previewProgress.value = withTiming(isListMode ? 1 : 0, {
+      duration: 150,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
+  }, [isListMode, previewProgress]);
+
+  const emptyPreviewAnimatedStyle = useAnimatedStyle(() => ({
+    height: interpolate(previewProgress.value, [0, 1], [170, 0]),
+    opacity: interpolate(previewProgress.value, [0, 1], [1, 0]),
+    transform: [
+      {
+        translateY: interpolate(previewProgress.value, [0, 1], [0, 6]),
+      },
+    ],
+  }));
+
+  const listPreviewAnimatedStyle = useAnimatedStyle(() => ({
+    height: interpolate(previewProgress.value, [0, 1], [0, PREVIEW_THUMB_SIZE + 8]),
+    opacity: interpolate(previewProgress.value, [0, 1], [0, 1]),
+    transform: [
+      {
+        translateY: interpolate(previewProgress.value, [0, 1], [6, 0]),
+      },
+    ],
+  }));
 
   // --- Data fetching ---
 
   const fetchData = useCallback(async () => {
-    if (!data?.user?.id) return;
+    if (!data?.user?.id) {
+      setLoadingData(false);
+      return;
+    }
     setLoadingData(true);
     setError(null);
     try {
@@ -134,6 +171,10 @@ const Create = () => {
     });
   }, []);
 
+  const clearSelectedItems = useCallback(() => {
+    setSelectedItemIds(new Set());
+  }, []);
+
   const isSelected = useCallback(
     (itemId: string) => selectedItemIds.has(itemId),
     [selectedItemIds]
@@ -146,7 +187,6 @@ const Create = () => {
 
     const idsString = JSON.stringify(Array.from(selectedItemIds));
 
-    // Navigate to compose screen with selected items
     router.push({
       pathname: "/compose",
       params: { itemIds: idsString }
@@ -165,15 +205,16 @@ const Create = () => {
           className="active:opacity-80 mb-3"
           style={{ width: GRID_ITEM_SIZE }}
         >
-          <Box
-            className="rounded-2xl overflow-hidden"
-            style={{
-              width: GRID_ITEM_SIZE,
-              height: GRID_ITEM_SIZE * 1.2,
-              backgroundColor: colors.cardBg,
-              borderWidth: selected ? 2.5 : 1,
-              borderColor: selected ? colors.primary : colors.border,
-            }}
+          <View
+            style={[
+              s.gridCard,
+              {
+                width: GRID_ITEM_SIZE,
+                height: GRID_ITEM_SIZE * 1.2,
+                borderWidth: selected ? 2.5 : 1,
+                borderColor: selected ? colors.primary : "#F0E8DC",
+              },
+            ]}
           >
             {item.cutoutImageUrl ? (
               <Image
@@ -188,22 +229,14 @@ const Create = () => {
             )}
 
             {selected && (
-              <Box
-                className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full items-center justify-center"
-                style={{ backgroundColor: colors.primary }}
-              >
+              <View style={s.checkBadge}>
                 <Check size={14} color="#FFFFFF" strokeWidth={3} />
-              </Box>
+              </View>
             )}
-          </Box>
-          <Text
-            size="2xs"
-            className="text-center mt-1 text-typography-500"
-            numberOfLines={1}
-            style={{ width: GRID_ITEM_SIZE }}
-          >
+          </View>
+          <RNText style={[s.gridLabel, { width: GRID_ITEM_SIZE }]} numberOfLines={1}>
             {item.title}
-          </Text>
+          </RNText>
         </Pressable>
       );
     },
@@ -217,9 +250,7 @@ const Create = () => {
       <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
         <Center className="flex-1">
           <Spinner size="large" className="text-primary-500" />
-          <Text className="text-typography-400 mt-4">
-            Loading your wardrobe...
-          </Text>
+          <RNText style={s.loadingText}>Loading your wardrobe...</RNText>
         </Center>
       </SafeAreaView>
     );
@@ -229,26 +260,20 @@ const Create = () => {
     return (
       <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
         <Center className="flex-1 px-8">
-          <Box className="h-20 w-20 rounded-full items-center justify-center mb-4 bg-error-50">
-            <X size={32} color={colors.error} />
-          </Box>
-          <Heading
-            size="md"
-            className="mb-2 text-center text-typography-600"
-          >
-            Something went wrong
-          </Heading>
-          <Text size="sm" className="text-center text-typography-400 mb-6">
-            {error}
-          </Text>
+          <Image
+            source={require("../../assets/mascot/mascot-sad.png")}
+            style={s.errorMascot}
+            contentFit="contain"
+          />
+          <RNText style={s.emptyTitle}>Something went wrong</RNText>
+          <RNText style={s.emptySubtitle}>{error}</RNText>
+          <RNText style={s.errorHint}>Try logging out and back in.</RNText>
           <Pressable
             onPress={fetchData}
-            className="rounded-full px-6 py-3 active:opacity-80"
+            className="rounded-full px-6 py-3 active:opacity-80 mt-6"
             style={{ backgroundColor: colors.primary }}
           >
-            <Text className="text-sm font-semibold text-white">
-              Try Again
-            </Text>
+            <RNText style={s.buttonText}>Try Again</RNText>
           </Pressable>
         </Center>
       </SafeAreaView>
@@ -258,38 +283,24 @@ const Create = () => {
   if (allWearables.length === 0) {
     return (
       <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <HStack
-          className="h-14 items-center justify-center px-4"
-          style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-        >
-          <Heading size="lg" className="text-typography-800">
-            Create Outfit
-          </Heading>
-        </HStack>
+        <AppHeader title="Create Outfit" titleStyle={s.headerTitle} />
 
         <Center className="flex-1 px-8">
-          <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
+          <View style={s.emptyIcon}>
             <Shirt size={40} color={colors.primary} strokeWidth={1.5} />
-          </Box>
-          <Heading
-            size="md"
-            className="mb-2 text-center text-typography-600"
-          >
-            Your wardrobe is empty
-          </Heading>
-          <Text size="sm" className="text-center text-typography-400 mb-6">
+          </View>
+          <RNText style={s.emptyTitle}>Your wardrobe is empty</RNText>
+          <RNText style={s.emptySubtitle}>
             Start by adding items from the Scan tab
-          </Text>
+          </RNText>
           <Pressable
             onPress={() => router.push("/scan")}
-            className="rounded-full px-6 py-3 active:opacity-80"
+            className="rounded-full px-6 py-3 active:opacity-80 mt-6"
             style={{ backgroundColor: colors.primary }}
           >
             <HStack className="items-center">
               <Plus size={18} color="#FFFFFF" />
-              <Text className="text-sm font-semibold text-white ml-2">
-                Add Items
-              </Text>
+              <RNText style={[s.buttonText, { marginLeft: 8 }]}>Add Items</RNText>
             </HStack>
           </Pressable>
         </Center>
@@ -305,201 +316,148 @@ const Create = () => {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* Header */}
-        <HStack
-          className="h-14 items-center justify-between px-4 z-10 bg-background-50"
-          style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-        >
-          <Pressable onPress={() => router.back()} className="active:opacity-60">
-            <ChevronLeft size={24} color={colors.textPrimary} />
-          </Pressable>
-
-          <Heading size="lg" className="text-typography-800">
-            Create Outfit
-          </Heading>
-
-          <Pressable
-            onPress={handleContinue}
-            className="rounded-full px-4 py-2 active:opacity-80"
-            style={{
-              backgroundColor: isFormValid ? colors.primary : colors.border,
-            }}
-            disabled={!isFormValid}
-          >
-            <Text
-              className="text-sm font-semibold"
+        <AppHeader
+          title="Create Outfit"
+          titleStyle={s.headerTitle}
+          left={(
+            <Pressable onPress={() => router.back()} className="active:opacity-60">
+              <ChevronLeft size={24} color={colors.textPrimary} />
+            </Pressable>
+          )}
+          right={(
+            <Pressable
+              onPress={handleContinue}
+              className="rounded-full px-4 py-2 active:opacity-80"
               style={{
-                color: isFormValid ? "#FFFFFF" : colors.textMuted,
+                backgroundColor: isFormValid ? colors.primary : "#E8DED3",
               }}
+              disabled={!isFormValid}
             >
-              Continue
-            </Text>
-          </Pressable>
-        </HStack>
+              <RNText
+                style={[
+                  s.continueText,
+                  { color: isFormValid ? "#FFFFFF" : colors.textMuted },
+                ]}
+              >
+                Continue
+              </RNText>
+            </Pressable>
+          )}
+        />
 
         <ScrollView
           className="flex-1"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          stickyHeaderIndices={[0]} // Category pills sticky
+          stickyHeaderIndices={[0]}
         >
           {/* 1) Selected Items Preview */}
           <Box className="px-4 pt-4 pb-4">
-            <Box
-              className="rounded-2xl p-4"
-              style={{
-                backgroundColor: colors.cardBg,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <HStack className="items-center justify-between mb-3">
-                <HStack className="items-center">
-                  <Text
-                    className="text-sm font-semibold"
-                    style={{ color: colors.textPrimary }}
-                  >
-                    Your Outfit
-                  </Text>
-                  <Text
-                    className="text-xs ml-2"
-                    style={{ color: colors.textMuted }}
-                  >
+            <View style={s.previewCard}>
+              <View style={s.previewHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <RNText style={s.previewTitle}>Your Outfit</RNText>
+                  <RNText style={s.previewCount}>
                     {"\u00B7"} {selectedWearables.length} item
                     {selectedWearables.length !== 1 ? "s" : ""}
-                  </Text>
-                </HStack>
+                  </RNText>
+                </View>
 
-                {/* Clear Selection Button */}
                 {selectedWearables.length > 0 && (
                   <Pressable
-                    onPress={() => setSelectedItemIds(new Set())}
+                    onPress={clearSelectedItems}
                     className="active:opacity-60"
                   >
-                    <Text className="text-xs font-medium text-error-500">
-                      Clear
-                    </Text>
+                    <RNText style={s.clearText}>Clear</RNText>
                   </Pressable>
                 )}
-              </HStack>
+              </View>
 
-              {selectedWearables.length === 0 ? (
-                <Box
-                  className="rounded-xl py-6 items-center justify-center"
-                  style={{
-                    borderWidth: 1,
-                    borderStyle: "dashed",
-                    borderColor: colors.border,
-                    backgroundColor: colors.backgroundSecondary,
-                  }}
+              <Animated.View
+                layout={LinearTransition.duration(140)}
+                style={s.previewTransitionContainer}
+              >
+                <Animated.View
+                  style={[s.previewAnimatedSlot, emptyPreviewAnimatedStyle]}
+                  pointerEvents={isListMode ? "none" : "auto"}
                 >
-                  <Text
-                    className="text-sm"
-                    style={{ color: colors.textMuted }}
-                  >
-                    Tap items below to add them
-                  </Text>
-                </Box>
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
+                  <View style={s.emptyPreview}>
+                    <View style={s.emptyPreviewContent}>
+                      <Image
+                        source={require("../../assets/mascot/mascot-bowtie.png")}
+                        style={s.createMascot}
+                        contentFit="contain"
+                      />
+                      <RNText style={s.emptyPreviewText}>
+                        Tap items below to add them
+                      </RNText>
+                    </View>
+                  </View>
+                </Animated.View>
+
+                <Animated.View
+                  style={[s.previewAnimatedSlot, listPreviewAnimatedStyle]}
+                  pointerEvents={isListMode ? "auto" : "none"}
                 >
-                  <HStack className="gap-2">
-                    {selectedWearables.map((item) => (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => deselectItem(item.id)}
-                        className="active:opacity-70"
-                      >
-                        <Box
-                          className="rounded-xl overflow-hidden"
-                          style={{
-                            width: PREVIEW_THUMB_SIZE,
-                            height: PREVIEW_THUMB_SIZE,
-                            backgroundColor: colors.backgroundSecondary,
-                            borderWidth: 1,
-                            borderColor: colors.primary + "60",
-                          }}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <HStack className="gap-2">
+                      {selectedWearables.map((item) => (
+                        <Pressable
+                          key={item.id}
+                          onPress={() => deselectItem(item.id)}
+                          className="active:opacity-70"
                         >
-                          {item.cutoutImageUrl ? (
-                            <Image
-                              source={{ uri: item.cutoutImageUrl }}
-                              style={{ width: "100%", height: "100%" }}
-                              contentFit="contain"
-                            />
-                          ) : (
-                            <Center className="flex-1">
-                              <Shirt size={16} color={colors.textMuted} />
-                            </Center>
-                          )}
-                          <Box
-                            className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full items-center justify-center"
-                            style={{
-                              backgroundColor: colors.textMuted + "CC",
-                            }}
-                          >
-                            <X
-                              size={10}
-                              color="#FFFFFF"
-                              strokeWidth={3}
-                            />
-                          </Box>
-                        </Box>
-                      </Pressable>
-                    ))}
-                  </HStack>
-                </ScrollView>
-              )}
-            </Box>
+                          <View style={s.thumbWrap}>
+                            {item.cutoutImageUrl ? (
+                              <Image
+                                source={{ uri: item.cutoutImageUrl }}
+                                style={{ width: "100%", height: "100%" }}
+                                contentFit="contain"
+                              />
+                            ) : (
+                              <Center className="flex-1">
+                                <Shirt size={16} color={colors.textMuted} />
+                              </Center>
+                            )}
+                            <View style={s.thumbClose}>
+                              <X size={10} color="#FFFFFF" strokeWidth={3} />
+                            </View>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </HStack>
+                  </ScrollView>
+                </Animated.View>
+              </Animated.View>
+            </View>
           </Box>
 
           {/* 2) Spacer before sticky header */}
           <View />
 
           {/* 3) Category Pills (Sticky Header) */}
-          <Box
-            className="pb-3 pt-2 bg-background-50"
-            style={{
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 8,
-                paddingHorizontal: 16,
-              }}
-            >
+          <View style={s.categoryBar}>
+            <View style={s.categoryWrap}>
               {/* "All" Pill */}
               <Pressable
                 onPress={() => setActiveCategoryId(null)}
-                className="rounded-full px-4 py-2 active:opacity-80"
-                style={{
-                  backgroundColor:
-                    activeCategoryId === null
-                      ? colors.primary
-                      : colors.cardBg,
-                  borderWidth: 1,
-                  borderColor:
-                    activeCategoryId === null
-                      ? colors.primary
-                      : colors.border,
-                }}
+                className="active:opacity-80"
+                style={[
+                  s.pill,
+                  activeCategoryId === null ? s.pillActive : s.pillInactive,
+                ]}
               >
-                <Text
-                  className="text-sm font-semibold"
-                  style={{
-                    color:
-                      activeCategoryId === null
-                        ? "#FFFFFF"
-                        : colors.textPrimary,
-                  }}
+                <RNText
+                  style={[
+                    s.pillText,
+                    {
+                      color:
+                        activeCategoryId === null ? "#FFFFFF" : colors.textPrimary,
+                    },
+                  ]}
                 >
                   All Items
-                </Text>
+                </RNText>
               </Pressable>
 
               {/* Database Category Pills */}
@@ -510,23 +468,22 @@ const Create = () => {
                     <Pressable
                       key={category.id}
                       onPress={() => setActiveCategoryId(category.id)}
-                      className="rounded-full px-4 py-2 active:opacity-80"
-                      style={{
-                        backgroundColor: isActive
-                          ? colors.primary
-                          : colors.cardBg,
-                        borderWidth: 1,
-                        borderColor: isActive ? colors.primary : colors.border,
-                      }}
+                      className="active:opacity-80"
+                      style={[
+                        s.pill,
+                        isActive ? s.pillActive : s.pillInactive,
+                      ]}
                     >
-                      <Text
-                        className="text-sm font-semibold"
-                        style={{
-                          color: isActive ? "#FFFFFF" : colors.textPrimary,
-                        }}
+                      <RNText
+                        style={[
+                          s.pillText,
+                          {
+                            color: isActive ? "#FFFFFF" : colors.textPrimary,
+                          },
+                        ]}
                       >
                         {category.name}
-                      </Text>
+                      </RNText>
                     </Pressable>
                   );
                 }
@@ -536,19 +493,12 @@ const Create = () => {
               {categories.length > 3 && (
                 <Pressable
                   onPress={() => setShowAllCategories(!showAllCategories)}
-                  className="rounded-full px-4 py-2 active:opacity-80 flex-row items-center"
-                  style={{
-                    backgroundColor: colors.backgroundSecondary,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
+                  className="active:opacity-80"
+                  style={[s.pill, s.pillToggle]}
                 >
-                  <Text
-                    className="text-sm font-semibold mr-1"
-                    style={{ color: colors.textSecondary }}
-                  >
+                  <RNText style={s.pillToggleText}>
                     {showAllCategories ? "Less" : "More"}
-                  </Text>
+                  </RNText>
                   {showAllCategories ? (
                     <ChevronUp size={14} color={colors.textSecondary} />
                   ) : (
@@ -557,19 +507,16 @@ const Create = () => {
                 </Pressable>
               )}
             </View>
-          </Box>
+          </View>
 
           {/* 4) Grid Items */}
           <Box className="flex-1 px-4 pt-4 pb-20">
             {displayWearables.length === 0 ? (
               <Center className="py-12">
                 <Shirt size={48} color={colors.textMuted} strokeWidth={1} />
-                <Text
-                  className="mt-4 text-base font-medium"
-                  style={{ color: colors.textSecondary }}
-                >
+                <RNText style={[s.emptySubtitle, { marginTop: 16 }]}>
                   No items in this category
-                </Text>
+                </RNText>
               </Center>
             ) : (
               <View
@@ -588,5 +535,217 @@ const Create = () => {
     </SafeAreaView>
   );
 };
+
+const s = StyleSheet.create({
+  headerTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 20,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
+  },
+  continueText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  previewCard: {
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F0E8DC",
+    shadowColor: "#C9BAAA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  previewTransitionContainer: {
+    overflow: "hidden",
+  },
+  previewAnimatedSlot: {
+    overflow: "hidden",
+  },
+  previewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  previewTitle: {
+    fontFamily: "PlayfairDisplay_500Medium",
+    fontSize: 15,
+    color: "#3D2E22",
+  },
+  previewCount: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#9B8B7F",
+    marginLeft: 8,
+  },
+  clearText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: "#D25037",
+  },
+  emptyPreview: {
+    borderRadius: 12,
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#E8DED3",
+    backgroundColor: "#F5EFE6",
+  },
+  emptyPreviewContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  createMascot: {
+    width: 132,
+    height: 132,
+    opacity: 0.95,
+  },
+  emptyPreviewText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: "#9B8B7F",
+    textAlign: "center",
+  },
+  thumbWrap: {
+    width: PREVIEW_THUMB_SIZE,
+    height: PREVIEW_THUMB_SIZE,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#F5EFE6",
+    borderWidth: 1,
+    borderColor: "#D4A57460",
+  },
+  thumbClose: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    height: 16,
+    width: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#9B8B7FCC",
+  },
+  categoryBar: {
+    paddingBottom: 12,
+    paddingTop: 8,
+    backgroundColor: "#FAF7F2",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0E8DC",
+  },
+  categoryWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  pill: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+  },
+  pillActive: {
+    backgroundColor: "#D4A574",
+    borderColor: "#D4A574",
+  },
+  pillInactive: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#F0E8DC",
+  },
+  pillText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
+  pillToggle: {
+    backgroundColor: "#F5EFE6",
+    borderColor: "#E8DED3",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  pillToggleText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    color: "#6B5B4F",
+    marginRight: 4,
+  },
+  gridCard: {
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+  },
+  checkBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    height: 24,
+    width: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#D4A574",
+  },
+  gridLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    color: "#6B5B4F",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  loadingText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#9B8B7F",
+    marginTop: 16,
+  },
+  errorMascot: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+    opacity: 0.6,
+  },
+  errorHint: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: "#9B8B7F",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  emptyIcon: {
+    height: 96,
+    width: 96,
+    borderRadius: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    backgroundColor: "#F7E9D7",
+  },
+  emptyTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#6B5B4F",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#9B8B7F",
+    textAlign: "center",
+  },
+  buttonText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: "#FFFFFF",
+  },
+});
 
 export default Create;

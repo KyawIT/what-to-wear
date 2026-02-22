@@ -6,6 +6,7 @@ import {
     Alert,
     Dimensions,
     ScrollView,
+    StyleSheet,
 } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,9 +32,9 @@ import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { Heading } from "@/components/ui/heading";
 import { Center } from "@/components/ui/center";
 import { Spinner } from "@/components/ui/spinner";
+import { AppHeader } from "@/components/navigation/app-header";
 import { ChevronLeft, Shirt, Tag, X, ArrowUp, ArrowDown, Maximize2, Sparkles } from "lucide-react-native";
 
 const ITEM_SIZE = 100;
@@ -170,7 +171,6 @@ export default function ComposeOutfitScreen() {
     const [isAutoTagging, setIsAutoTagging] = useState(false);
     const [isAutoFilling, setIsAutoFilling] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [hasAutoFilledMetadata, setHasAutoFilledMetadata] = useState(false);
     const canvasRef = React.useRef<ViewShot>(null);
 
     // Active Selection for Layering
@@ -279,14 +279,40 @@ export default function ComposeOutfitScreen() {
         }
     }, [tags, wearables, outfitName, description]);
 
-    useEffect(() => {
-        if (hasAutoFilledMetadata) return;
-        if (!wearables.length) return;
-        if (outfitName.trim() || description.trim()) return;
+    const predictTagsFromUri = useCallback(async (uri: string, accessToken: string) => {
+        const firstTry = await predictWearableTags(
+            {
+                file: {
+                    uri,
+                    name: `predict_${Date.now()}.png`,
+                    type: "image/png",
+                },
+            },
+            accessToken
+        );
 
-        applyOutfitMetadata();
-        setHasAutoFilledMetadata(true);
-    }, [hasAutoFilledMetadata, wearables, outfitName, description, applyOutfitMetadata]);
+        if (firstTry.ok) {
+            return firstTry;
+        }
+
+        // Some RN multipart uploads fail server-side parsing for file fields.
+        // Retry with a Blob payload which is accepted by the same endpoint.
+        if (firstTry.error.includes('loc":["body","file"]')) {
+            const blob = await (await fetch(uri)).blob();
+            return predictWearableTags(
+                {
+                    file: {
+                        blob,
+                        name: `predict_${Date.now()}.png`,
+                        type: "image/png",
+                    },
+                },
+                accessToken
+            );
+        }
+
+        return firstTry;
+    }, []);
 
     // --- Clean Canvas Capture ---
     // Temporarily hides the active selection border and resize handle
@@ -317,7 +343,7 @@ export default function ComposeOutfitScreen() {
 
             // 2. Send to prediction API
             const accessToken = await getKeycloakAccessToken(data.user.id);
-            const result = await predictWearableTags({ file: { uri, type: "image/png" } }, accessToken);
+            const result = await predictTagsFromUri(uri, accessToken);
 
             if (!result.ok) {
                 Alert.alert("Auto Tag Failed", "Could not generate tags. Please try again later.");
@@ -336,7 +362,7 @@ export default function ComposeOutfitScreen() {
         } finally {
             setIsAutoTagging(false);
         }
-    }, [data?.user?.id, captureCleanCanvas, mergeTags]);
+    }, [data?.user?.id, captureCleanCanvas, mergeTags, predictTagsFromUri]);
 
     const handleAutoFill = useCallback(async () => {
         if (!data?.user?.id || !canvasRef.current?.capture) return;
@@ -349,7 +375,7 @@ export default function ComposeOutfitScreen() {
                 return;
             }
             const accessToken = await getKeycloakAccessToken(data.user.id);
-            const result = await predictWearableTags({ file: { uri, type: "image/png" } }, accessToken);
+            const result = await predictTagsFromUri(uri, accessToken);
 
             if (!result.ok) {
                 applyOutfitMetadata({ force: true });
@@ -357,14 +383,13 @@ export default function ComposeOutfitScreen() {
             }
 
             const predictedTags = result.data.tags ?? [];
-            mergeTags(predictedTags);
             applyOutfitMetadata({ force: true, sourceTags: predictedTags.length > 0 ? predictedTags : tags });
         } catch {
             applyOutfitMetadata({ force: true });
         } finally {
             setIsAutoFilling(false);
         }
-    }, [data?.user?.id, captureCleanCanvas, mergeTags, applyOutfitMetadata, tags]);
+    }, [data?.user?.id, captureCleanCanvas, applyOutfitMetadata, tags, predictTagsFromUri]);
 
     const handleSave = useCallback(() => {
         if (!isFormValid || !data?.user?.id) return;
@@ -400,7 +425,7 @@ export default function ComposeOutfitScreen() {
                         {
                             text: "OK",
                             onPress: () => {
-                                router.replace("/(tabs)/profile");
+                                router.back();
                             },
                         },
                     ]
@@ -423,7 +448,7 @@ export default function ComposeOutfitScreen() {
             <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
                 <Center className="flex-1">
                     <Spinner size="large" className="text-primary-500" />
-                    <Text className="mt-4 text-typography-400">Loading editor...</Text>
+                    <Text className="mt-4 text-typography-400" style={s.loadingText}>Loading editor...</Text>
                 </Center>
             </SafeAreaView>
         );
@@ -435,40 +460,37 @@ export default function ComposeOutfitScreen() {
                 style={{ flex: 1 }}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                {/* Header */}
-                <HStack
-                    className="h-14 items-center justify-between px-4 z-10 bg-background-50"
-                    style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-                >
-                    <Pressable
-                        onPress={() => router.back()}
-                        className="active:opacity-60"
-                    >
-                        <ChevronLeft size={24} color={colors.textPrimary} />
-                    </Pressable>
-
-                    <Heading size="lg" className="text-typography-800">
-                        Compose Outfit
-                    </Heading>
-
-                    <Pressable
-                        onPress={handleSave}
-                        className="rounded-full px-4 py-2 active:opacity-80"
-                        style={{
-                            backgroundColor: isFormValid && !isSaving ? colors.primary : colors.border,
-                        }}
-                        disabled={!isFormValid || isSaving}
-                    >
-                        <Text
-                            className="text-sm font-semibold"
-                            style={{
-                                color: isFormValid && !isSaving ? "#FFFFFF" : colors.textMuted,
-                            }}
+                <AppHeader
+                    title="Compose Outfit"
+                    titleStyle={s.headerTitle}
+                    left={(
+                        <Pressable
+                            onPress={() => router.back()}
+                            className="active:opacity-60"
                         >
-                            {isSaving ? "Saving..." : "Save"}
-                        </Text>
-                    </Pressable>
-                </HStack>
+                            <ChevronLeft size={24} color={colors.textPrimary} />
+                        </Pressable>
+                    )}
+                    right={(
+                        <Pressable
+                            onPress={handleSave}
+                            className="rounded-full px-4 py-2 active:opacity-80"
+                            style={{
+                                backgroundColor: isFormValid && !isSaving ? colors.primary : colors.border,
+                            }}
+                            disabled={!isFormValid || isSaving}
+                        >
+                            <Text
+                                style={[
+                                    s.saveText,
+                                    { color: isFormValid && !isSaving ? colors.white : colors.textMuted },
+                                ]}
+                            >
+                                {isSaving ? "Saving..." : "Save"}
+                            </Text>
+                        </Pressable>
+                    )}
+                />
 
                 <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
                     {/* Layering Controls + Canvas Info */}
@@ -476,14 +498,12 @@ export default function ComposeOutfitScreen() {
                         <HStack className="items-center justify-between mb-2">
                             <Box>
                                 <Text
-                                    className="text-sm font-semibold"
-                                    style={{ color: colors.textPrimary }}
+                                    style={s.sectionTitle}
                                 >
                                     Arrange your items
                                 </Text>
                                 <Text
-                                    className="text-xs"
-                                    style={{ color: colors.textMuted }}
+                                    style={s.sectionHint}
                                 >
                                     Pinch to resize. Drag to move.
                                 </Text>
@@ -541,8 +561,7 @@ export default function ComposeOutfitScreen() {
                     <Box className="px-4 py-4">
                         <HStack className="items-center justify-between mb-2">
                             <Text
-                                className="text-sm font-semibold"
-                                style={{ color: colors.textPrimary }}
+                                style={s.sectionTitle}
                             >
                                 Outfit Details
                             </Text>
@@ -566,8 +585,8 @@ export default function ComposeOutfitScreen() {
                                         <Sparkles size={12} color={colors.primary} />
                                     )}
                                     <Text
-                                        className="text-xs font-semibold ml-1.5"
-                                        style={{ color: colors.primary }}
+                                        className="ml-1.5"
+                                        style={s.pillActionText}
                                     >
                                         {isAutoFilling ? "Filling..." : "Auto Fill"}
                                     </Text>
@@ -590,18 +609,16 @@ export default function ComposeOutfitScreen() {
                                     placeholder="Name your outfit..."
                                     placeholderTextColor={colors.textMuted}
                                     style={{
-                                        color: colors.textPrimary,
-                                        fontSize: 16,
+                                        ...s.nameInput,
                                         flex: 1,
                                         paddingVertical: 0,
-                                        fontWeight: "500",
                                     }}
                                     maxLength={MAX_NAME_LENGTH}
                                     returnKeyType="done"
                                 />
                                 <Text
-                                    className="text-xs ml-2"
-                                    style={{ color: colors.textMuted }}
+                                    className="ml-2"
+                                    style={s.counterText}
                                 >
                                     {outfitName.length}/{MAX_NAME_LENGTH}
                                 </Text>
@@ -623,8 +640,7 @@ export default function ComposeOutfitScreen() {
                                 placeholderTextColor={colors.textMuted}
                                 multiline
                                 style={{
-                                    color: colors.textPrimary,
-                                    fontSize: 15,
+                                    ...s.descriptionInput,
                                     minHeight: 80,
                                     paddingHorizontal: 16,
                                     paddingVertical: 12,
@@ -639,14 +655,14 @@ export default function ComposeOutfitScreen() {
                                 <HStack className="items-center">
                                     <Tag size={16} color={colors.textPrimary} />
                                     <Text
-                                        className="text-sm font-semibold ml-2"
-                                        style={{ color: colors.textPrimary }}
+                                        className="ml-2"
+                                        style={s.sectionTitle}
                                     >
                                         Tags
                                     </Text>
                                     <Text
-                                        className="text-xs ml-2"
-                                        style={{ color: colors.textMuted }}
+                                        className="ml-2"
+                                        style={s.counterText}
                                     >
                                         ({tags.length})
                                     </Text>
@@ -672,8 +688,8 @@ export default function ComposeOutfitScreen() {
                                                 <Sparkles size={12} color={colors.primary} />
                                             )}
                                             <Text
-                                                className="text-xs font-semibold ml-1.5"
-                                                style={{ color: colors.primary }}
+                                                className="ml-1.5"
+                                                style={s.pillActionText}
                                             >
                                                 {isAutoTagging ? "Tagging..." : "Auto Tag"}
                                             </Text>
@@ -682,8 +698,7 @@ export default function ComposeOutfitScreen() {
                                     {tags.length > 0 && (
                                         <Pressable onPress={() => setTags([])}>
                                             <Text
-                                                className="text-xs font-medium"
-                                                style={{ color: colors.error }}
+                                                style={s.clearText}
                                             >
                                                 Clear all
                                             </Text>
@@ -701,7 +716,7 @@ export default function ComposeOutfitScreen() {
                                 }}
                             >
                                 <HStack className="items-center px-4 py-3">
-                                    <Text style={{ color: colors.textMuted, fontSize: 16 }}>
+                                    <Text style={s.hashPrefix}>
                                         #
                                     </Text>
                                     <TextInput
@@ -710,8 +725,7 @@ export default function ComposeOutfitScreen() {
                                         placeholder="Type a tag..."
                                         placeholderTextColor={colors.textMuted}
                                         style={{
-                                            color: colors.textPrimary,
-                                            fontSize: 15,
+                                            ...s.tagInput,
                                             flex: 1,
                                             paddingVertical: 0,
                                             marginLeft: 8,
@@ -726,7 +740,7 @@ export default function ComposeOutfitScreen() {
                                             className="ml-2 rounded-full px-4 py-1.5 active:opacity-80"
                                             style={{ backgroundColor: colors.primary }}
                                         >
-                                            <Text className="text-white text-sm font-semibold">
+                                            <Text style={s.addButtonText}>
                                                 Add
                                             </Text>
                                         </Pressable>
@@ -753,8 +767,7 @@ export default function ComposeOutfitScreen() {
                                                     }}
                                                 >
                                                     <Text
-                                                        className="text-sm font-medium"
-                                                        style={{ color: colors.primary }}
+                                                        style={s.tagChipText}
                                                     >
                                                         {t}
                                                     </Text>
@@ -776,3 +789,82 @@ export default function ComposeOutfitScreen() {
         </SafeAreaView>
     );
 }
+
+const s = StyleSheet.create({
+    loadingText: {
+        fontFamily: "Inter_400Regular",
+        fontSize: 14,
+    },
+    headerTitle: {
+        fontFamily: "PlayfairDisplay_600SemiBold",
+        fontSize: 22,
+        letterSpacing: -0.3,
+        color: colors.textPrimary,
+    },
+    saveText: {
+        fontFamily: "Inter_600SemiBold",
+        fontSize: 14,
+        letterSpacing: 0.2,
+    },
+    sectionTitle: {
+        fontFamily: "PlayfairDisplay_500Medium",
+        fontSize: 17,
+        color: colors.textPrimary,
+        letterSpacing: -0.2,
+    },
+    sectionHint: {
+        fontFamily: "Inter_400Regular",
+        fontSize: 12.5,
+        color: colors.textSecondary,
+        letterSpacing: 0.15,
+    },
+    pillActionText: {
+        fontFamily: "Inter_600SemiBold",
+        fontSize: 11.5,
+        color: colors.primaryDark,
+        letterSpacing: 0.3,
+    },
+    nameInput: {
+        color: colors.textPrimary,
+        fontSize: 16,
+        fontFamily: "Inter_500Medium",
+        letterSpacing: 0.1,
+    },
+    counterText: {
+        fontFamily: "Inter_400Regular",
+        fontSize: 11.5,
+        color: colors.textMuted,
+    },
+    descriptionInput: {
+        color: colors.textSecondary,
+        fontSize: 14.5,
+        fontFamily: "Inter_400Regular",
+        lineHeight: 21,
+    },
+    clearText: {
+        fontFamily: "Inter_500Medium",
+        fontSize: 12,
+        color: colors.error,
+    },
+    hashPrefix: {
+        color: colors.textMuted,
+        fontSize: 16,
+        fontFamily: "Inter_500Medium",
+    },
+    tagInput: {
+        color: colors.textPrimary,
+        fontSize: 14.5,
+        fontFamily: "Inter_400Regular",
+    },
+    addButtonText: {
+        fontFamily: "Inter_600SemiBold",
+        fontSize: 13.5,
+        color: colors.white,
+        letterSpacing: 0.15,
+    },
+    tagChipText: {
+        color: colors.primaryDark,
+        fontFamily: "Inter_500Medium",
+        fontSize: 13.5,
+    },
+});

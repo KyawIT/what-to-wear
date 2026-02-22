@@ -1,4 +1,5 @@
-import { CreateOutfitInput, OutfitResponseDto } from "@/api/backend/outfit.model";
+import { CreateOutfitInput, OutfitResponseDto, UpdateOutfitInput } from "@/api/backend/outfit.model";
+import * as FileSystem from "expo-file-system/legacy";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080").replace(
   /\/+$/,
@@ -11,6 +12,31 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export type DeleteOutfitResult = {
   success: boolean;
   message?: string;
+};
+
+export type RecommendFromUploadsInput = {
+  items: Array<{
+    wearableId: string;
+    imageUri: string;
+    fileName?: string;
+    fileType?: string;
+  }>;
+  limitOutfits?: number;
+};
+
+export type RecommendedOutfitResponse = {
+  outfits: Array<{
+    id: string;
+    wearables: Array<{
+      id: string;
+      categoryId: string;
+      categoryName: string;
+      title: string;
+      tags: string[];
+      cutoutImageUrl?: string | null;
+    }>;
+  }>;
+  warnings: string[];
 };
 
 function normalizeTags(tags: string[] = []): string {
@@ -37,14 +63,46 @@ function buildHeaders(accessToken?: string) {
   return headers;
 }
 
+async function ensureLocalUri(uri: string, itemId: string): Promise<string> {
+  if (uri.startsWith("file://") || uri.startsWith("content://")) {
+    return uri;
+  }
+
+  const dir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+  if (!dir) throw new Error("No cache directory available");
+
+  const localPath = `${dir}outfit_reco_${itemId}.png`;
+  const result = await FileSystem.downloadAsync(uri, localPath);
+  if (result.status !== 200) {
+    throw new Error(`Download failed (${result.status}) for ${itemId}`);
+  }
+  return result.uri;
+}
+
 async function readErrorBody(res: Response): Promise<string> {
   const contentType = res.headers.get("content-type") ?? "";
   try {
     if (contentType.includes("application/json")) {
       const json = await res.json();
-      return JSON.stringify(json);
+      if (typeof json === "string") {
+        return json.trim();
+      }
+      if (json && typeof json === "object") {
+        const candidate =
+          (json as any).message ??
+          (json as any).detail ??
+          (json as any).title ??
+          (json as any).error ??
+          (json as any).code;
+        if (typeof candidate === "string" && candidate.trim()) {
+          return candidate.trim();
+        }
+      }
+      const asText = JSON.stringify(json);
+      return asText === "{}" ? "" : asText;
     }
-    return await res.text();
+    const text = await res.text();
+    return text.trim();
   } catch {
     return "";
   }
@@ -181,4 +239,108 @@ export async function deleteOutfitById(
   }
 
   return { success: true };
+}
+
+export async function updateOutfitById(
+  outfitId: string,
+  input: UpdateOutfitInput,
+  accessToken?: string
+): Promise<OutfitResponseDto> {
+  if (!accessToken) {
+    throw new Error("accessToken is required");
+  }
+  if (!outfitId?.trim()) {
+    throw new Error("outfitId is required");
+  }
+  if (!input?.title?.trim()) {
+    throw new Error("title is required");
+  }
+
+  const wearableIds = (input.wearableIds ?? []).map((id) => id.trim()).filter(Boolean);
+  for (const id of wearableIds) {
+    if (!UUID_REGEX.test(id)) {
+      throw new Error(`Invalid wearable id: "${id}"`);
+    }
+  }
+
+  const payload = {
+    title: input.title.trim(),
+    description: (input.description ?? "").trim(),
+    tags: (input.tags ?? []).map((tag) => tag.trim()).filter(Boolean),
+    wearableIds,
+  };
+
+  const res = await fetch(`${BASE_URL}${ENDPOINT}/${encodeURIComponent(outfitId)}`, {
+    method: "PUT",
+    headers: {
+      ...buildHeaders(accessToken),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errBody = await readErrorBody(res);
+    throw new Error(`Failed to update outfit (${res.status}): ${errBody}`);
+  }
+
+  return (await res.json()) as OutfitResponseDto;
+}
+
+export async function recommendOutfitsFromUploads(
+  input: RecommendFromUploadsInput,
+  accessToken?: string
+): Promise<RecommendedOutfitResponse> {
+  if (!accessToken) {
+    throw new Error("accessToken is required");
+  }
+  if (!input?.items?.length || input.items.length < 5) {
+    throw new Error("At least 5 items are required");
+  }
+
+  const formData = new FormData();
+  const requestItems: Array<{ wearableId: string; fileKey: string }> = [];
+
+  for (let i = 0; i < input.items.length; i++) {
+    const item = input.items[i];
+    if (!UUID_REGEX.test(item.wearableId)) {
+      throw new Error(`Invalid wearable id: "${item.wearableId}"`);
+    }
+    if (!item.imageUri?.trim()) {
+      throw new Error(`imageUri is required for wearable ${item.wearableId}`);
+    }
+
+    const fileKey = `img_${i + 1}`;
+    const localUri = await ensureLocalUri(item.imageUri, item.wearableId);
+
+    formData.append(fileKey, {
+      uri: localUri,
+      name: item.fileName ?? `wearable_${item.wearableId}.png`,
+      type: item.fileType ?? "image/png",
+    } as any);
+
+    requestItems.push({
+      wearableId: item.wearableId,
+      fileKey,
+    });
+  }
+
+  formData.append("items", JSON.stringify(requestItems));
+  formData.append("limitOutfits", String(input.limitOutfits ?? 6));
+
+  const res = await fetch(`${BASE_URL}${ENDPOINT}/recommend-from-uploads`, {
+    method: "POST",
+    headers: {
+      ...buildHeaders(accessToken),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errBody = await readErrorBody(res);
+    const detail = errBody || res.statusText || "Request failed";
+    throw new Error(`Failed to recommend outfits (${res.status}): ${detail}`);
+  }
+
+  return (await res.json()) as RecommendedOutfitResponse;
 }

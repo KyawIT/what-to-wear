@@ -141,7 +141,8 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       APP_MINIO_PUBLIC_BASE_URL: ${APP_MINIO_PUBLIC_BASE_URL}
-      APP_PYTHON_PREDICT_URL: http://wtw-python:8000/predict
+      APP_PYTHON_PREDICT_URL: http://python-service:8000/wearables/predict
+      APP_PYTHON_BASE_URL: http://python-service:8000
     labels:
       - traefik.enable=true
       - traefik.http.routers.wtw-backend.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api`)

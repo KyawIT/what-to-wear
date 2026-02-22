@@ -56,7 +56,7 @@ public class WearableCategoryService {
         }
         String userIdTrim = userId.trim();
         ensureDefaultCategories(userIdTrim);
-        List<WearableCategory> categories = repo.list("userId", userIdTrim);
+        List<WearableCategory> categories = repo.find("userId = ?1 order by createdAt desc", userIdTrim).list();
         List<WearableCategoryResponseDto> out = new ArrayList<>(categories.size());
         for (WearableCategory c : categories) {
             out.add(toDto(c));

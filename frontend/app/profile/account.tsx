@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Text, ScrollView, View } from "react-native";
+import { Text, ScrollView, View, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { authClient } from "@/lib/auth-client";
-import { Box } from "@/components/ui/box";
-import { HStack } from "@/components/ui/hstack";
-import { VStack } from "@/components/ui/vstack";
-import { Pressable } from "@/components/ui/pressable";
-import { Divider } from "@/components/ui/divider";
 import { Avatar, AvatarFallbackText, AvatarImage } from "@/components/ui/avatar";
+import { Pressable } from "@/components/ui/pressable";
+import { AppHeader } from "@/components/navigation/app-header";
 import {
   ChevronLeft,
   User,
@@ -33,30 +30,25 @@ const InfoRow = ({
   icon,
   label,
   value,
+  isLast,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  isLast?: boolean;
 }) => (
-  <HStack className="items-center py-4">
-    <View
-      className="h-9 w-9 rounded-full items-center justify-center mr-3"
-      style={{ backgroundColor: `${colors.primary}15` }}
-    >
-      {icon}
+  <View>
+    <View style={styles.infoRow}>
+      <View style={styles.infoIcon}>
+        {icon}
+      </View>
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{value}</Text>
+      </View>
     </View>
-    <VStack className="flex-1">
-      <Text className="text-xs" style={{ color: colors.textMuted }}>
-        {label}
-      </Text>
-      <Text
-        className="text-base font-medium mt-0.5"
-        style={{ color: colors.textPrimary }}
-      >
-        {value}
-      </Text>
-    </VStack>
-  </HStack>
+    {!isLast && <View style={styles.rowDivider} />}
+  </View>
 );
 
 export default function AccountScreen() {
@@ -78,89 +70,60 @@ export default function AccountScreen() {
 
   return (
     <SafeAreaView
-      className="flex-1"
-      style={{ backgroundColor: colors.background }}
+      style={[styles.container, { backgroundColor: colors.background }]}
       edges={["top"]}
     >
       {/* Header */}
-      <HStack
-        className="h-14 items-center px-4"
-        style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          className="h-10 w-10 items-center justify-center rounded-full active:opacity-60 mr-2"
-          style={{ backgroundColor: `${colors.secondary}15` }}
-        >
-          <ChevronLeft size={22} color={colors.textSecondary} />
-        </Pressable>
-        <Text
-          className="text-xl font-bold"
-          style={{ color: colors.textPrimary }}
-        >
-          Account Information
-        </Text>
-      </HStack>
+      <AppHeader
+        title="Account"
+        titleStyle={styles.headerTitle}
+        left={(
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <ChevronLeft size={22} color={colors.textSecondary} />
+          </Pressable>
+        )}
+      />
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
         {/* Avatar Section */}
-        <Box className="items-center pt-8 pb-4">
+        <View style={styles.avatarSection}>
           <Avatar
             size="2xl"
-            className="border-3"
-            style={{ borderColor: colors.primary, borderWidth: 3 }}
+            style={[styles.avatar, { borderColor: colors.border }]}
           >
             {data?.user?.image ? (
               <AvatarImage source={{ uri: data.user.image }} />
             ) : (
-              <AvatarFallbackText
-                className="font-semibold"
-                style={{ color: colors.primary }}
-              >
+              <AvatarFallbackText style={styles.avatarFallback}>
                 {data?.user?.name ? getInitials(data.user.name) : "U"}
               </AvatarFallbackText>
             )}
           </Avatar>
-          <Text
-            className="text-lg font-bold mt-4"
-            style={{ color: colors.textPrimary }}
-          >
+          <Text style={styles.userName}>
             {data?.user?.name || "Unknown"}
           </Text>
-          <Text className="text-sm mt-1" style={{ color: colors.textMuted }}>
+          <Text style={styles.userEmail}>
             {data?.user?.email || "No email"}
           </Text>
-        </Box>
+        </View>
 
-        {/* Account Details Card */}
-        <Box
-          className="mx-4 mt-4 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: colors.cardBg }}
-        >
-          <Box className="px-4 pt-4 pb-2">
-            <Text
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: colors.textMuted }}
-            >
-              Personal Details
-            </Text>
-          </Box>
-
-          <Box className="px-4">
+        {/* Personal Details Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardHeader}>Personal Details</Text>
+          <View style={styles.cardBody}>
             <InfoRow
               icon={<User size={18} color={colors.secondary} />}
               label="Full Name"
               value={data?.user?.name || "Not set"}
             />
-            <Divider style={{ backgroundColor: colors.border }} />
-
             <InfoRow
               icon={<Mail size={18} color={colors.secondary} />}
               label="Email Address"
               value={data?.user?.email || "Not set"}
             />
-            <Divider style={{ backgroundColor: colors.border }} />
-
             <InfoRow
               icon={<Fingerprint size={18} color={colors.secondary} />}
               label="User ID"
@@ -170,8 +133,6 @@ export default function AccountScreen() {
                   : "N/A"
               }
             />
-            <Divider style={{ backgroundColor: colors.border }} />
-
             <InfoRow
               icon={<Calendar size={18} color={colors.secondary} />}
               label="Account Created"
@@ -184,33 +145,133 @@ export default function AccountScreen() {
                     })
                   : "N/A"
               }
+              isLast
             />
-          </Box>
-        </Box>
+          </View>
+        </View>
 
         {/* Wardrobe Stats Card */}
-        <Box
-          className="mx-4 mt-4 mb-8 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: colors.cardBg }}
-        >
-          <Box className="px-4 pt-4 pb-2">
-            <Text
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: colors.textMuted }}
-            >
-              Wardrobe Statistics
-            </Text>
-          </Box>
-
-          <Box className="px-4">
+        <View style={[styles.card, { marginBottom: 40 }]}>
+          <Text style={styles.cardHeader}>Wardrobe</Text>
+          <View style={styles.cardBody}>
             <InfoRow
               icon={<ShirtIcon size={18} color={colors.secondary} />}
               label="Total Clothing Items"
               value={`${totalItems} item${totalItems !== 1 ? "s" : ""}`}
+              isLast
             />
-          </Box>
-        </Box>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  backButton: {
+    height: 40,
+    width: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+    backgroundColor: "#8B735512",
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 20,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
+  },
+  avatarSection: {
+    alignItems: "center",
+    paddingTop: 32,
+    paddingBottom: 16,
+  },
+  avatar: {
+    borderWidth: 2,
+  },
+  avatarFallback: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    color: "#D4A574",
+  },
+  userName: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 22,
+    color: "#3D2E22",
+    marginTop: 16,
+    letterSpacing: -0.3,
+  },
+  userEmail: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: "#9B8B7F",
+    marginTop: 4,
+  },
+  card: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#F0E8DC",
+    shadowColor: "#C9BAAA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+    overflow: "hidden",
+  },
+  cardHeader: {
+    fontFamily: "PlayfairDisplay_500Medium",
+    fontSize: 13,
+    color: "#9B8B7F",
+    letterSpacing: 0.3,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  cardBody: {
+    paddingHorizontal: 16,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  infoIcon: {
+    height: 36,
+    width: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#D4A57415",
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11.5,
+    color: "#9B8B7F",
+    letterSpacing: 0.2,
+  },
+  infoValue: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    color: "#3D2E22",
+    marginTop: 2,
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: "#F0E8DC",
+    marginLeft: 48,
+  },
+});
