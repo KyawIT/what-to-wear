@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from dto import AIOutfitResponse
+from core.dto import AIOutfitResponse
 from PIL import Image
 
 logger = logging.getLogger(__name__)
