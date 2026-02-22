@@ -5,20 +5,22 @@ import at.htlleonding.wtw.wearables.dto.WearablePredictRequestDto;
 import at.htlleonding.wtw.wearables.dto.WearablePredictResponseDto;
 import at.htlleonding.wtw.wearables.dto.WearableResponseDto;
 import at.htlleonding.wtw.wearables.dto.WearableUpdateRequestDto;
+import at.htlleonding.wtw.wearables.resource.support.RequestValidation;
+import at.htlleonding.wtw.wearables.security.AuthenticatedUserProvider;
 import at.htlleonding.wtw.wearables.service.WearableCategoryService;
 import at.htlleonding.wtw.wearables.service.WearablePredictionService;
 import at.htlleonding.wtw.wearables.service.WearableService;
 import io.quarkus.security.Authenticated;
-import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.logging.Logger;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.*;
 
-import static at.htlleonding.wtw.wearables.util.WearablesUtil.*;
+import static at.htlleonding.wtw.wearables.util.WearablesUtil.parseTags;
 
 @Path("/wearable")
 @Authenticated
@@ -26,21 +28,23 @@ import static at.htlleonding.wtw.wearables.util.WearablesUtil.*;
 @Produces(MediaType.APPLICATION_JSON)
 public class WearableResource {
 
+    private static final Logger LOG = Logger.getLogger(WearableResource.class);
+
     private final WearableService service;
     private final WearableCategoryService categoryService;
     private final WearablePredictionService predictionService;
-
-    @Inject
-    JsonWebToken jwt;
+    private final AuthenticatedUserProvider authenticatedUserProvider;
 
     public WearableResource(
             WearableService service,
             WearableCategoryService categoryService,
-            WearablePredictionService predictionService
+            WearablePredictionService predictionService,
+            AuthenticatedUserProvider authenticatedUserProvider
     ) {
         this.service = service;
         this.categoryService = categoryService;
         this.predictionService = predictionService;
+        this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
 
@@ -75,8 +79,15 @@ public class WearableResource {
                     form.file.contentType(),
                     in
             );
+        } catch (BadRequestException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(e.getMessage());
+        } catch (IOException e) {
+            LOG.errorf(e, "Failed to read uploaded file for userId=%s", userId);
+            throw new InternalServerErrorException("Failed to read uploaded file");
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            LOG.errorf(e, "Wearable upload failed for userId=%s", userId);
             throw new InternalServerErrorException("Upload failed");
         }
     }
@@ -91,17 +102,7 @@ public class WearableResource {
     public WearableResponseDto getById(
             @PathParam("id") String idParam
     ) {
-        if (idParam == null || idParam.isBlank()) {
-            throw new BadRequestException("id path param is required");
-        }
-
-        UUID id;
-        try {
-            id = UUID.fromString(idParam.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid id");
-        }
-
+        UUID id = RequestValidation.parseRequiredUuid(idParam, "id");
         return service.getByWearableId(requireUserId(), id);
     }
 
@@ -110,17 +111,7 @@ public class WearableResource {
     public void deleteById(
             @PathParam("id") String idParam
     ) {
-        if (idParam == null || idParam.isBlank()) {
-            throw new BadRequestException("id path param is required");
-        }
-
-        UUID id;
-        try {
-            id = UUID.fromString(idParam.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid id");
-        }
-
+        UUID id = RequestValidation.parseRequiredUuid(idParam, "id");
         service.delete(requireUserId(), id);
     }
 
@@ -131,22 +122,13 @@ public class WearableResource {
             @PathParam("id") String idParam,
             WearableUpdateRequestDto request
     ) {
-        if (idParam == null || idParam.isBlank()) {
-            throw new BadRequestException("id path param is required");
-        }
         if (request == null) {
             throw new BadRequestException("Body is required");
         }
         if (request.title() == null || request.title().isBlank()) {
             throw new BadRequestException("title is required");
         }
-
-        UUID id;
-        try {
-            id = UUID.fromString(idParam.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid id");
-        }
+        UUID id = RequestValidation.parseRequiredUuid(idParam, "id");
 
         UUID categoryId = parseCategoryId(request.categoryId());
         try {
@@ -190,21 +172,10 @@ public class WearableResource {
     }
 
     private static UUID parseCategoryId(String raw) {
-        if (raw == null || raw.isBlank()) {
-            throw new BadRequestException("categoryId is required");
-        }
-        try {
-            return UUID.fromString(raw.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid categoryId");
-        }
+        return RequestValidation.parseRequiredUuid(raw, "categoryId");
     }
 
     private String requireUserId() {
-        String sub = jwt.getSubject();
-        if (sub == null || sub.isBlank()) {
-            throw new NotAuthorizedException("Missing sub claim");
-        }
-        return sub.trim();
+        return authenticatedUserProvider.requireUserId();
     }
 }
