@@ -1,13 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import {
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-  View,
-  Text as RNText,
-  StyleSheet,
-} from "react-native";
+import { ScrollView, KeyboardAvoidingView, Platform, Dimensions, View, Text as RNText } from "react-native";
 import { Image } from "expo-image";
 import Animated, {
   Easing,
@@ -34,15 +26,17 @@ import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Center } from "@/components/ui/center";
-import { Spinner } from "@/components/ui/spinner";
 import { AppHeader } from "@/components/navigation/app-header";
+import CreateLoadingState from "@/components/common/CreateLoadingState";
+import CreateErrorState from "@/components/common/CreateErrorState";
+import CreateEmptyWardrobeState from "@/components/common/CreateEmptyWardrobeState";
+import { s } from "../../styles/screens/tabs/create.styles";
 
 import {
   ChevronLeft,
   Shirt,
   Check,
   X,
-  Plus,
   ChevronDown,
   ChevronUp,
 } from "lucide-react-native";
@@ -246,66 +240,15 @@ const Create = () => {
   // --- Early returns ---
 
   if (loadingData) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <Center className="flex-1">
-          <Spinner size="large" className="text-primary-500" />
-          <RNText style={s.loadingText}>Loading your wardrobe...</RNText>
-        </Center>
-      </SafeAreaView>
-    );
+    return <CreateLoadingState message="Loading your wardrobe..." />;
   }
 
   if (error) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <Center className="flex-1 px-8">
-          <Image
-            source={require("../../assets/mascot/mascot-sad.png")}
-            style={s.errorMascot}
-            contentFit="contain"
-          />
-          <RNText style={s.emptyTitle}>Something went wrong</RNText>
-          <RNText style={s.emptySubtitle}>{error}</RNText>
-          <RNText style={s.errorHint}>Try logging out and back in.</RNText>
-          <Pressable
-            onPress={fetchData}
-            className="rounded-full px-6 py-3 active:opacity-80 mt-6"
-            style={{ backgroundColor: colors.primary }}
-          >
-            <RNText style={s.buttonText}>Try Again</RNText>
-          </Pressable>
-        </Center>
-      </SafeAreaView>
-    );
+    return <CreateErrorState error={error} onRetry={fetchData} />;
   }
 
   if (allWearables.length === 0) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <AppHeader title="Create Outfit" titleStyle={s.headerTitle} />
-
-        <Center className="flex-1 px-8">
-          <View style={s.emptyIcon}>
-            <Shirt size={40} color={colors.primary} strokeWidth={1.5} />
-          </View>
-          <RNText style={s.emptyTitle}>Your wardrobe is empty</RNText>
-          <RNText style={s.emptySubtitle}>
-            Start by adding items from the Scan tab
-          </RNText>
-          <Pressable
-            onPress={() => router.push("/scan")}
-            className="rounded-full px-6 py-3 active:opacity-80 mt-6"
-            style={{ backgroundColor: colors.primary }}
-          >
-            <HStack className="items-center">
-              <Plus size={18} color="#FFFFFF" />
-              <RNText style={[s.buttonText, { marginLeft: 8 }]}>Add Items</RNText>
-            </HStack>
-          </Pressable>
-        </Center>
-      </SafeAreaView>
-    );
+    return <CreateEmptyWardrobeState onAddItems={() => router.push("/scan")} />;
   }
 
   // --- Main render ---
@@ -535,217 +478,5 @@ const Create = () => {
     </SafeAreaView>
   );
 };
-
-const s = StyleSheet.create({
-  headerTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 20,
-    color: "#3D2E22",
-    letterSpacing: -0.3,
-  },
-  continueText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
-  previewCard: {
-    borderRadius: 16,
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
-    shadowColor: "#C9BAAA",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  previewTransitionContainer: {
-    overflow: "hidden",
-  },
-  previewAnimatedSlot: {
-    overflow: "hidden",
-  },
-  previewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  previewTitle: {
-    fontFamily: "PlayfairDisplay_500Medium",
-    fontSize: 15,
-    color: "#3D2E22",
-  },
-  previewCount: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: "#9B8B7F",
-    marginLeft: 8,
-  },
-  clearText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-    color: "#D25037",
-  },
-  emptyPreview: {
-    borderRadius: 12,
-    paddingVertical: 24,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#E8DED3",
-    backgroundColor: "#F5EFE6",
-  },
-  emptyPreviewContent: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  createMascot: {
-    width: 132,
-    height: 132,
-    opacity: 0.95,
-  },
-  emptyPreviewText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: "#9B8B7F",
-    textAlign: "center",
-  },
-  thumbWrap: {
-    width: PREVIEW_THUMB_SIZE,
-    height: PREVIEW_THUMB_SIZE,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#F5EFE6",
-    borderWidth: 1,
-    borderColor: "#D4A57460",
-  },
-  thumbClose: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    height: 16,
-    width: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#9B8B7FCC",
-  },
-  categoryBar: {
-    paddingBottom: 12,
-    paddingTop: 8,
-    backgroundColor: "#FAF7F2",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0E8DC",
-  },
-  categoryWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingHorizontal: 16,
-  },
-  pill: {
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: 1,
-  },
-  pillActive: {
-    backgroundColor: "#D4A574",
-    borderColor: "#D4A574",
-  },
-  pillInactive: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#F0E8DC",
-  },
-  pillText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-  },
-  pillToggle: {
-    backgroundColor: "#F5EFE6",
-    borderColor: "#E8DED3",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  pillToggleText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-    color: "#6B5B4F",
-    marginRight: 4,
-  },
-  gridCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#FFFFFF",
-  },
-  checkBadge: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    height: 24,
-    width: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#D4A574",
-  },
-  gridLabel: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 11,
-    color: "#6B5B4F",
-    textAlign: "center",
-    marginTop: 4,
-  },
-  loadingText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    marginTop: 16,
-  },
-  errorMascot: {
-    width: 120,
-    height: 120,
-    marginBottom: 20,
-    opacity: 0.6,
-  },
-  errorHint: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#9B8B7F",
-    textAlign: "center",
-    marginTop: 4,
-  },
-  emptyIcon: {
-    height: 96,
-    width: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    backgroundColor: "#F7E9D7",
-  },
-  emptyTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 18,
-    color: "#6B5B4F",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    textAlign: "center",
-  },
-  buttonText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-});
 
 export default Create;
