@@ -8,7 +8,13 @@ const _Layout = () => {
   return (
     <View className="flex-1 bg-background-50">
       <Tabs
+        detachInactiveScreens={false}
+        lazy={false}
         screenOptions={{
+          animation: "fade",
+          sceneStyle: {
+            backgroundColor: colors.background,
+          },
           tabBarShowLabel: false,
           tabBarStyle: {
             backgroundColor: colors.background,
