@@ -1,13 +1,12 @@
-import React, { useState } from "react";
-import { Text, ScrollView, View, StyleSheet } from "react-native";
+import React from "react";
+import { Text, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Pressable } from "@/components/ui/pressable";
 import { AppHeader } from "@/components/navigation/app-header";
+import FAQAccordion, { FAQItem } from "@/components/common/FAQAccordion";
 import {
     ChevronLeft,
-    ChevronDown,
-    ChevronUp,
     Mail,
     Shirt,
     Sparkles,
@@ -15,12 +14,7 @@ import {
     Tag,
 } from "lucide-react-native";
 import { colors } from "@/lib/theme";
-
-type FAQItem = {
-    question: string;
-    answer: string;
-    icon: React.ReactNode;
-};
+import { styles } from "../../styles/screens/profile/help.styles";
 
 const FAQ_ITEMS: FAQItem[] = [
     {
@@ -48,35 +42,6 @@ const FAQ_ITEMS: FAQItem[] = [
         icon: <Tag size={16} color={colors.secondary} />,
     },
 ];
-
-const FAQAccordion = ({ item, isLast }: { item: FAQItem; isLast: boolean }) => {
-    const [expanded, setExpanded] = useState(false);
-
-    return (
-        <View>
-            <Pressable
-                onPress={() => setExpanded(!expanded)}
-                style={styles.faqRow}
-            >
-                <View style={styles.faqIcon}>{item.icon}</View>
-                <Text style={styles.faqQuestion}>{item.question}</Text>
-                {expanded ? (
-                    <ChevronUp size={18} color={colors.textMuted} />
-                ) : (
-                    <ChevronDown size={18} color={colors.textMuted} />
-                )}
-            </Pressable>
-
-            {expanded && (
-                <View style={styles.faqAnswer}>
-                    <Text style={styles.faqAnswerText}>{item.answer}</Text>
-                </View>
-            )}
-
-            {!isLast && <View style={styles.faqDivider} />}
-        </View>
-    );
-};
 
 export default function HelpScreen() {
     return (
@@ -122,7 +87,7 @@ export default function HelpScreen() {
                             </View>
                             <View style={styles.contactContent}>
                                 <Text style={styles.contactTitle}>Email Support</Text>
-                                <Text style={styles.contactSub}>support@what-to-wear.app</Text>
+                                <Text style={styles.contactSub}>katharina.winkler.digital@gmail.com</Text>
                             </View>
                         </View>
                     </View>
@@ -132,118 +97,3 @@ export default function HelpScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    flex: {
-        flex: 1,
-    },
-    backButton: {
-        height: 40,
-        width: 40,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 20,
-        backgroundColor: "#8B735512",
-        marginRight: 8,
-    },
-    headerTitle: {
-        fontFamily: "PlayfairDisplay_600SemiBold",
-        fontSize: 20,
-        color: "#3D2E22",
-        letterSpacing: -0.3,
-    },
-    card: {
-        marginHorizontal: 20,
-        marginTop: 20,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: "#F0E8DC",
-        shadowColor: "#C9BAAA",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-        overflow: "hidden",
-    },
-    cardHeader: {
-        fontFamily: "PlayfairDisplay_500Medium",
-        fontSize: 13,
-        color: "#9B8B7F",
-        letterSpacing: 0.3,
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 4,
-    },
-    cardBody: {
-        paddingHorizontal: 16,
-    },
-    faqRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 14,
-    },
-    faqIcon: {
-        height: 32,
-        width: 32,
-        borderRadius: 16,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#D4A57415",
-        marginRight: 12,
-    },
-    faqQuestion: {
-        fontFamily: "Inter_500Medium",
-        fontSize: 14,
-        color: "#3D2E22",
-        flex: 1,
-    },
-    faqAnswer: {
-        marginLeft: 44,
-        marginBottom: 14,
-        padding: 12,
-        borderRadius: 12,
-        backgroundColor: "#FAF7F2",
-    },
-    faqAnswerText: {
-        fontFamily: "Inter_400Regular",
-        fontSize: 13.5,
-        lineHeight: 20,
-        color: "#6B5B4F",
-    },
-    faqDivider: {
-        height: 1,
-        backgroundColor: "#F0E8DC",
-        marginLeft: 44,
-    },
-    contactRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 14,
-    },
-    contactIcon: {
-        height: 36,
-        width: 36,
-        borderRadius: 18,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#D4A57415",
-        marginRight: 12,
-    },
-    contactContent: {
-        flex: 1,
-    },
-    contactTitle: {
-        fontFamily: "Inter_500Medium",
-        fontSize: 14,
-        color: "#3D2E22",
-    },
-    contactSub: {
-        fontFamily: "Inter_400Regular",
-        fontSize: 12,
-        color: "#9B8B7F",
-        marginTop: 2,
-    },
-});

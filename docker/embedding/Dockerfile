@@ -16,11 +16,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy scripts
+# Copy scripts only; dataset is mounted at runtime for indexing jobs.
 COPY scripts/ ./scripts/
 
-# Copy preprocessed dataset
-COPY preprocessed_dataset/ /data/input/
-
-# Default command (will be overridden by docker-compose or docker run)
+# Default command (overridden by compose/workflows)
 CMD ["bash"]

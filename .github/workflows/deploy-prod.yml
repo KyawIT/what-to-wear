@@ -68,8 +68,8 @@ jobs:
       - name: Build and push python image
         uses: docker/build-push-action@v6
         with:
-          context: ./python/service
-          file: ./python/service/docker/Dockerfile
+          context: ./python
+          file: ./docker/python-service/Dockerfile
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -77,14 +77,27 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest
 
+      - name: Build and push embedding image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./python/embedding
+          file: ./docker/embedding/Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:latest
+
       - name: Build summary
         run: |
           {
             echo "## Build Summary"
             echo ""
-            echo "- Backend image: ghcr.io/${OWNER_LC}/wtw-backend:latest"
-            echo "- Rembg image: ghcr.io/${OWNER_LC}/wtw-rembg:latest"
-            echo "- Python image: ghcr.io/${OWNER_LC}/wtw-python:latest"
+            echo "- Backend image: ghcr.io/${OWNER_LC}/wtw-backend:${GITHUB_SHA}"
+            echo "- Rembg image: ghcr.io/${OWNER_LC}/wtw-rembg:${GITHUB_SHA}"
+            echo "- Python image: ghcr.io/${OWNER_LC}/wtw-python:${GITHUB_SHA}"
+            echo "- Embedding image: ghcr.io/${OWNER_LC}/wtw-embedding:${GITHUB_SHA}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
@@ -109,9 +122,9 @@ jobs:
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         env:
-          BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest
-          REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest
-          PYTHON_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest
+          BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}
+          REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
+          PYTHON_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
@@ -127,13 +140,17 @@ jobs:
             docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml pull
             docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d --remove-orphans
 
+            # Smoke checks for critical services
+            docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T python-service wget -qO- http://localhost:8000/health >/dev/null
+            docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T wtw-backend wget -qO- http://localhost:8080/q/health >/dev/null
+
       - name: Deploy summary
         run: |
           {
             echo "## Deploy Summary"
             echo ""
             echo "- Deploy path: ${{ secrets.DEPLOY_PATH }}"
-            echo "- Backend image: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest"
-            echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest"
-            echo "- Python image: ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest"
+            echo "- Backend image: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}"
+            echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}"
+            echo "- Python image: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}"
           } >> "$GITHUB_STEP_SUMMARY"

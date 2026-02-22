@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import React from "react";
 import { LayoutGrid, User, Sparkles, Shirt, Camera } from "lucide-react-native";
 import { colors } from "@/lib/theme";

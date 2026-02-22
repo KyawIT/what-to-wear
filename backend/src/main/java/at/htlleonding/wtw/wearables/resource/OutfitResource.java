@@ -4,15 +4,17 @@ import at.htlleonding.wtw.wearables.dto.OutfitCreateDto;
 import at.htlleonding.wtw.wearables.dto.OutfitRecommendationResponseDto;
 import at.htlleonding.wtw.wearables.dto.OutfitResponseDto;
 import at.htlleonding.wtw.wearables.dto.OutfitUpdateRequestDto;
+import at.htlleonding.wtw.wearables.resource.support.RequestValidation;
+import at.htlleonding.wtw.wearables.security.AuthenticatedUserProvider;
 import at.htlleonding.wtw.wearables.service.OutfitRecommendationService;
 import at.htlleonding.wtw.wearables.service.OutfitService;
 import io.quarkus.security.Authenticated;
-import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.server.multipart.MultipartFormDataInput;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -27,15 +29,20 @@ import static at.htlleonding.wtw.wearables.util.OutfitsUtil.*;
 @Produces(MediaType.APPLICATION_JSON)
 public class OutfitResource {
 
+    private static final Logger LOG = Logger.getLogger(OutfitResource.class);
+
     private final OutfitService service;
     private final OutfitRecommendationService recommendationService;
+    private final AuthenticatedUserProvider authenticatedUserProvider;
 
-    @Inject
-    JsonWebToken jwt;
-
-    public OutfitResource(OutfitService service, OutfitRecommendationService recommendationService) {
+    public OutfitResource(
+            OutfitService service,
+            OutfitRecommendationService recommendationService,
+            AuthenticatedUserProvider authenticatedUserProvider
+    ) {
         this.service = service;
         this.recommendationService = recommendationService;
+        this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
     @POST
@@ -62,10 +69,15 @@ public class OutfitResource {
                         form.file.fileName(),
                         form.file.contentType(),
                         in);
-            } catch (BadRequestException | IllegalArgumentException e) {
+            } catch (BadRequestException e) {
                 throw e;
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException(e.getMessage());
+            } catch (IOException e) {
+                LOG.errorf(e, "Failed to read outfit upload for userId=%s", userId);
+                throw new InternalServerErrorException("Failed to read uploaded file");
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                LOG.errorf(e, "Outfit upload failed for userId=%s", userId);
                 throw new InternalServerErrorException("Upload failed");
             }
         } else {
@@ -89,34 +101,14 @@ public class OutfitResource {
     @GET
     @Path("/{id}")
     public OutfitResponseDto getById(@PathParam("id") String idParam) {
-        if (idParam == null || idParam.isBlank()) {
-            throw new BadRequestException("id path param is required");
-        }
-
-        UUID id;
-        try {
-            id = UUID.fromString(idParam.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid id");
-        }
-
+        UUID id = RequestValidation.parseRequiredUuid(idParam, "id");
         return service.getById(requireUserId(), id);
     }
 
     @DELETE
     @Path("/{id}")
     public void delete(@PathParam("id") String idParam) {
-        if (idParam == null || idParam.isBlank()) {
-            throw new BadRequestException("id path param is required");
-        }
-
-        UUID id;
-        try {
-            id = UUID.fromString(idParam.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid id");
-        }
-
+        UUID id = RequestValidation.parseRequiredUuid(idParam, "id");
         service.delete(requireUserId(), id);
     }
 
@@ -127,9 +119,6 @@ public class OutfitResource {
             @PathParam("id") String idParam,
             OutfitUpdateRequestDto request
     ) {
-        if (idParam == null || idParam.isBlank()) {
-            throw new BadRequestException("id path param is required");
-        }
         if (request == null) {
             throw new BadRequestException("Body is required");
         }
@@ -137,12 +126,7 @@ public class OutfitResource {
             throw new BadRequestException("title is required");
         }
 
-        UUID outfitId;
-        try {
-            outfitId = UUID.fromString(idParam.trim());
-        } catch (Exception e) {
-            throw new BadRequestException("Invalid id");
-        }
+        UUID outfitId = RequestValidation.parseRequiredUuid(idParam, "id");
 
         List<UUID> wearableIds = parseWearableIds(request.wearableIds());
         try {
@@ -186,10 +170,6 @@ public class OutfitResource {
     }
 
     private String requireUserId() {
-        String sub = jwt.getSubject();
-        if (sub == null || sub.isBlank()) {
-            throw new NotAuthorizedException("Missing sub claim");
-        }
-        return sub.trim();
+        return authenticatedUserProvider.requireUserId();
     }
 }

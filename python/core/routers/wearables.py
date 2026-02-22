@@ -1,46 +1,60 @@
-"""Image upload endpoint."""
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
-from pydantic import BaseModel
-from PIL import Image
+"""Wearables endpoints for upload, update, delete, and prediction."""
+from __future__ import annotations
+
 import io
+import logging
+import tempfile
 from pathlib import Path
 
-from models import Wearable
-from dto import (
-    WearableUploadResponse,
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from PIL import Image
+from pydantic import BaseModel
+
+from core.dependencies import get_embedder, get_repository
+from core.dto import (
+    DeleteWearableResponse,
     PredictionResponse,
     UpdateWearableResponse,
-    DeleteWearableResponse
+    WearableUploadResponse,
 )
+from core.models import Wearable
+from core.repositories import WearableRepository
+from core.utils import ImageEmbedder
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Will be injected by app.py
-embedder = None
-repository = None
-
-
-# ============================================================================
-# Data Models
-# ============================================================================
 
 class UpdateWearableRequest(BaseModel):
     """Request model for updating a wearable item."""
+
     user_id: str
     item_id: str
     category: str
-    tags: str  # Comma-separated tags
+    tags: str
 
 
 class DeleteWearableRequest(BaseModel):
     """Request model for deleting a wearable item."""
+
     user_id: str
     item_id: str
 
 
-# ============================================================================
-# Endpoints
-# ============================================================================
+def _require_image_content_type(upload: UploadFile) -> None:
+    if not upload.content_type or not upload.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+
+def _parse_tags(raw_tags: str) -> list[str]:
+    return [tag.strip() for tag in raw_tags.split(",") if tag.strip()]
+
+
+def _save_image_to_temp_file(image: Image.Image, prefix: str) -> Path:
+    with tempfile.NamedTemporaryFile(prefix=prefix, suffix=".png", delete=False) as tmp_file:
+        temp_path = Path(tmp_file.name)
+    image.save(temp_path)
+    return temp_path
 
 
 @router.post("/upload", response_model=WearableUploadResponse)
@@ -49,226 +63,139 @@ async def upload_wearable(
     category: str = Form(...),
     tags: str = Form(...),
     user_id: str = Form(...),
-    item_id: str = Form(...)
-):
-    """
-    Upload a wearable image with metadata.
-    
-    Args:
-        file: Image file (multipart/form-data)
-        category: Item category (e.g., "shirt", "shoes", "jacket")
-        tags: Comma-separated tags (e.g., "casual,cotton,blue")
-        user_id: User identifier for ownership
-        item_id: Unique item identifier
-    
-    Returns:
-        JSON response via WearableUploadResponse DTO
-    """
-    if embedder is None or repository is None:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-    
-    # Validate file type
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="File must be an image")
-    
+    item_id: str = Form(...),
+    embedder: ImageEmbedder = Depends(get_embedder),
+    repository: WearableRepository = Depends(get_repository),
+) -> WearableUploadResponse:
+    """Upload a wearable image and persist its embedding with metadata."""
+    _require_image_content_type(file)
+
+    temp_path: Path | None = None
     try:
-        # Read and validate image
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents)).convert('RGB')
-        
-        # Save temporarily to disk for embedding
-        temp_path = Path("/tmp") / f"{item_id}_{file.filename}"
-        image.save(temp_path)
-        
-        # Generate embedding
+        image_bytes = await file.read()
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        temp_path = _save_image_to_temp_file(image=image, prefix=f"wearable_{item_id}_")
+
         embedding = embedder.embed_image(temp_path)
-        
-        # Parse tags (convert "tag1,tag2" to ["tag1", "tag2"])
-        tags_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
-        
-        # Normalize category to uppercase
+        tags_list = _parse_tags(tags)
         normalized_category = category.upper()
-        
-        # Create Wearable object
+
         wearable = Wearable(
             id=item_id,
             embedding=embedding,
             category=normalized_category,
             tags=tags_list,
             image_path=str(temp_path),
-            user_id=user_id
+            user_id=user_id,
         )
-        
-        # Get next ID for Qdrant storage
-        next_id = repository.get_next_id()
-        
-        # Store in Qdrant
-        repository.insert_single(next_id, wearable)
-        
-        # Create and return response
-        response = WearableUploadResponse(
+
+        repository.insert_single(repository.get_next_id(), wearable)
+
+        return WearableUploadResponse(
             item_id=item_id,
             category=normalized_category,
             tags=tags_list,
-            user_id=user_id
+            user_id=user_id,
         )
-        
-        return response
-    
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+    except Exception as exc:
+        logger.exception("Failed to upload wearable", extra={"item_id": item_id, "user_id": user_id})
+        raise HTTPException(status_code=500, detail=f"Upload failed: {exc}") from exc
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 @router.put("/update", response_model=UpdateWearableResponse)
-async def update_wearable(request: UpdateWearableRequest):
-    """
-    Update a wearable item's metadata in Qdrant.
-    
-    Args:
-        user_id: User identifier
-        item_id: Item identifier
-        category: Updated category
-        tags: Updated tags (comma-separated)
-    
-    Returns:
-        JSON response with update status
-    """
-    if embedder is None or repository is None:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-    
+async def update_wearable(
+    request: UpdateWearableRequest,
+    repository: WearableRepository = Depends(get_repository),
+) -> UpdateWearableResponse:
+    """Update category and tags for an existing wearable."""
     try:
-        # Find the existing item
-        result = repository.find_by_user_and_item(request.user_id, request.item_id)
-        if not result:
+        existing = repository.find_by_user_and_item(request.user_id, request.item_id)
+        if not existing:
             raise HTTPException(status_code=404, detail="Item not found")
-        
-        _, old_payload, vector = result
-        
-        # Parse tags
-        tags_list = [tag.strip() for tag in request.tags.split(",") if tag.strip()]
-        
-        # Create updated Wearable (keep the same vector/embedding)
+
+        _, old_payload, vector = existing
         wearable = Wearable(
             id=request.item_id,
-            embedding=vector,  # Keep existing embedding
+            embedding=vector,
             category=request.category,
-            tags=tags_list,
-            image_path=old_payload.get('image_path'),
-            user_id=request.user_id
+            tags=_parse_tags(request.tags),
+            image_path=old_payload.get("image_path"),
+            user_id=request.user_id,
         )
-        
-        # Update in Qdrant
-        success = repository.update_item(request.user_id, request.item_id, wearable)
-        
-        if not success:
+
+        if not repository.update_item(request.user_id, request.item_id, wearable):
             raise HTTPException(status_code=404, detail="Item not found")
-        
+
         return UpdateWearableResponse(
             item_id=request.item_id,
             user_id=request.user_id,
             category=request.category,
-            tags=tags_list
+            tags=wearable.tags,
         )
-    
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+    except Exception as exc:
+        logger.exception("Failed to update wearable", extra={"item_id": request.item_id, "user_id": request.user_id})
+        raise HTTPException(status_code=500, detail=f"Update failed: {exc}") from exc
 
 
 @router.delete("/delete", response_model=DeleteWearableResponse)
-async def delete_wearable(request: DeleteWearableRequest):
-    """
-    Delete a wearable item by marking it as deleted in metadata.
-    
-    Soft delete: Sets deleted=True in metadata instead of removing the vector.
-    This preserves the embedding for potential recovery while marking it as deleted.
-    
-    Args:
-        user_id: User identifier
-        item_id: Item identifier
-    
-    Returns:
-        JSON response with delete status
-    """
-    if embedder is None or repository is None:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-    
+async def delete_wearable(
+    request: DeleteWearableRequest,
+    repository: WearableRepository = Depends(get_repository),
+) -> DeleteWearableResponse:
+    """Soft-delete a wearable item by marking metadata as deleted."""
     try:
-        # Delete (soft delete with deleted=True in metadata)
-        success = repository.delete_item(request.user_id, request.item_id)
-        
-        if not success:
+        if not repository.delete_item(request.user_id, request.item_id):
             raise HTTPException(status_code=404, detail="Item not found")
-        
-        return DeleteWearableResponse(
-            item_id=request.item_id,
-            user_id=request.user_id,
-            deleted=True
-        )
-    
+
+        return DeleteWearableResponse(item_id=request.item_id, user_id=request.user_id, deleted=True)
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+    except Exception as exc:
+        logger.exception("Failed to delete wearable", extra={"item_id": request.item_id, "user_id": request.user_id})
+        raise HTTPException(status_code=500, detail=f"Delete failed: {exc}") from exc
 
 
 @router.post("/predict", response_model=PredictionResponse)
 async def predict_wearable(
-    file: UploadFile = File(...)
-):
-    """
-    Predict category and tags for a wearable image.
-    
-    Uses vector similarity search to find similar items and predict
-    category and tags based on them.
-    
-    Args:
-        file: Image file (multipart/form-data)
-    
-    Returns:
-        PredictionResponse with predicted category, tags, and confidence
-    """
-    if embedder is None or repository is None:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-    
-    # Validate file type
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="File must be an image")
-    
+    file: UploadFile = File(...),
+    embedder: ImageEmbedder = Depends(get_embedder),
+    repository: WearableRepository = Depends(get_repository),
+) -> PredictionResponse:
+    """Predict category and tags for an image using vector similarity search."""
+    _require_image_content_type(file)
+
+    temp_path: Path | None = None
     try:
-        # Read and validate image
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents)).convert('RGB')
-        
-        # Save temporarily to disk for embedding
-        temp_path = Path("/tmp") / f"predict_{file.filename}"
-        image.save(temp_path)
-        
-        # Generate embedding
+        image_bytes = await file.read()
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        temp_path = _save_image_to_temp_file(image=image, prefix="predict_")
+
         embedding = embedder.embed_image(temp_path)
-        
-        # Predict category and tags using Qdrant vector search
         predicted_category, predicted_tags, avg_confidence = repository.predict_category_and_tags(
             query_embedding=embedding,
             limit=20,
             score_threshold=0.7,
             max_tags=5,
-            tag_confidence_threshold=0.5
+            tag_confidence_threshold=0.5,
         )
-        
-        # Clean up
-        temp_path.unlink(missing_ok=True)
-        
+
         return PredictionResponse(
             category=predicted_category,
             tags=predicted_tags,
-            confidence=avg_confidence
+            confidence=avg_confidence,
         )
-    
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+    except Exception as exc:
+        logger.exception("Failed to predict wearable")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)

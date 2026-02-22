@@ -5,15 +5,19 @@ import io.minio.*;
 import io.minio.http.Method;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @ApplicationScoped
 public class OutfitsUtil {
+    private static final Logger LOG = Logger.getLogger(OutfitsUtil.class);
+
     private final MinioClient minio;
     private final String bucket;
     private final String endpoint;
@@ -22,7 +26,7 @@ public class OutfitsUtil {
     public OutfitsUtil(
             MinioClient minio,
             @ConfigProperty(name = "app.minio.outfits.bucket", defaultValue = "outfits") String bucket,
-            @ConfigProperty(name = "quarkus.minio.endpoint") String endpoint,
+            @ConfigProperty(name = "quarkus.minio.url") String endpoint,
             @ConfigProperty(name = "app.minio.public-base-url", defaultValue = "") String publicBaseUrl) {
         this.minio = minio;
         this.bucket = bucket;
@@ -75,8 +79,7 @@ public class OutfitsUtil {
                             .object(objectKey)
                             .build());
         } catch (Exception e) {
-            // log but don't fail the delete operation
-            System.err.println("Failed to delete outfit image from MinIO: " + objectKey);
+            LOG.warnf(e, "Failed to delete outfit image from MinIO: %s", objectKey);
         }
     }
 
@@ -209,8 +212,8 @@ public class OutfitsUtil {
 
     private static String normalizeContentType(String contentType, String fileName) {
         if (contentType != null && !contentType.isBlank())
-            return contentType.trim().toLowerCase();
-        String lower = (fileName == null) ? "" : fileName.toLowerCase();
+            return contentType.trim().toLowerCase(Locale.ROOT);
+        String lower = (fileName == null) ? "" : fileName.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".png"))
             return "image/png";
         if (lower.endsWith(".webp"))

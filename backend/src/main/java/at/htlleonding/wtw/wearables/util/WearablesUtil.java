@@ -4,17 +4,20 @@ import at.htlleonding.wtw.wearables.dto.UploadResultDto;
 import io.minio.*;
 import io.minio.http.Method;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.ws.rs.BadRequestException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @ApplicationScoped
 public class WearablesUtil {
+    private static final Logger LOG = Logger.getLogger(WearablesUtil.class);
+
     private final MinioClient minio;
     private final String bucket;
     private final String endpoint;
@@ -23,7 +26,7 @@ public class WearablesUtil {
     public WearablesUtil(
             MinioClient minio,
             @ConfigProperty(name = "app.minio.wearables.bucket", defaultValue = "wearables") String bucket,
-            @ConfigProperty(name = "quarkus.minio.endpoint") String endpoint,
+            @ConfigProperty(name = "quarkus.minio.url") String endpoint,
             @ConfigProperty(name = "app.minio.public-base-url", defaultValue = "") String publicBaseUrl
     ) {
         this.minio = minio;
@@ -146,8 +149,8 @@ public class WearablesUtil {
     }
 
     private static String normalizeContentType(String contentType, String fileName) {
-        if (contentType != null && !contentType.isBlank()) return contentType.trim().toLowerCase();
-        String lower = (fileName == null) ? "" : fileName.toLowerCase();
+        if (contentType != null && !contentType.isBlank()) return contentType.trim().toLowerCase(Locale.ROOT);
+        String lower = (fileName == null) ? "" : fileName.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".png")) return "image/png";
         if (lower.endsWith(".webp")) return "image/webp";
         if (lower.endsWith(".jpeg") || lower.endsWith(".jpg")) return "image/jpeg";
@@ -190,10 +193,10 @@ public class WearablesUtil {
                     RemoveObjectArgs.builder()
                             .bucket(bucket)
                             .object(objectKey)
-                            .build()
+                    .build()
             );
         } catch (Exception e) {
-            System.err.println("Failed to delete wearable image from MinIO: " + objectKey);
+            LOG.warnf(e, "Failed to delete wearable image from MinIO: %s", objectKey);
         }
     }
 

@@ -1,0 +1,122 @@
+name: WTW Reindex Qdrant (Production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      collection_name:
+        description: "Qdrant collection name"
+        required: true
+        default: "wearables"
+      qdrant_host:
+        description: "Qdrant host reachable from Docker network"
+        required: true
+        default: "wtw-qdrant"
+      qdrant_port:
+        description: "Qdrant HTTP port"
+        required: true
+        default: "6333"
+      dataset_dir:
+        description: "Absolute server path containing dataset.csv and images/"
+        required: true
+      recreate:
+        description: "Recreate collection before indexing (true/false)"
+        required: true
+        default: "false"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  reindex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Normalize image owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push embedding image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./python/embedding
+          file: ./docker/embedding/Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:latest
+
+      - name: Run reindex on server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          EMBEDDING_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          COLLECTION_NAME: ${{ github.event.inputs.collection_name }}
+          QDRANT_HOST: ${{ github.event.inputs.qdrant_host }}
+          QDRANT_PORT: ${{ github.event.inputs.qdrant_port }}
+          DATASET_DIR: ${{ github.event.inputs.dataset_dir }}
+          RECREATE: ${{ github.event.inputs.recreate }}
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          envs: EMBEDDING_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD,COLLECTION_NAME,QDRANT_HOST,QDRANT_PORT,DATASET_DIR,RECREATE
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+
+            if [ ! -f "$DATASET_DIR/dataset.csv" ]; then
+              echo "Missing $DATASET_DIR/dataset.csv"
+              exit 1
+            fi
+            if [ ! -d "$DATASET_DIR/images" ]; then
+              echo "Missing $DATASET_DIR/images"
+              exit 1
+            fi
+
+            docker login ghcr.io -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
+            docker pull "$EMBEDDING_IMAGE"
+
+            RECREATE_FLAG=""
+            if [ "$RECREATE" = "true" ]; then
+              RECREATE_FLAG="--recreate"
+            fi
+
+            docker run --rm \
+              --network wtw_internal \
+              -v "$DATASET_DIR:/data/input:ro" \
+              "$EMBEDDING_IMAGE" \
+              python /app/scripts/qdrant_indexer.py \
+                --csv-path /data/input/dataset.csv \
+                --images-path /data/input/images \
+                --collection-name "$COLLECTION_NAME" \
+                --qdrant-host "$QDRANT_HOST" \
+                --qdrant-port "$QDRANT_PORT" \
+                $RECREATE_FLAG
+
+      - name: Summary
+        run: |
+          {
+            echo "## Reindex Summary"
+            echo ""
+            echo "- Embedding image: ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}"
+            echo "- Collection: ${{ github.event.inputs.collection_name }}"
+            echo "- Qdrant: ${{ github.event.inputs.qdrant_host }}:${{ github.event.inputs.qdrant_port }}"
+            echo "- Dataset dir: ${{ github.event.inputs.dataset_dir }}"
+            echo "- Recreate: ${{ github.event.inputs.recreate }}"
+          } >> "$GITHUB_STEP_SUMMARY"

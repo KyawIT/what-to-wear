@@ -1,13 +1,6 @@
-"""Unit tests for AIOutfitService."""
-from pathlib import Path
-import sys
 import asyncio
 
-core_dir = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(core_dir))
-sys.path.insert(0, str(core_dir / "service"))
-
-from ai_outfit_service import AIOutfitService
+from core.service.ai_outfit_service import AIOutfitService
 
 
 class FakeRepository:

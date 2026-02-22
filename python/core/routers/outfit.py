@@ -1,26 +1,60 @@
 """Outfit generation endpoint."""
-from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Request
-from fastapi.responses import FileResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from typing import Dict, Optional, List
 import io
 import logging
 import json
 import uuid
-from PIL import Image
+from pydantic import BaseModel, Field, ValidationError
 
-from dto import GenerateOutfitsSimpleResponse, GenerateOutfitsResponse, UploadOutfitResponse
+from core.dependencies import get_outfit_combiner, get_outfit_generator
+from core.dto import GenerateOutfitsSimpleResponse
+from core.service import OutfitCombiner, OutfitGenerator
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Will be injected by app.py
-outfit_generator = None
-outfit_combiner = None
-wearable_repository = None
+
+class SimpleWearableInput(BaseModel):
+    """Wearable input for simple outfit generation."""
+
+    id: str
+    category: str
+    tags: List[str] = Field(default_factory=list)
+
+
+class GenerateOutfitsSimpleRequest(BaseModel):
+    """Request body for /outfit/generate_outfits_simple."""
+
+    wearables: List[SimpleWearableInput] = Field(default_factory=list)
+    filterTags: List[str] | None = None
+    limitOutfits: int | None = None
+
+
+class MultipartWearableInput(BaseModel):
+    """Wearable item entry from multipart JSON payload."""
+
+    item_id: str
+    category: str
+    tags: List[str] = Field(default_factory=list)
+    file: str | None = None
+
+
+class UploadMultipartWearableInput(BaseModel):
+    """Wearable item entry for /outfit/upload multipart JSON payload."""
+
+    id: str
+    category: str
+    tags: List[str] = Field(default_factory=list)
+    file: str | None = None
 
 
 @router.post("/outfit/generate_outfits_simple", response_model=GenerateOutfitsSimpleResponse)
-async def generate_outfits_simple(request: dict):
+async def generate_outfits_simple(
+    request: GenerateOutfitsSimpleRequest,
+    outfit_generator: OutfitGenerator = Depends(get_outfit_generator),
+):
     """
     Generate outfits from wearables (JSON only).
     
@@ -30,13 +64,10 @@ async def generate_outfits_simple(request: dict):
     Returns:
         JSON response with generated outfits
     """
-    if outfit_generator is None:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-    
     try:
-        wearables = request.get("wearables", [])
-        filter_tags = request.get("filterTags")
-        limit_outfits = request.get("limitOutfits")
+        wearables = [wearable.model_dump() for wearable in request.wearables]
+        filter_tags = request.filterTags
+        limit_outfits = request.limitOutfits
         
         result = outfit_generator.generate(
             wearables=wearables,
@@ -55,7 +86,9 @@ async def generate_outfits_simple(request: dict):
 
 @router.post("/outfit/generate_outfits")
 async def generate_outfits(
-    request: Request
+    request: Request,
+    outfit_generator: OutfitGenerator = Depends(get_outfit_generator),
+    outfit_combiner: OutfitCombiner = Depends(get_outfit_combiner),
 ):
     """
     Generate outfits from wearables with images.
@@ -71,9 +104,9 @@ async def generate_outfits(
         - JSON part containing outfits metadata (items array + image name)
         - PNG parts for each outfit image (outfit_0.png, outfit_1.png, etc)
     """
-    if outfit_generator is None or outfit_combiner is None:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-    
+    tags_list: List[str] | None = None
+    converted_wearables: List[Dict] = []
+
     try:
         # Parse multipart form data
         form_data = await request.form()
@@ -86,16 +119,22 @@ async def generate_outfits(
         parsed_json = json.loads(wearables_json)
         # Handle both direct array and wrapped {wearables: [...]} format
         if isinstance(parsed_json, dict) and "wearables" in parsed_json:
-            wearables_list = parsed_json["wearables"]
+            wearables_payload = parsed_json["wearables"]
         elif isinstance(parsed_json, list):
-            wearables_list = parsed_json
+            wearables_payload = parsed_json
         else:
             raise HTTPException(status_code=400, detail="Invalid wearables format")
+        try:
+            wearables_list = [
+                MultipartWearableInput.model_validate(item).model_dump()
+                for item in wearables_payload
+            ]
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid wearable payload: {exc}") from exc
         logger.info(f"Loaded {len(wearables_list)} wearables")
         
         # Parse optional parameters
         filter_tags_str = form_data.get("filterTags")
-        tags_list = None
         if filter_tags_str:
             tags_list = [t.strip() for t in filter_tags_str.split(",")]
         
@@ -306,7 +345,10 @@ async def generate_outfits(
 
 
 @router.post("/outfit/upload")
-async def upload_outfit(request: Request):
+async def upload_outfit(
+    request: Request,
+    outfit_combiner: OutfitCombiner = Depends(get_outfit_combiner),
+):
     """
     Combine a list of wearables with images into a single outfit.
     NO validation/regulation - just combines items as provided.
@@ -328,9 +370,6 @@ async def upload_outfit(request: Request):
         
     Warnings from combiner include limits (e.g. "Only 4 tops used, max 4 tops allowed (received 6)")
     """
-    if outfit_combiner is None:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-    
     try:
         # Parse multipart form data
         form_data = await request.form()
@@ -343,11 +382,18 @@ async def upload_outfit(request: Request):
         parsed_json = json.loads(wearables_json)
         # Handle both direct array and wrapped {wearables: [...]} format
         if isinstance(parsed_json, dict) and "wearables" in parsed_json:
-            wearables_list = parsed_json["wearables"]
+            wearables_payload = parsed_json["wearables"]
         elif isinstance(parsed_json, list):
-            wearables_list = parsed_json
+            wearables_payload = parsed_json
         else:
             raise HTTPException(status_code=400, detail="Invalid wearables format")
+        try:
+            wearables_list = [
+                UploadMultipartWearableInput.model_validate(item).model_dump()
+                for item in wearables_payload
+            ]
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid wearable payload: {exc}") from exc
         
         logger.info(f"Loaded {len(wearables_list)} wearables for combining (NO validation)")
         

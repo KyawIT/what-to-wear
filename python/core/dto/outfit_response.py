@@ -1,55 +1,55 @@
 """DTOs for outfit generation API responses."""
-from dataclasses import dataclass, field
 from typing import List, Optional
 
+from pydantic import BaseModel, ConfigDict, Field
 
-@dataclass
-class WearableItem:
+
+class WearableItem(BaseModel):
     """Wearable item in outfit."""
-    id: str
-    category: str  # Original category (e.g., "dress", "shirt", "jeans")
-    tags: Optional[List[str]] = None
-    mappedPath: Optional[str] = None  # Hierarchical path (e.g., "BOTTOM", "TOP.SHIRT") - internal use only
-    size: float = 1.0  # Size multiplier for visualization (internal only, NOT in JSON output)
 
-    def to_dict(self):
-        """Convert to dictionary. Note: 'size' is internal only, not included in API response."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    category: str
+    tags: Optional[List[str]] = None
+    mappedPath: Optional[str] = None
+    size: float = 1.0
+
+    def to_dict(self) -> dict:
+        """Convert to external API dict, excluding internal layout fields."""
         return {
             "id": self.id,
             "category": self.category,
-            "tags": self.tags or []
+            "tags": self.tags or [],
         }
 
 
-@dataclass
-class Outfit:
+class Outfit(BaseModel):
     """Generated outfit."""
+
     id: str
     wearables: List[WearableItem]
-    matchedTags: List[str] = field(default_factory=list)
+    matchedTags: List[str] = Field(default_factory=list)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "id": self.id,
-            "wearables": [w.to_dict() for w in self.wearables]
+            "wearables": [w.to_dict() for w in self.wearables],
         }
 
 
-@dataclass
-class GenerateOutfitsSimpleResponse:
+class GenerateOutfitsSimpleResponse(BaseModel):
     """Response for outfit generation (simple JSON only)."""
-    outfits: List[Outfit] = field(default_factory=list)
 
-    def to_dict(self):
+    outfits: List[Outfit] = Field(default_factory=list)
+
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON response."""
-        return {
-            "outfits": [outfit.to_dict() for outfit in self.outfits]
-        }
+        return {"outfits": [outfit.to_dict() for outfit in self.outfits]}
 
 
-@dataclass
-class GenerateOutfitsResponse:
+class GenerateOutfitsResponse(BaseModel):
     """Response for /outfit/generate_outfits endpoint (multipart with images).
     
     This DTO defines the JSON schema for the outfits data within the multipart response.
@@ -64,17 +64,14 @@ class GenerateOutfitsResponse:
         - JSON part: {"outfits": [...]} (this DTO's structure)
         - PNG files: outfit_1.png, outfit_2.png, etc.
     """
-    outfits: List[Outfit] = field(default_factory=list)
+    outfits: List[Outfit] = Field(default_factory=list)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON response."""
-        return {
-            "outfits": [outfit.to_dict() for outfit in self.outfits]
-        }
+        return {"outfits": [outfit.to_dict() for outfit in self.outfits]}
 
 
-@dataclass
-class UploadOutfitResponse:
+class UploadOutfitResponse(BaseModel):
     """Response for /outfit/upload endpoint (combine wearables into outfit).
     
     This DTO defines the JSON schema for the uploaded outfit response within the multipart body.
@@ -90,17 +87,17 @@ class UploadOutfitResponse:
         - PNG file: outfit.png (combined outfit image)
     """
     id: str
-    wearables: List[WearableItem] = field(default_factory=list)
+    wearables: List[WearableItem] = Field(default_factory=list)
     image: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON response."""
         return {
             "id": self.id,
             "wearables": [w.to_dict() for w in self.wearables],
             "image": self.image,
-            "warnings": self.warnings
+            "warnings": self.warnings,
         }
 
 

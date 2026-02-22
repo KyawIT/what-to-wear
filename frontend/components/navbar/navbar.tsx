@@ -10,7 +10,7 @@ import {Plus, Settings} from "lucide-react-native";
 import {authClient} from "@/lib/auth-client";
 
 const Navbar = () => {
-    const {data, isPending} = authClient.useSession();
+    const {data} = authClient.useSession();
     if (data != null) {
         return (
             <View className="flex-1 bg-secondary-50">
@@ -68,5 +68,6 @@ const Navbar = () => {
             </View>
         );
     }
+    return null;
 }
 export default Navbar

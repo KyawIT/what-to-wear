@@ -1,19 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text as RNText, View } from "react-native";
+import { Alert, ScrollView, Text as RNText, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { AppHeader } from "@/components/navigation/app-header";
 import { Input, InputField } from "@/components/ui/input";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Pressable } from "@/components/ui/pressable";
-import { Center } from "@/components/ui/center";
-import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
 import { fetchOutfitById, updateOutfitById } from "@/api/backend/outfit.api";
 import { WearableResponseDto } from "@/api/backend/wearable.model";
-import { colors } from "@/lib/theme";
+import EditOutfitLoadingState from "@/components/common/EditOutfitLoadingState";
+import { styles } from "../../../styles/screens/edit/outfit/id.styles";
 
 export default function EditOutfitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -100,14 +99,7 @@ export default function EditOutfitScreen() {
   };
 
   if (loading) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <AppHeader title="Edit Outfit" titleStyle={styles.headerTitle} onBack={() => router.back()} />
-        <Center className="flex-1">
-          <Spinner size="large" className="text-primary-500" />
-        </Center>
-      </SafeAreaView>
-    );
+    return <EditOutfitLoadingState onBack={() => router.back()} />;
   }
 
   return (
@@ -160,54 +152,3 @@ export default function EditOutfitScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  headerTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 22,
-    color: "#3D2E22",
-    letterSpacing: -0.3,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  label: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  noteText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 10,
-  },
-  itemsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 16,
-  },
-  itemChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#E4D7C5",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  itemChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: "#F7E9D7",
-  },
-  itemText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#7A6A5A",
-  },
-  itemTextActive: {
-    color: colors.primary,
-  },
-});

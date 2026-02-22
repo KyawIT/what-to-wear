@@ -25,22 +25,25 @@ public class WearableService {
     private final OutfitRepository outfitRepo;
     private final WearableCategoryRepository categoryRepo;
     private final WearablesUtil wearablesUtil;
-    private final WearableAiWearableSyncService pythonWearableSyncService;
+    private final WearableAiWearableSyncService wearableSyncService;
 
     public WearableService(
             WearableRepository repo,
             OutfitRepository outfitRepo,
             WearableCategoryRepository categoryRepo,
             WearablesUtil wearablesUtil,
-            WearableAiWearableSyncService pythonWearableSyncService
+            WearableAiWearableSyncService wearableSyncService
     ) {
         this.repo = repo;
         this.outfitRepo = outfitRepo;
         this.categoryRepo = categoryRepo;
         this.wearablesUtil = wearablesUtil;
-        this.pythonWearableSyncService = pythonWearableSyncService;
+        this.wearableSyncService = wearableSyncService;
     }
 
+    /**
+     * Creates a wearable owned by a user and optionally uploads a cutout image.
+     */
     @Transactional
     public WearableResponseDto create(
             String userId,
@@ -73,7 +76,7 @@ public class WearableService {
 
         if (imageStream != null) {
             UploadResultDto r = wearablesUtil.uploadWearableImage(
-                    userId,
+                    userIdTrim,
                     w.id,
                     fileName,
                     imageStream,
@@ -82,19 +85,7 @@ public class WearableService {
             w.cutoutImageKey = r.objectKey(); // store only key in DB
         }
 
-        return new WearableResponseDto(
-                w.id,
-                w.userId,
-                (w.category == null) ? null : w.category.id,
-                (w.category == null) ? null : w.category.name,
-                w.title,
-                w.description,
-                (w.tags == null) ? List.of() : new ArrayList<>(w.tags),
-                w.cutoutImageKey,
-                (w.cutoutImageKey == null) ? null : wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600),
-                w.createdAt,
-                w.updatedAt
-        );
+        return toResponseDto(w);
     }
 
     private static String normalize(String v) {
@@ -113,25 +104,15 @@ public class WearableService {
 
     @Transactional
     public List<WearableResponseDto> getByUserId(String userId) {
-        String userIdTrim = (userId == null) ? null : userId.trim();
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        String userIdTrim = userId.trim();
         List<Wearable> wearables = repo.find("userId = ?1 order by createdAt desc", userIdTrim).list();
 
         List<WearableResponseDto> out = new ArrayList<>(wearables.size());
         for (Wearable w : wearables) {
-            out.add(new WearableResponseDto(
-                    w.id,
-                    w.userId,
-                    (w.category == null) ? null : w.category.id,
-                    (w.category == null) ? null : w.category.name,
-                    w.title,
-                    w.description,
-                    // IMPORTANT: copy while session is open
-                    (w.tags == null) ? List.of() : new ArrayList<>(w.tags),
-                    w.cutoutImageKey,
-                    (w.cutoutImageKey == null) ? null : wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600),
-                    w.createdAt,
-                    w.updatedAt
-            ));
+            out.add(toResponseDto(w));
         }
 
         return out;
@@ -160,25 +141,7 @@ public class WearableService {
         List<WearableResponseDto> out = new ArrayList<>(wearables.size());
 
         for (Wearable w : wearables) {
-            String cutoutImageUrl = null;
-            if (w.cutoutImageKey != null && !w.cutoutImageKey.isBlank()) {
-                cutoutImageUrl = wearablesUtil.presignedGetUrl(w.cutoutImageKey, 600); // 10 min
-            }
-
-            out.add(new WearableResponseDto(
-                    w.id,
-                    w.userId,
-                    (w.category == null) ? null : w.category.id,
-                    (w.category == null) ? null : w.category.name,
-                    w.title,
-                    w.description,
-                    // IMPORTANT: copy tags inside transaction (prevents LazyInitializationException)
-                    (w.tags == null) ? List.of() : new ArrayList<>(w.tags),
-                    w.cutoutImageKey,
-                    cutoutImageUrl,
-                    w.createdAt,
-                    w.updatedAt
-            ));
+            out.add(toResponseDto(w));
         }
 
         return out;
@@ -198,21 +161,7 @@ public class WearableService {
             throw new NotFoundException("Wearable not found");
         }
 
-        return new WearableResponseDto(
-                wearable.id,
-                wearable.userId,
-                (wearable.category == null) ? null : wearable.category.id,
-                (wearable.category == null) ? null : wearable.category.name,
-                wearable.title,
-                wearable.description,
-                (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags),
-                wearable.cutoutImageKey,
-                (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
-                        ? null
-                        : wearablesUtil.presignedGetUrl(wearable.cutoutImageKey, 600),
-                wearable.createdAt,
-                wearable.updatedAt
-        );
+        return toResponseDto(wearable);
     }
 
     @Transactional
@@ -258,28 +207,14 @@ public class WearableService {
         repo.flush();
 
         List<String> normalizedTags = (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags);
-        pythonWearableSyncService.syncWearableUpdateAsync(
+        wearableSyncService.syncWearableUpdateAsync(
                 userIdTrim,
                 wearable.id,
                 category.name,
                 normalizedTags
         );
 
-        return new WearableResponseDto(
-                wearable.id,
-                wearable.userId,
-                (wearable.category == null) ? null : wearable.category.id,
-                (wearable.category == null) ? null : wearable.category.name,
-                wearable.title,
-                wearable.description,
-                normalizedTags,
-                wearable.cutoutImageKey,
-                (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
-                        ? null
-                        : wearablesUtil.presignedGetUrl(wearable.cutoutImageKey, 600),
-                wearable.createdAt,
-                wearable.updatedAt
-        );
+        return toResponseDto(wearable);
     }
 
     @Transactional
@@ -311,5 +246,25 @@ public class WearableService {
         }
 
         repo.delete(wearable);
+    }
+
+    private WearableResponseDto toResponseDto(Wearable wearable) {
+        String imageUrl = (wearable.cutoutImageKey == null || wearable.cutoutImageKey.isBlank())
+                ? null
+                : wearablesUtil.presignedGetUrl(wearable.cutoutImageKey, 600);
+
+        return new WearableResponseDto(
+                wearable.id,
+                wearable.userId,
+                (wearable.category == null) ? null : wearable.category.id,
+                (wearable.category == null) ? null : wearable.category.name,
+                wearable.title,
+                wearable.description,
+                (wearable.tags == null) ? List.of() : new ArrayList<>(wearable.tags),
+                wearable.cutoutImageKey,
+                imageUrl,
+                wearable.createdAt,
+                wearable.updatedAt
+        );
     }
 }

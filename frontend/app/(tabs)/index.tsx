@@ -1,20 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import {
-  View,
-  FlatList,
-  Dimensions,
-  Text as RNText,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-  Animated,
-  Easing,
-} from "react-native";
+import { View, FlatList, Text as RNText, Alert, ActivityIndicator, RefreshControl } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
-import { Sparkles, RefreshCw, Plus, Check } from "lucide-react-native";
+import { RefreshCw } from "lucide-react-native";
 import ViewShot from "react-native-view-shot";
 
 import { authClient } from "@/lib/auth-client";
@@ -22,15 +11,18 @@ import { getKeycloakAccessToken } from "@/lib/keycloak";
 import { AppHeader } from "@/components/navigation/app-header";
 import { Pressable } from "@/components/ui/pressable";
 import { Center } from "@/components/ui/center";
-import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
-import { Badge, BadgeText } from "@/components/ui/badge";
 import { colors } from "@/lib/theme";
+import RecommendationIntroState from "@/components/common/RecommendationIntroState";
+import RecommendationLoadingState from "@/components/common/RecommendationLoadingState";
+import RecommendationEmptyState from "@/components/common/RecommendationEmptyState";
+import OutfitSuggestionCard from "@/components/common/OutfitSuggestionCard";
 
 import {
   WearableResponseDto,
 } from "@/api/backend/wearable.model";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
+import { styles } from "../../styles/screens/tabs/index.styles";
 import {
   recommendOutfitsFromUploads,
   createOutfitMultipart,
@@ -42,8 +34,6 @@ import {
 } from "@/lib/image/outfit-preview";
 
 const MIN_ITEMS_FOR_RECOMMENDATION = 5;
-const screenWidth = Dimensions.get("window").width;
-const CARD_WIDTH = (screenWidth - 48) / 2;
 
 type ResolvedOutfit = {
   id: string;
@@ -99,38 +89,6 @@ function prettyBucket(bucket: CoreBucket): string {
   if (bucket === "BOTTOM") return "bottom";
   return "footwear";
 }
-
-const SpinningMascot = ({ size = 120 }: { size?: number }) => {
-  const spinValue = useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(spinValue, {
-        toValue: 1,
-        duration: 1200,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [spinValue]);
-
-  const rotate = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  return (
-    <Animated.View style={{ transform: [{ rotate }] }}>
-      <Image
-        source={require("../../assets/mascot/mascot-tail-chase.png")}
-        style={{ width: size, height: size }}
-        contentFit="contain"
-      />
-    </Animated.View>
-  );
-};
 
 const Index = () => {
   const { data } = authClient.useSession();
@@ -374,59 +332,15 @@ const Index = () => {
 
   // Not enough items state
   if (!loading && wearables.length < MIN_ITEMS_FOR_RECOMMENDATION) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <AppHeader title="For You" titleStyle={styles.headerTitle} />
-        <Center className="flex-1 px-8">
-          <Image
-            source={require("../../assets/mascot/mascot-glasses.png")}
-            style={styles.mascot}
-            contentFit="contain"
-          />
-          <RNText style={styles.emptyTitle}>
-            Almost there!
-          </RNText>
-          <RNText style={styles.emptySubtitle}>
-            Add at least {MIN_ITEMS_FOR_RECOMMENDATION - wearables.length} more{" "}
-            {MIN_ITEMS_FOR_RECOMMENDATION - wearables.length === 1 ? "item" : "items"} to your
-            wardrobe to unlock personalized outfit recommendations.
-          </RNText>
-          <RNText style={styles.categoryHint}>
-            Make sure to include at least one top, one bottom, and one pair of footwear.
-          </RNText>
-          <View style={styles.progressRow}>
-            {Array.from({ length: MIN_ITEMS_FOR_RECOMMENDATION }).map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.progressDot,
-                  i < wearables.length
-                    ? styles.progressDotFilled
-                    : styles.progressDotEmpty,
-                ]}
-              />
-            ))}
-          </View>
-          <RNText style={styles.progressText}>
-            {wearables.length} / {MIN_ITEMS_FOR_RECOMMENDATION} items
-          </RNText>
-        </Center>
-      </SafeAreaView>
-    );
+    return <RecommendationIntroState wearablesCount={wearables.length} />;
   }
 
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <AppHeader title="For You" titleStyle={styles.headerTitle} />
-        <Center className="flex-1">
-          <SpinningMascot size={140} />
-          <RNText style={[styles.loadingText, { marginTop: 20 }]}>
-            {generating ? "Creating outfits..." : "Loading your wardrobe..."}
-          </RNText>
-        </Center>
-      </SafeAreaView>
+      <RecommendationLoadingState
+        message={generating ? "Creating outfits..." : "Loading your wardrobe..."}
+      />
     );
   }
 
@@ -435,78 +349,12 @@ const Index = () => {
     const isSaving = savingOutfitId === item.id;
 
     return (
-      <View style={styles.outfitCard}>
-        <View style={styles.outfitCardContent}>
-          <View style={styles.outfitHeader}>
-            <Sparkles size={14} color={colors.primary} />
-            <RNText style={styles.outfitLabel}>
-              {item.id.replace("outfit-", "Outfit ")}
-            </RNText>
-          </View>
-
-          <View style={styles.outfitGrid}>
-            {item.items.slice(0, 4).map((w) => (
-              <View key={w.id} style={styles.outfitItemThumb}>
-                {w.cutoutImageUrl ? (
-                  <Image
-                    source={{ uri: w.cutoutImageUrl }}
-                    style={{ width: "100%", height: "100%" }}
-                    contentFit="contain"
-                  />
-                ) : (
-                  <Center className="flex-1">
-                    <RNText style={styles.thumbPlaceholder}>
-                      {(w.categoryName ?? "?").charAt(0)}
-                    </RNText>
-                  </Center>
-                )}
-              </View>
-            ))}
-          </View>
-
-          {item.items.length > 4 && (
-            <RNText style={styles.moreItems}>
-              +{item.items.length - 4} more
-            </RNText>
-          )}
-
-          <HStack className="flex-wrap gap-1 mt-2">
-            {[...new Set(item.items.map((w) => w.categoryName).filter(Boolean))]
-              .slice(0, 3)
-              .map((cat) => (
-                <Badge key={cat} variant="solid" className="bg-primary-100" size="sm">
-                  <BadgeText className="text-primary-700" style={{ fontSize: 10 }}>
-                    {cat}
-                  </BadgeText>
-                </Badge>
-              ))}
-          </HStack>
-        </View>
-
-        <Pressable
-          onPress={() => handleSaveOutfit(item)}
-          disabled={isSaved || isSaving}
-          style={[
-            styles.saveButton,
-            isSaved && styles.saveButtonSaved,
-          ]}
-          className="active:opacity-80"
-        >
-          {isSaving ? (
-            <RNText style={styles.saveButtonText}>Saving...</RNText>
-          ) : isSaved ? (
-            <HStack className="items-center gap-1">
-              <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
-              <RNText style={styles.saveButtonText}>Saved</RNText>
-            </HStack>
-          ) : (
-            <HStack className="items-center gap-1">
-              <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
-              <RNText style={styles.saveButtonText}>Add to Collection</RNText>
-            </HStack>
-          )}
-        </Pressable>
-      </View>
+      <OutfitSuggestionCard
+        outfit={item}
+        isSaved={isSaved}
+        isSaving={isSaving}
+        onSave={handleSaveOutfit}
+      />
     );
   };
 
@@ -560,39 +408,11 @@ const Index = () => {
           </VStack>
         }
         ListEmptyComponent={
-          generating ? (
-            <Center className="pt-12">
-              <SpinningMascot size={120} />
-              <RNText style={[styles.loadingText, { marginTop: 20 }]}>Creating outfits...</RNText>
-            </Center>
-          ) : error ? (
-            <Center className="pt-12 px-4">
-              <Image
-                source={require("../../assets/mascot/mascot-sad.png")}
-                style={styles.errorMascot}
-                contentFit="contain"
-              />
-              <RNText style={styles.emptyTitle}>No outfits generated</RNText>
-              <RNText style={styles.emptySubtitle}>{error}</RNText>
-              <Pressable
-                onPress={handleRegenerate}
-                className="rounded-full px-6 py-3 active:opacity-80 mt-6"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <RNText style={styles.retryText}>Try Again</RNText>
-              </Pressable>
-            </Center>
-          ) : (
-            <Center className="pt-12 px-4">
-              <View style={styles.emptyIcon}>
-                <Sparkles size={40} color={colors.primary} strokeWidth={1.5} />
-              </View>
-              <RNText style={styles.emptyTitle}>No outfits yet</RNText>
-              <RNText style={styles.emptySubtitle}>
-                Upload clothing items that include at least one top, one bottom, and one pair of footwear to get outfit recommendations.
-              </RNText>
-            </Center>
-          )
+          <RecommendationEmptyState
+            generating={generating}
+            error={error}
+            onRetry={handleRegenerate}
+          />
         }
         renderItem={renderOutfitCard}
       />
@@ -635,227 +455,5 @@ const Index = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  headerTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 22,
-    color: "#3D2E22",
-    letterSpacing: -0.3,
-  },
-  refreshButton: {
-    height: 40,
-    width: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 20,
-    backgroundColor: "#D4A57415",
-  },
-  sectionTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 18,
-    color: "#3D2E22",
-    letterSpacing: -0.2,
-  },
-  sectionSubtitle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: "#9B8B7F",
-  },
-  outfitCard: {
-    width: CARD_WIDTH,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
-    justifyContent: "space-between" as const,
-    shadowColor: "#C9BAAA",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  outfitCardContent: {
-    flex: 1,
-  },
-  outfitHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 10,
-  },
-  outfitLabel: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-    color: "#3D2E22",
-  },
-  outfitGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  outfitItemThumb: {
-    width: (CARD_WIDTH - 30) / 2,
-    height: (CARD_WIDTH - 30) / 2,
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "#FAF7F2",
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
-  },
-  captureHost: {
-    position: "absolute",
-    left: -9999,
-    top: -9999,
-    opacity: 0,
-    width: 220,
-    height: 220,
-  },
-  captureCanvas: {
-    width: 220,
-    height: 220,
-    backgroundColor: "#FAF7F2",
-    borderRadius: 16,
-    padding: 10,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  captureCell: {
-    width: 96,
-    height: 96,
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
-  },
-  captureImage: {
-    width: "100%",
-    height: "100%",
-  },
-  captureCountBadge: {
-    position: "absolute",
-    right: 12,
-    bottom: 12,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: "rgba(61, 46, 34, 0.85)",
-  },
-  captureCountBadgeText: {
-    color: "#FFFFFF",
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-    lineHeight: 14,
-  },
-  thumbPlaceholder: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 16,
-    color: "#9B8B7F",
-  },
-  moreItems: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    color: "#9B8B7F",
-    textAlign: "center",
-    marginTop: 4,
-  },
-  mascot: {
-    width: 160,
-    height: 160,
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 20,
-    color: "#3D2E22",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    textAlign: "center",
-    lineHeight: 20,
-    maxWidth: 280,
-  },
-  categoryHint: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#B89E8E",
-    textAlign: "center",
-    marginTop: 12,
-    lineHeight: 18,
-    maxWidth: 260,
-  },
-  progressRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  progressDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  progressDotFilled: {
-    backgroundColor: "#D4A574",
-  },
-  progressDotEmpty: {
-    backgroundColor: "#F0E8DC",
-  },
-  progressText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#9B8B7F",
-  },
-  loadingText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    marginTop: 16,
-  },
-  emptyIcon: {
-    height: 96,
-    width: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    backgroundColor: "#F7E9D7",
-  },
-  errorMascot: {
-    width: 120,
-    height: 120,
-    marginBottom: 20,
-    opacity: 0.6,
-  },
-  retryText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-  saveButton: {
-    marginTop: 10,
-    backgroundColor: "#D4A574",
-    borderRadius: 10,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonSaved: {
-    backgroundColor: "#8BAF7A",
-  },
-  saveButtonText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    color: "#FFFFFF",
-  },
-});
 
 export default Index;

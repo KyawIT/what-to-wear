@@ -1,9 +1,10 @@
 import React from "react";
-import { Text, ScrollView, View, StyleSheet } from "react-native";
+import { Text, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Pressable } from "@/components/ui/pressable";
 import { AppHeader } from "@/components/navigation/app-header";
+import PrivacySection from "@/components/common/PrivacySection";
 import {
     ChevronLeft,
     Database,
@@ -12,34 +13,7 @@ import {
     UserCheck,
 } from "lucide-react-native";
 import { colors } from "@/lib/theme";
-
-const PrivacySection = ({
-    icon,
-    title,
-    items,
-}: {
-    icon: React.ReactNode;
-    title: string;
-    items: string[];
-}) => (
-    <View style={styles.card}>
-        <View style={styles.cardTitleRow}>
-            <View style={styles.iconCircle}>
-                {icon}
-            </View>
-            <Text style={styles.cardTitle}>{title}</Text>
-        </View>
-
-        <View style={styles.cardBody}>
-            {items.map((item, index) => (
-                <View key={index} style={styles.bulletRow}>
-                    <View style={styles.bullet} />
-                    <Text style={styles.bulletText}>{item}</Text>
-                </View>
-            ))}
-        </View>
-    </View>
-);
+import { styles } from "../../styles/screens/profile/privacy.styles";
 
 export default function PrivacyScreen() {
     return (
@@ -118,107 +92,3 @@ export default function PrivacyScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    flex: {
-        flex: 1,
-    },
-    backButton: {
-        height: 40,
-        width: 40,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 20,
-        backgroundColor: "#8B735512",
-        marginRight: 8,
-    },
-    headerTitle: {
-        fontFamily: "PlayfairDisplay_600SemiBold",
-        fontSize: 20,
-        color: "#3D2E22",
-        letterSpacing: -0.3,
-    },
-    intro: {
-        paddingHorizontal: 20,
-        paddingTop: 24,
-        paddingBottom: 4,
-    },
-    introText: {
-        fontFamily: "Inter_400Regular",
-        fontSize: 14,
-        lineHeight: 21,
-        color: "#6B5B4F",
-    },
-    card: {
-        marginHorizontal: 20,
-        marginTop: 16,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: "#F0E8DC",
-        shadowColor: "#C9BAAA",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-        overflow: "hidden",
-    },
-    cardTitleRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 8,
-    },
-    iconCircle: {
-        height: 36,
-        width: 36,
-        borderRadius: 18,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#D4A57415",
-        marginRight: 12,
-    },
-    cardTitle: {
-        fontFamily: "PlayfairDisplay_600SemiBold",
-        fontSize: 16,
-        color: "#3D2E22",
-        letterSpacing: -0.2,
-    },
-    cardBody: {
-        paddingHorizontal: 16,
-        paddingBottom: 16,
-    },
-    bulletRow: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        marginTop: 10,
-    },
-    bullet: {
-        height: 5,
-        width: 5,
-        borderRadius: 2.5,
-        backgroundColor: "#D4A574",
-        marginTop: 7,
-        marginRight: 12,
-    },
-    bulletText: {
-        fontFamily: "Inter_400Regular",
-        fontSize: 13.5,
-        lineHeight: 20,
-        color: "#6B5B4F",
-        flex: 1,
-    },
-    footer: {
-        fontFamily: "PlayfairDisplay_400Regular",
-        fontSize: 12,
-        textAlign: "center",
-        color: "#9B8B7F",
-        paddingTop: 28,
-        paddingBottom: 40,
-        opacity: 0.7,
-        letterSpacing: 0.3,
-    },
-});

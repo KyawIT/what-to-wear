@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Tuple
 from collections import Counter
 import ast
 
-from models import Wearable
+from core.models import Wearable
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class WearableRepository:
                 self.client.delete_collection(self.collection_name)
                 logger.info(f"Deleted existing collection: {self.collection_name}")
             except Exception as e:
-                logger.info(f"Collection doesn't exist or couldn't be deleted: {e}")
+                logger.info("Collection doesn't exist or couldn't be deleted: %s", e)
 
         try:
             self.client.create_collection(
@@ -56,9 +56,9 @@ class WearableRepository:
                     distance=models.Distance.COSINE
                 )
             )
-            logger.info(f"Created collection: {self.collection_name}")
+            logger.info("Created collection: %s", self.collection_name)
         except Exception as e:
-            logger.info(f"Collection already exists or error: {e}")
+            logger.info("Collection already exists or error: %s", e)
     
     def insert_batch(self, wearables: List[Wearable]):
         """
@@ -81,7 +81,7 @@ class WearableRepository:
             collection_name=self.collection_name,
             points=points
         )
-        logger.info(f"Inserted {len(points)} items into {self.collection_name}")
+        logger.info("Inserted %s items into %s", len(points), self.collection_name)
     
     def insert_single(self, item_id: int, wearable: Wearable) -> int:
         """
@@ -104,7 +104,7 @@ class WearableRepository:
             collection_name=self.collection_name,
             points=[point]
         )
-        logger.info(f"Inserted item {item_id} into {self.collection_name}")
+        logger.info("Inserted item %s into %s", item_id, self.collection_name)
         return item_id
     
     def search_similar(
@@ -229,7 +229,7 @@ class WearableRepository:
                 else:
                     tags = tags_str
                 all_tags.extend(tags)
-            except:
+            except Exception:
                 continue
         
         tag_counts = Counter(all_tags)
@@ -294,9 +294,8 @@ class WearableRepository:
 
             return None
 
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Failed to find item by user and item")
             return None
 
     def get_item_debug(self, user_id: str, item_id: str):
@@ -310,21 +309,21 @@ class WearableRepository:
         result = self.find_by_user_and_item(user_id, item_id)
         
         if not result:
-            logger.debug(f"Item not found: user_id='{user_id}', item_id='{item_id}'")
+            logger.debug("Item not found: user_id='%s', item_id='%s'", user_id, item_id)
             return
 
         point_id, payload, vector = result
         
-        logger.debug(f"Item Details: {item_id}")
-        logger.debug(f"Point ID (Qdrant): {point_id}")
-        logger.debug(f"User ID: {payload.get('user_id')}")
-        logger.debug(f"Item ID: {payload.get('id')}")
-        logger.debug(f"Category: {payload.get('category')}")
-        logger.debug(f"Tags: {payload.get('tags')}")
-        logger.debug(f"Image Path: {payload.get('image_path')}")
-        logger.debug(f"Deleted: {payload.get('deleted', False)}")
-        logger.debug(f"Vector (first 10 dimensions): {vector[:10]}")
-        logger.debug(f"Vector Length: {len(vector)}")
+        logger.debug("Item Details: %s", item_id)
+        logger.debug("Point ID (Qdrant): %s", point_id)
+        logger.debug("User ID: %s", payload.get('user_id'))
+        logger.debug("Item ID: %s", payload.get('id'))
+        logger.debug("Category: %s", payload.get('category'))
+        logger.debug("Tags: %s", payload.get('tags'))
+        logger.debug("Image Path: %s", payload.get('image_path'))
+        logger.debug("Deleted: %s", payload.get('deleted', False))
+        logger.debug("Vector (first 10 dimensions): %s", vector[:10])
+        logger.debug("Vector Length: %s", len(vector))
 
     def update_item(self, user_id: str, item_id: str, wearable: Wearable) -> bool:
         """
@@ -356,7 +355,7 @@ class WearableRepository:
             points=[point]
         )
         
-        logger.info(f"Updated item {item_id} for user {user_id}")
+        logger.info("Updated item %s for user %s", item_id, user_id)
         return True
 
     def delete_item(self, user_id: str, item_id: str) -> bool:
@@ -391,5 +390,5 @@ class WearableRepository:
             points=[point]
         )
         
-        logger.info(f"Deleted item {item_id} for user {user_id}")
+        logger.info("Deleted item %s for user %s", item_id, user_id)
         return True
