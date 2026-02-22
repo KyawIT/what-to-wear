@@ -1,22 +1,7 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import {
-    TextInput,
-    KeyboardAvoidingView,
-    Platform,
-    Alert,
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-} from "react-native";
-import { Image } from "expo-image";
+import React, { useState, useCallback, useEffect } from "react";
+import { TextInput, KeyboardAvoidingView, Platform, Alert, Dimensions, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { GestureDetector, Gesture } from "react-native-gesture-handler";
-import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    runOnJS,
-} from "react-native-reanimated";
 
 import { authClient } from "@/lib/auth-client";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
@@ -27,133 +12,20 @@ import { createOutfitMultipart } from "@/api/backend/outfit.api";
 import { colors } from "@/lib/theme";
 import { suggestOutfitMetadata } from "@/lib/ai/metadata-suggestions";
 import ViewShot from "react-native-view-shot";
+import ComposeLoadingState from "@/components/common/ComposeLoadingState";
+import PillActionButton from "@/components/common/PillActionButton";
+import DraggableItem from "@/components/common/DraggableItem";
 
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { Center } from "@/components/ui/center";
-import { Spinner } from "@/components/ui/spinner";
 import { AppHeader } from "@/components/navigation/app-header";
-import { ChevronLeft, Shirt, Tag, X, ArrowUp, ArrowDown, Maximize2, Sparkles } from "lucide-react-native";
+import { ChevronLeft, Tag, X, ArrowUp, ArrowDown } from "lucide-react-native";
+import { s } from "../../styles/screens/compose/index.styles";
 
-const ITEM_SIZE = 100;
 const MAX_NAME_LENGTH = 40;
 const CANVAS_HEIGHT = Dimensions.get("window").height * 0.45;
-
-interface DraggableItemProps {
-    item: WearableResponseDto;
-    isActive: boolean;
-    zIndex: number;
-    onActivate: (id: string) => void;
-}
-
-const DraggableItem = ({ item, isActive, zIndex, onActivate }: DraggableItemProps) => {
-    // Give items random initial spread in the canvas
-    const startX = useMemo(
-        () => Math.random() * (Dimensions.get("window").width - ITEM_SIZE - 32),
-        []
-    );
-    const startY = useMemo(
-        () => Math.random() * (CANVAS_HEIGHT - ITEM_SIZE - 32),
-        []
-    );
-
-    const translateX = useSharedValue(startX);
-    const translateY = useSharedValue(startY);
-    const offsetX = useSharedValue(0);
-    const offsetY = useSharedValue(0);
-
-    const scale = useSharedValue(1);
-    const savedScale = useSharedValue(1);
-
-    const panGesture = Gesture.Pan()
-        .onBegin(() => {
-            runOnJS(onActivate)(item.id);
-        })
-        .onStart(() => {
-            offsetX.value = translateX.value;
-            offsetY.value = translateY.value;
-        })
-        .onUpdate((event) => {
-            translateX.value = offsetX.value + event.translationX;
-            translateY.value = offsetY.value + event.translationY;
-        });
-
-    const pinchGesture = Gesture.Pinch()
-        .onUpdate((event) => {
-            scale.value = savedScale.value * event.scale;
-        })
-        .onEnd(() => {
-            savedScale.value = scale.value;
-        });
-
-    const resizePanGesture = Gesture.Pan()
-        .onStart(() => {
-            savedScale.value = scale.value;
-        })
-        .onUpdate((event) => {
-            const scaleChange = (event.translationX + event.translationY) / (ITEM_SIZE * 2);
-            scale.value = Math.max(0.3, savedScale.value + scaleChange);
-        })
-        .onEnd(() => {
-            savedScale.value = scale.value;
-        });
-
-    // Run pan and pinch simultaneously
-    const composedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
-
-    const animatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                { translateX: translateX.value },
-                { translateY: translateY.value },
-                { scale: scale.value }
-            ],
-            // Highlighting the active item slightly to know which one gets layered
-            borderColor: isActive ? colors.primary : "transparent",
-            borderWidth: isActive ? 2 : 0,
-            borderRadius: 16,
-            zIndex: zIndex,
-        };
-    });
-
-    return (
-        <GestureDetector gesture={composedGesture}>
-            <Animated.View
-                style={[
-                    { position: "absolute", width: ITEM_SIZE, height: ITEM_SIZE },
-                    animatedStyle,
-                ]}
-            >
-                {item.cutoutImageUrl ? (
-                    <Image
-                        source={{ uri: item.cutoutImageUrl }}
-                        style={{ width: "100%", height: "100%" }}
-                        contentFit="contain"
-                    />
-                ) : (
-                    <Center className="flex-1 bg-backgroundSecondary rounded-xl border border-border">
-                        <Shirt size={24} color={colors.textMuted} />
-                    </Center>
-                )}
-
-                {/* Minimalist Resize Corner Handle */}
-                {isActive && (
-                    <GestureDetector gesture={resizePanGesture}>
-                        <Box
-                            className="absolute -right-3 -bottom-3 w-7 h-7 items-center justify-center z-50 rounded-full bg-background-50 shadow-md"
-                            style={{ borderWidth: 1, borderColor: colors.primary }}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Maximize2 size={12} color={colors.primary} />
-                        </Box>
-                    </GestureDetector>
-                )}
-            </Animated.View>
-        </GestureDetector>
-    );
-};
 
 export default function ComposeOutfitScreen() {
     const { data } = authClient.useSession();
@@ -206,7 +78,6 @@ export default function ComposeOutfitScreen() {
         loadItems();
     }, [data?.user?.id, itemIds]);
 
-
     // --- Layering Logic ---
     const moveActiveItemUp = useCallback(() => {
         if (!activeItemId) return;
@@ -235,7 +106,6 @@ export default function ComposeOutfitScreen() {
             return next;
         });
     }, [activeItemId]);
-
 
     // --- Handlers ---
     const addTag = useCallback(
@@ -444,14 +314,7 @@ export default function ComposeOutfitScreen() {
 
     // --- Render ---
     if (loading) {
-        return (
-            <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-                <Center className="flex-1">
-                    <Spinner size="large" className="text-primary-500" />
-                    <Text className="mt-4 text-typography-400" style={s.loadingText}>Loading editor...</Text>
-                </Center>
-            </SafeAreaView>
-        );
+        return <ComposeLoadingState message="Loading editor..." />;
     }
 
     return (
@@ -565,33 +428,12 @@ export default function ComposeOutfitScreen() {
                             >
                                 Outfit Details
                             </Text>
-                            <Pressable
+                            <PillActionButton
+                                loading={isAutoFilling}
+                                loadingLabel="Filling..."
+                                label="Auto Fill"
                                 onPress={handleAutoFill}
-                                disabled={isAutoFilling}
-                                className="active:opacity-70"
-                            >
-                                <HStack
-                                    className="items-center rounded-full px-3 py-1.5"
-                                    style={{
-                                        backgroundColor: `${colors.primary}15`,
-                                        borderWidth: 1,
-                                        borderColor: `${colors.primary}30`,
-                                        opacity: isAutoFilling ? 0.7 : 1,
-                                    }}
-                                >
-                                    {isAutoFilling ? (
-                                        <Spinner size="small" color={colors.primary} />
-                                    ) : (
-                                        <Sparkles size={12} color={colors.primary} />
-                                    )}
-                                    <Text
-                                        className="ml-1.5"
-                                        style={s.pillActionText}
-                                    >
-                                        {isAutoFilling ? "Filling..." : "Auto Fill"}
-                                    </Text>
-                                </HStack>
-                            </Pressable>
+                            />
                         </HStack>
 
                         <Box
@@ -668,33 +510,12 @@ export default function ComposeOutfitScreen() {
                                     </Text>
                                 </HStack>
                                 <HStack className="items-center gap-3">
-                                    <Pressable
+                                    <PillActionButton
+                                        loading={isAutoTagging}
+                                        loadingLabel="Tagging..."
+                                        label="Auto Tag"
                                         onPress={handleAutoTag}
-                                        disabled={isAutoTagging}
-                                        className="active:opacity-60"
-                                    >
-                                        <HStack
-                                            className="items-center rounded-full px-3 py-1.5"
-                                            style={{
-                                                backgroundColor: `${colors.primary}15`,
-                                                borderWidth: 1,
-                                                borderColor: `${colors.primary}30`,
-                                                opacity: isAutoTagging ? 0.7 : 1,
-                                            }}
-                                        >
-                                            {isAutoTagging ? (
-                                                <Spinner size="small" color={colors.primary} />
-                                            ) : (
-                                                <Sparkles size={12} color={colors.primary} />
-                                            )}
-                                            <Text
-                                                className="ml-1.5"
-                                                style={s.pillActionText}
-                                            >
-                                                {isAutoTagging ? "Tagging..." : "Auto Tag"}
-                                            </Text>
-                                        </HStack>
-                                    </Pressable>
+                                    />
                                     {tags.length > 0 && (
                                         <Pressable onPress={() => setTags([])}>
                                             <Text
@@ -789,82 +610,3 @@ export default function ComposeOutfitScreen() {
         </SafeAreaView>
     );
 }
-
-const s = StyleSheet.create({
-    loadingText: {
-        fontFamily: "Inter_400Regular",
-        fontSize: 14,
-    },
-    headerTitle: {
-        fontFamily: "PlayfairDisplay_600SemiBold",
-        fontSize: 22,
-        letterSpacing: -0.3,
-        color: colors.textPrimary,
-    },
-    saveText: {
-        fontFamily: "Inter_600SemiBold",
-        fontSize: 14,
-        letterSpacing: 0.2,
-    },
-    sectionTitle: {
-        fontFamily: "PlayfairDisplay_500Medium",
-        fontSize: 17,
-        color: colors.textPrimary,
-        letterSpacing: -0.2,
-    },
-    sectionHint: {
-        fontFamily: "Inter_400Regular",
-        fontSize: 12.5,
-        color: colors.textSecondary,
-        letterSpacing: 0.15,
-    },
-    pillActionText: {
-        fontFamily: "Inter_600SemiBold",
-        fontSize: 11.5,
-        color: colors.primaryDark,
-        letterSpacing: 0.3,
-    },
-    nameInput: {
-        color: colors.textPrimary,
-        fontSize: 16,
-        fontFamily: "Inter_500Medium",
-        letterSpacing: 0.1,
-    },
-    counterText: {
-        fontFamily: "Inter_400Regular",
-        fontSize: 11.5,
-        color: colors.textMuted,
-    },
-    descriptionInput: {
-        color: colors.textSecondary,
-        fontSize: 14.5,
-        fontFamily: "Inter_400Regular",
-        lineHeight: 21,
-    },
-    clearText: {
-        fontFamily: "Inter_500Medium",
-        fontSize: 12,
-        color: colors.error,
-    },
-    hashPrefix: {
-        color: colors.textMuted,
-        fontSize: 16,
-        fontFamily: "Inter_500Medium",
-    },
-    tagInput: {
-        color: colors.textPrimary,
-        fontSize: 14.5,
-        fontFamily: "Inter_400Regular",
-    },
-    addButtonText: {
-        fontFamily: "Inter_600SemiBold",
-        fontSize: 13.5,
-        color: colors.white,
-        letterSpacing: 0.15,
-    },
-    tagChipText: {
-        color: colors.primaryDark,
-        fontFamily: "Inter_500Medium",
-        fontSize: 13.5,
-    },
-});
