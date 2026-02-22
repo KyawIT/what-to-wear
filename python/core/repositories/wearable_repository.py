@@ -134,6 +134,57 @@ class WearableRepository:
         
         return [(hit.payload, hit.score) for hit in results.points]
 
+    def search_similar_for_user(
+        self,
+        query_embedding: List[float],
+        user_id: str,
+        limit: int = 20,
+        score_threshold: float = 0.0,
+        include_deleted: bool = False,
+    ) -> List[Tuple[Dict[str, Any], float]]:
+        """
+        Search similar items belonging to one user.
+
+        Args:
+            query_embedding: Query embedding vector.
+            user_id: Owner of wearables to search.
+            limit: Max number of results.
+            score_threshold: Minimum similarity score.
+            include_deleted: Include soft-deleted items when True.
+
+        Returns:
+            List of tuples (payload, score) sorted by similarity.
+        """
+        must_conditions = [
+            models.FieldCondition(
+                key="user_id",
+                match=models.MatchValue(value=user_id),
+            )
+        ]
+        must_not_conditions = []
+
+        if not include_deleted:
+            must_not_conditions.append(
+                models.FieldCondition(
+                    key="deleted",
+                    match=models.MatchValue(value=True),
+                )
+            )
+
+        query_filter = models.Filter(
+            must=must_conditions,
+            must_not=must_not_conditions or None,
+        )
+
+        results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=query_embedding,
+            query_filter=query_filter,
+            limit=limit,
+            score_threshold=score_threshold,
+        )
+        return [(hit.payload, hit.score) for hit in results.points]
+
     def predict_category_and_tags(
         self,
         query_embedding: List[float],
