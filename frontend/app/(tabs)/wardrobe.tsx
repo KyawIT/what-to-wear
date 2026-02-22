@@ -1,22 +1,18 @@
-import { ScrollView, FlatList, Dimensions, Alert } from "react-native";
+import { ScrollView, FlatList, Dimensions, Alert, Text as RNText, View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import React, { useEffect, useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
-import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
 import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { Heading } from "@/components/ui/heading";
 import { Input, InputField, InputSlot, InputIcon } from "@/components/ui/input";
 import { Fab, FabIcon } from "@/components/ui/fab";
-import { Card } from "@/components/ui/card";
 import { Center } from "@/components/ui/center";
 import { Spinner } from "@/components/ui/spinner";
-import { SearchIcon, AddIcon, CloseIcon , Icon } from "@/components/ui/icon";
+import { SearchIcon, AddIcon, CloseIcon, Icon } from "@/components/ui/icon";
 import {
   Modal,
   ModalBackdrop,
@@ -37,6 +33,7 @@ import {
   AlertDialogHeader,
 } from "@/components/ui/alert-dialog";
 import { Button, ButtonText } from "@/components/ui/button";
+import { AppHeader } from "@/components/navigation/app-header";
 import { Calendar, Shirt, LayoutGrid } from "lucide-react-native";
 
 import {
@@ -75,6 +72,8 @@ const Wardrobe = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState<WearableCategoryDto[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -90,11 +89,18 @@ const Wardrobe = () => {
   const screenWidth = Dimensions.get("window").width;
   const ITEM_SIZE = (screenWidth - 48) / 2;
 
+  useFocusEffect(
+    React.useCallback(() => {
+      setRetryCount((c) => c + 1);
+    }, [])
+  );
+
   useEffect(() => {
     if (!data?.user?.id) return;
 
     const fetchData = async () => {
       setLoadingWearables(true);
+      setFetchError(null);
       try {
         const accessToken = await getKeycloakAccessToken(data.user.id);
         let items: WearableResponseDto[];
@@ -109,6 +115,8 @@ const Wardrobe = () => {
         setWearables(items);
       } catch (err) {
         console.error("Failed to fetch wearables:", err);
+        const msg = err instanceof Error ? err.message : "Failed to load wardrobe";
+        setFetchError(msg);
         setWearables([]);
       } finally {
         setLoadingWearables(false);
@@ -116,7 +124,7 @@ const Wardrobe = () => {
     };
 
     fetchData();
-  }, [activeCategory, data?.user?.id]);
+  }, [activeCategory, data?.user?.id, retryCount]);
 
   useEffect(() => {
     if (!data?.user?.id || activeTab !== "outfits") return;
@@ -134,7 +142,7 @@ const Wardrobe = () => {
         setLoadingOutfits(false);
       }
     })();
-  }, [data?.user?.id, activeTab]);
+  }, [data?.user?.id, activeTab, retryCount]);
 
   useEffect(() => {
     if (!data?.user?.id) return;
@@ -188,13 +196,8 @@ const Wardrobe = () => {
       }}
       className="active:opacity-80 mb-4"
     >
-      <Card
-        variant="elevated"
-        className="overflow-hidden bg-white rounded-lg shadow-sm"
-        style={{
-          width: ITEM_SIZE,
-          height: ITEM_SIZE * 1.2,
-        }}
+      <View
+        style={[styles.itemCard, { width: ITEM_SIZE, height: ITEM_SIZE * 1.2 }]}
       >
         {item.cutoutImageUrl ? (
           <Image
@@ -208,23 +211,12 @@ const Wardrobe = () => {
           </Center>
         )}
 
-        <Box
-          className="absolute left-2 right-2 bottom-2 px-3 py-1.5"
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-            borderRadius: 0,
-          }}
-        >
-          <Text
-            size="xs"
-            numberOfLines={1}
-            className="text-center font-medium"
-            style={{ color: colors.textPrimary }}
-          >
+        <View style={styles.itemLabel}>
+          <RNText style={styles.itemLabelText} numberOfLines={1}>
             {item.title}
-          </Text>
-        </Box>
-      </Card>
+          </RNText>
+        </View>
+      </View>
     </Pressable>
   );
 
@@ -247,13 +239,8 @@ const Wardrobe = () => {
       }}
       className="active:opacity-80 mb-4"
     >
-      <Card
-        variant="elevated"
-        className="overflow-hidden bg-white rounded-lg shadow-sm"
-        style={{
-          width: ITEM_SIZE,
-          height: ITEM_SIZE * 1.2,
-        }}
+      <View
+        style={[styles.itemCard, { width: ITEM_SIZE, height: ITEM_SIZE * 1.2 }]}
       >
         {item.imageUrl ? (
           <Image
@@ -267,23 +254,12 @@ const Wardrobe = () => {
           </Center>
         )}
 
-        <Box
-          className="absolute left-2 right-2 bottom-2 px-3 py-1.5"
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-            borderRadius: 0,
-          }}
-        >
-          <Text
-            size="xs"
-            numberOfLines={1}
-            className="text-center font-medium"
-            style={{ color: colors.textPrimary }}
-          >
+        <View style={styles.itemLabel}>
+          <RNText style={styles.itemLabelText} numberOfLines={1}>
             {item.title}
-          </Text>
-        </Box>
-      </Card>
+          </RNText>
+        </View>
+      </View>
     </Pressable>
   );
 
@@ -303,6 +279,18 @@ const Wardrobe = () => {
     if (isDeleting) return;
     setShowDeleteConfirm(false);
     setDeleteTargetType(null);
+  };
+
+  const handleEditWearable = () => {
+    if (!selectedWearable) return;
+    setShowModal(false);
+    router.push(`/edit/wearable/${selectedWearable.id}`);
+  };
+
+  const handleEditOutfit = () => {
+    if (!selectedOutfit) return;
+    setShowOutfitModal(false);
+    router.push(`/edit/outfit/${selectedOutfit.id}`);
   };
 
   const handleConfirmDelete = async () => {
@@ -345,54 +333,72 @@ const Wardrobe = () => {
     }
   };
 
+  if (fetchError) {
+    return (
+      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
+        <AppHeader title="My Wardrobe" titleStyle={styles.headerTitle} />
+        <Center className="flex-1 px-8">
+          <Image
+            source={require("../../assets/mascot/mascot-sad.png")}
+            style={styles.errorMascot}
+            contentFit="contain"
+          />
+          <RNText style={styles.emptyTitle}>Something went wrong</RNText>
+          <RNText style={styles.emptySubtitle}>{fetchError}</RNText>
+          <RNText style={styles.errorHint}>Try logging out and back in.</RNText>
+          <Pressable
+            onPress={() => { setFetchError(null); setRetryCount((c) => c + 1); }}
+            className="rounded-full px-6 py-3 active:opacity-80 mt-6"
+            style={{ backgroundColor: colors.primary }}
+          >
+            <RNText style={styles.retryText}>Try Again</RNText>
+          </Pressable>
+        </Center>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-      {/* Header */}
-      <HStack className="h-14 items-center justify-center px-4 border-b border-outline-200">
-        <Heading size="xl" className="text-typography-800">
-          My Wardrobe
-        </Heading>
-      </HStack>
+      <AppHeader title="My Wardrobe" titleStyle={styles.headerTitle} />
 
       {/* Tab Switcher */}
-      <Box className="px-4 pt-4">
-        <HStack className="rounded-full p-1 bg-background-100">
+      <View style={styles.tabContainer}>
+        <View style={styles.tabBar}>
           <Pressable
             onPress={() => {
               setActiveTab("items");
               setSearchQuery("");
             }}
-            className={`flex-1 py-2 rounded-full items-center ${
-              activeTab === "items" ? "bg-background-0" : ""
-            }`}
+            style={[styles.tab, activeTab === "items" && styles.tabActive]}
           >
-            <Text
-              size="md"
-              bold={activeTab === "items"}
-              className={activeTab === "items" ? "text-typography-800" : "text-typography-400"}
+            <RNText
+              style={[
+                styles.tabText,
+                activeTab === "items" && styles.tabTextActive,
+              ]}
             >
               Items
-            </Text>
+            </RNText>
           </Pressable>
           <Pressable
             onPress={() => {
               setActiveTab("outfits");
               setSearchQuery("");
             }}
-            className={`flex-1 py-2 rounded-full items-center ${
-              activeTab === "outfits" ? "bg-background-0" : ""
-            }`}
+            style={[styles.tab, activeTab === "outfits" && styles.tabActive]}
           >
-            <Text
-              size="md"
-              bold={activeTab === "outfits"}
-              className={activeTab === "outfits" ? "text-typography-800" : "text-typography-400"}
+            <RNText
+              style={[
+                styles.tabText,
+                activeTab === "outfits" && styles.tabTextActive,
+              ]}
             >
               Outfits
-            </Text>
+            </RNText>
           </Pressable>
-        </HStack>
-      </Box>
+        </View>
+      </View>
 
       {activeTab === "items" ? (
         <FlatList
@@ -421,28 +427,25 @@ const Wardrobe = () => {
                     className="items-center mr-4"
                     style={{ minWidth: 56 }}
                   >
-                    <Box
-                      className={`h-14 w-14 rounded-full items-center justify-center mb-2 ${
-                        activeCategory === "ALL"
-                          ? "bg-primary-100 border-2 border-primary-500"
-                          : "bg-background-100"
-                      }`}
+                    <View
+                      style={[
+                        styles.categoryCircle,
+                        activeCategory === "ALL" && styles.categoryCircleActive,
+                      ]}
                     >
                       <LayoutGrid
                         size={24}
                         color={activeCategory === "ALL" ? colors.primary : colors.textMuted}
                       />
-                    </Box>
-                    <Text
-                      size="xs"
-                      className={
-                        activeCategory === "ALL"
-                          ? "text-primary-500 font-semibold"
-                          : "text-typography-400"
-                      }
+                    </View>
+                    <RNText
+                      style={[
+                        styles.categoryLabel,
+                        activeCategory === "ALL" && styles.categoryLabelActive,
+                      ]}
                     >
                       All
-                    </Text>
+                    </RNText>
                   </Pressable>
                   {!loadingCategories && categories.map((cat) => {
                     const isActive = activeCategory === cat.id;
@@ -454,31 +457,30 @@ const Wardrobe = () => {
                         className="items-center mr-4"
                         style={{ minWidth: 56 }}
                       >
-                        <Box
-                          className={`h-14 w-14 rounded-full items-center justify-center mb-2 ${
-                            isActive
-                              ? "bg-primary-100 border-2 border-primary-500"
-                              : "bg-background-100"
-                          }`}
+                        <View
+                          style={[
+                            styles.categoryCircle,
+                            isActive && styles.categoryCircleActive,
+                          ]}
                         >
-                          <Text
-                            className="font-bold text-xl"
-                            style={{ color: isActive ? colors.primary : colors.textMuted }}
+                          <RNText
+                            style={[
+                              styles.categoryLetter,
+                              { color: isActive ? colors.primary : colors.textMuted },
+                            ]}
                           >
                             {letter}
-                          </Text>
-                        </Box>
-                        <Text
-                          size="xs"
+                          </RNText>
+                        </View>
+                        <RNText
                           numberOfLines={1}
-                          className={
-                            isActive
-                              ? "text-primary-500 font-semibold"
-                              : "text-typography-400"
-                          }
+                          style={[
+                            styles.categoryLabel,
+                            isActive && styles.categoryLabelActive,
+                          ]}
                         >
                           {cat.name}
-                        </Text>
+                        </RNText>
                       </Pressable>
                     );
                   })}
@@ -498,6 +500,7 @@ const Wardrobe = () => {
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   className="text-typography-800"
+                  style={{ fontFamily: "Inter_400Regular" }}
                 />
               </Input>
             </>
@@ -506,25 +509,25 @@ const Wardrobe = () => {
             loadingWearables ? (
               <Center className="pt-12">
                 <Spinner size="large" className="text-primary-500" />
-                <Text className="text-typography-400 mt-4">Loading...</Text>
+                <RNText style={styles.loadingText}>Loading...</RNText>
               </Center>
             ) : (
               <Center className="pt-12 px-4">
-                <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
+                <View style={styles.emptyIcon}>
                   <Shirt size={40} color={colors.primary} strokeWidth={1.5} />
-                </Box>
-                <Heading size="md" className="mb-2 text-center text-typography-600">
+                </View>
+                <RNText style={styles.emptyTitle}>
                   {searchQuery
                     ? "No items found"
                     : activeCategory === "ALL"
                     ? "Your wardrobe is empty"
                     : `No ${activeCategoryName} items yet`}
-                </Heading>
-                <Text size="sm" className="text-center text-typography-400">
+                </RNText>
+                <RNText style={styles.emptySubtitle}>
                   {searchQuery
                     ? "Try a different search term"
                     : "Start adding items to build your wardrobe"}
-                </Text>
+                </RNText>
               </Center>
             )
           }
@@ -543,7 +546,7 @@ const Wardrobe = () => {
           columnWrapperStyle={filteredOutfits.length > 0 ? { justifyContent: "space-between" } : undefined}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <Box className="pt-4">
+            <View style={{ paddingTop: 16 }}>
               <Input
                 variant="rounded"
                 size="xl"
@@ -557,29 +560,30 @@ const Wardrobe = () => {
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   className="text-typography-800"
+                  style={{ fontFamily: "Inter_400Regular" }}
                 />
               </Input>
-            </Box>
+            </View>
           }
           ListEmptyComponent={
             loadingOutfits ? (
               <Center className="pt-12">
                 <Spinner size="large" className="text-primary-500" />
-                <Text className="text-typography-400 mt-4">Loading...</Text>
+                <RNText style={styles.loadingText}>Loading...</RNText>
               </Center>
             ) : (
               <Center className="pt-12 px-4">
-                <Box className="h-24 w-24 rounded-full items-center justify-center mb-4 bg-primary-50">
+                <View style={styles.emptyIcon}>
                   <LayoutGrid size={40} color={colors.primary} strokeWidth={1.5} />
-                </Box>
-                <Heading size="md" className="mb-2 text-center text-typography-600">
+                </View>
+                <RNText style={styles.emptyTitle}>
                   {searchQuery ? "No outfits found" : "No outfits yet"}
-                </Heading>
-                <Text size="sm" className="text-center text-typography-400">
+                </RNText>
+                <RNText style={styles.emptySubtitle}>
                   {searchQuery
                     ? "Try a different search term"
                     : "Create and save your favorite outfit combinations"}
-                </Text>
+                </RNText>
               </Center>
             )
           }
@@ -597,13 +601,12 @@ const Wardrobe = () => {
         <FabIcon as={AddIcon} className="text-typography-0" />
       </Fab>
 
+      {/* Wearable Detail Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} size="md">
         <ModalBackdrop />
         <ModalContent className={"rounded-3xl"}>
           <ModalHeader>
-            <Heading size="md" className="text-typography-800">
-              Wearable Details
-            </Heading>
+            <RNText style={styles.modalTitle}>Details</RNText>
             <ModalCloseButton onPress={() => setShowModal(false)}>
               <Icon as={CloseIcon} className="text-typography-500" />
             </ModalCloseButton>
@@ -612,15 +615,11 @@ const Wardrobe = () => {
             {loadingDetail ? (
               <Center className="py-8">
                 <Spinner size="large" className="text-primary-500" />
-                <Text className="text-typography-400 mt-3">Loading...</Text>
+                <RNText style={styles.loadingText}>Loading...</RNText>
               </Center>
             ) : selectedWearable ? (
               <VStack className="gap-4">
-                <Card
-                  variant="elevated"
-                  className="overflow-hidden"
-                  style={{ height: 220 }}
-                >
+                <View style={styles.modalImageCard}>
                   {selectedWearable.cutoutImageUrl ? (
                     <Image
                       source={{ uri: selectedWearable.cutoutImageUrl }}
@@ -630,29 +629,23 @@ const Wardrobe = () => {
                   ) : (
                     <Center className="flex-1">
                       <Shirt size={40} color={colors.textMuted} />
-                      <Text
-                        size="sm"
-                        className="text-center px-2 mt-2 text-typography-400"
-                      >
-                        {selectedWearable.title}
-                      </Text>
                     </Center>
                   )}
-                </Card>
+                </View>
 
                 <VStack className="gap-1">
-                  <Heading size="lg" className="text-typography-800">
+                  <RNText style={styles.modalItemTitle}>
                     {selectedWearable.title}
-                  </Heading>
-                  <Text size="sm" className="text-typography-400">
+                  </RNText>
+                  <RNText style={styles.modalItemSub}>
                     {selectedWearable.categoryName}
-                  </Text>
+                  </RNText>
                 </VStack>
 
                 {selectedWearable.description ? (
-                  <Text size="sm" className="text-typography-700">
+                  <RNText style={styles.modalDescription}>
                     {selectedWearable.description}
-                  </Text>
+                  </RNText>
                 ) : null}
 
                 {selectedWearable.tags?.length ? (
@@ -669,40 +662,50 @@ const Wardrobe = () => {
 
                 <HStack className="items-center gap-2">
                   <Calendar size={16} color={colors.textMuted} />
-                  <Text size="sm" className="text-typography-500">
+                  <RNText style={styles.modalDate}>
                     Added{" "}
                     {new Date(selectedWearable.createdAt).toLocaleDateString()}
-                  </Text>
+                  </RNText>
                 </HStack>
               </VStack>
             ) : (
               <Center className="py-8">
-                <Text className="text-typography-400">
+                <RNText style={styles.modalDate}>
                   Unable to load item details.
-                </Text>
+                </RNText>
               </Center>
             )}
           </ModalBody>
           <ModalFooter className="w-full">
-            <Button
-              action="negative"
-              className="w-full bg-error-600 data-[hover=true]:bg-error-700 data-[active=true]:bg-error-800"
-              onPress={handleOpenDeleteWearableConfirm}
-              isDisabled={!selectedWearable || loadingDetail || isDeleting}
-            >
-              <ButtonText>Delete</ButtonText>
-            </Button>
+            <HStack className="w-full gap-2">
+              <Button
+                action="secondary"
+                variant="outline"
+                className="flex-1"
+                onPress={handleEditWearable}
+                isDisabled={!selectedWearable || loadingDetail || isDeleting}
+              >
+                <ButtonText>Edit</ButtonText>
+              </Button>
+              <Button
+                action="negative"
+                className="flex-1 bg-error-600 data-[hover=true]:bg-error-700 data-[active=true]:bg-error-800"
+                onPress={handleOpenDeleteWearableConfirm}
+                isDisabled={!selectedWearable || loadingDetail || isDeleting}
+              >
+                <ButtonText>Delete</ButtonText>
+              </Button>
+            </HStack>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
+      {/* Outfit Detail Modal */}
       <Modal isOpen={showOutfitModal} onClose={() => setShowOutfitModal(false)} size="md">
         <ModalBackdrop />
         <ModalContent className={"rounded-3xl"}>
           <ModalHeader>
-            <Heading size="md" className="text-typography-800">
-              Outfit Details
-            </Heading>
+            <RNText style={styles.modalTitle}>Outfit Details</RNText>
             <ModalCloseButton onPress={() => setShowOutfitModal(false)}>
               <Icon as={CloseIcon} className="text-typography-500" />
             </ModalCloseButton>
@@ -711,15 +714,11 @@ const Wardrobe = () => {
             {loadingOutfitDetail ? (
               <Center className="py-8">
                 <Spinner size="large" className="text-primary-500" />
-                <Text className="text-typography-400 mt-3">Loading...</Text>
+                <RNText style={styles.loadingText}>Loading...</RNText>
               </Center>
             ) : selectedOutfit ? (
               <VStack className="gap-4">
-                <Card
-                  variant="elevated"
-                  className="overflow-hidden"
-                  style={{ height: 220 }}
-                >
+                <View style={styles.modalImageCard}>
                   {selectedOutfit.imageUrl ? (
                     <Image
                       source={{ uri: selectedOutfit.imageUrl }}
@@ -729,29 +728,23 @@ const Wardrobe = () => {
                   ) : (
                     <Center className="flex-1">
                       <LayoutGrid size={40} color={colors.textMuted} />
-                      <Text
-                        size="sm"
-                        className="text-center px-2 mt-2 text-typography-400"
-                      >
-                        {selectedOutfit.title}
-                      </Text>
                     </Center>
                   )}
-                </Card>
+                </View>
 
                 <VStack className="gap-1">
-                  <Heading size="lg" className="text-typography-800">
+                  <RNText style={styles.modalItemTitle}>
                     {selectedOutfit.title}
-                  </Heading>
-                  <Text size="sm" className="text-typography-400">
+                  </RNText>
+                  <RNText style={styles.modalItemSub}>
                     {selectedOutfit.wearables?.length ?? 0} item(s)
-                  </Text>
+                  </RNText>
                 </VStack>
 
                 {selectedOutfit.description ? (
-                  <Text size="sm" className="text-typography-700">
+                  <RNText style={styles.modalDescription}>
                     {selectedOutfit.description}
-                  </Text>
+                  </RNText>
                 ) : null}
 
                 {selectedOutfit.tags?.length ? (
@@ -766,9 +759,9 @@ const Wardrobe = () => {
 
                 {selectedOutfit.wearables?.length ? (
                   <VStack className="gap-2">
-                    <Text size="sm" className="text-typography-500">
+                    <RNText style={styles.modalSectionLabel}>
                       Included items
-                    </Text>
+                    </RNText>
                     <HStack className="flex-wrap gap-2">
                       {selectedOutfit.wearables.map((wearable) => (
                         <Badge key={wearable.id} variant="outline">
@@ -783,47 +776,57 @@ const Wardrobe = () => {
 
                 <HStack className="items-center gap-2">
                   <Calendar size={16} color={colors.textMuted} />
-                  <Text size="sm" className="text-typography-500">
+                  <RNText style={styles.modalDate}>
                     Added{" "}
                     {new Date(selectedOutfit.createdAt).toLocaleDateString()}
-                  </Text>
+                  </RNText>
                 </HStack>
               </VStack>
             ) : (
               <Center className="py-8">
-                <Text className="text-typography-400">
+                <RNText style={styles.modalDate}>
                   Unable to load outfit details.
-                </Text>
+                </RNText>
               </Center>
             )}
           </ModalBody>
           <ModalFooter className="w-full">
-            <Button
-              action="negative"
-              className="w-full bg-error-600 data-[hover=true]:bg-error-700 data-[active=true]:bg-error-800"
-              onPress={handleOpenDeleteOutfitConfirm}
-              isDisabled={!selectedOutfit || loadingOutfitDetail || isDeleting}
-            >
-              <ButtonText>Delete</ButtonText>
-            </Button>
+            <HStack className="w-full gap-2">
+              <Button
+                action="secondary"
+                variant="outline"
+                className="flex-1"
+                onPress={handleEditOutfit}
+                isDisabled={!selectedOutfit || loadingOutfitDetail || isDeleting}
+              >
+                <ButtonText>Edit</ButtonText>
+              </Button>
+              <Button
+                action="negative"
+                className="flex-1 bg-error-600 data-[hover=true]:bg-error-700 data-[active=true]:bg-error-800"
+                onPress={handleOpenDeleteOutfitConfirm}
+                isDisabled={!selectedOutfit || loadingOutfitDetail || isDeleting}
+              >
+                <ButtonText>Delete</ButtonText>
+              </Button>
+            </HStack>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
+      {/* Delete Confirmation */}
       <AlertDialog isOpen={showDeleteConfirm} onClose={handleCloseDeleteConfirm} size="md">
         <AlertDialogBackdrop />
         <AlertDialogContent>
           <AlertDialogHeader>
-            <Heading size="sm" className="text-typography-800">
-              Confirm Deletion
-            </Heading>
+            <RNText style={styles.alertTitle}>Confirm Deletion</RNText>
           </AlertDialogHeader>
           <AlertDialogBody>
-            <Text size="sm" className="text-typography-600">
+            <RNText style={styles.alertBody}>
               {deleteTargetType === "wearable"
                 ? "Delete this clothing item permanently? It will also be removed from any outfits that use it."
                 : "Delete this outfit permanently? This action cannot be undone."}
-            </Text>
+            </RNText>
           </AlertDialogBody>
           <AlertDialogFooter>
             <Button
@@ -847,5 +850,200 @@ const Wardrobe = () => {
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  headerTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 22,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
+  },
+  tabContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  tabBar: {
+    flexDirection: "row",
+    borderRadius: 999,
+    padding: 4,
+    backgroundColor: "#F5EFE6",
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: "center",
+  },
+  tabActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#C9BAAA",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  tabText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    color: "#9B8B7F",
+  },
+  tabTextActive: {
+    fontFamily: "Inter_600SemiBold",
+    color: "#3D2E22",
+  },
+  categoryCircle: {
+    height: 56,
+    width: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    backgroundColor: "#F5EFE6",
+  },
+  categoryCircleActive: {
+    backgroundColor: "#F7E9D7",
+    borderWidth: 2,
+    borderColor: "#D4A574",
+  },
+  categoryLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: "#9B8B7F",
+  },
+  categoryLabelActive: {
+    fontFamily: "Inter_600SemiBold",
+    color: "#D4A574",
+  },
+  categoryLetter: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 20,
+  },
+  itemCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#F0E8DC",
+    shadowColor: "#C9BAAA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  itemLabel: {
+    position: "absolute",
+    left: 8,
+    right: 8,
+    bottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    borderRadius: 8,
+  },
+  itemLabelText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: "#3D2E22",
+    textAlign: "center",
+  },
+  loadingText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#9B8B7F",
+    marginTop: 16,
+  },
+  emptyIcon: {
+    height: 96,
+    width: 96,
+    borderRadius: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    backgroundColor: "#F7E9D7",
+  },
+  emptyTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#6B5B4F",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#9B8B7F",
+    textAlign: "center",
+  },
+  modalTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#3D2E22",
+    letterSpacing: -0.2,
+  },
+  modalImageCard: {
+    height: 220,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#FAF7F2",
+    borderWidth: 1,
+    borderColor: "#F0E8DC",
+  },
+  modalItemTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 20,
+    color: "#3D2E22",
+    letterSpacing: -0.3,
+  },
+  modalItemSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: "#9B8B7F",
+  },
+  modalDescription: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#6B5B4F",
+    lineHeight: 20,
+  },
+  modalSectionLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: "#9B8B7F",
+  },
+  modalDate: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: "#9B8B7F",
+  },
+  alertTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 17,
+    color: "#3D2E22",
+  },
+  alertBody: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#6B5B4F",
+    lineHeight: 20,
+  },
+  errorMascot: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+    opacity: 0.6,
+  },
+  errorHint: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: "#9B8B7F",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  retryText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: "#FFFFFF",
+  },
+});
 
 export default Wardrobe;
