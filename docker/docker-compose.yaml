@@ -108,8 +108,8 @@ services:
 
   wtw-python:
     build:
-      context: ../python/core
-      dockerfile: ../../docker/python-service/Dockerfile
+      context: ../python
+      dockerfile: ../docker/python-service/Dockerfile
     container_name: wtw-python
     restart: unless-stopped
     depends_on:
@@ -120,14 +120,13 @@ services:
     ports:
       - "8084:8000"
     volumes:
-      - ../python/core:/app
+      - ../python:/app
     working_dir: /app
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
   wtw-backend:
     build:
       context: ../backend
@@ -145,7 +144,7 @@ services:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://wtw-db:5432/db
       QUARKUS_DATASOURCE_USERNAME: app
       QUARKUS_DATASOURCE_PASSWORD: app
-      QUARKUS_MINIO_ENDPOINT: http://wtw-minio:9000
+      QUARKUS_MINIO_URL: http://wtw-minio:9000
       QUARKUS_MINIO_REGION: eu-central-1
       QUARKUS_MINIO_HOST: wtw-minio
       QUARKUS_MINIO_PORT: 9000
