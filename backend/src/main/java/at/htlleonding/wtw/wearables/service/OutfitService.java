@@ -15,6 +15,7 @@ import jakarta.ws.rs.NotFoundException;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -92,7 +93,7 @@ public class OutfitService {
     @Transactional
     public List<OutfitResponseDto> getByUserId(String userId) {
         String userIdTrim = (userId == null) ? null : userId.trim();
-        List<Outfit> outfits = repo.list("userId", userIdTrim);
+        List<Outfit> outfits = repo.find("userId = ?1 order by createdAt desc", userIdTrim).list();
 
         List<OutfitResponseDto> out = new ArrayList<>(outfits.size());
         for (Outfit o : outfits) {
@@ -134,12 +135,60 @@ public class OutfitService {
         repo.delete(outfit);
     }
 
+    @Transactional
+    public OutfitResponseDto update(
+            String userId,
+            UUID outfitId,
+            String title,
+            String description,
+            List<String> tags,
+            List<UUID> wearableIds
+    ) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (outfitId == null) {
+            throw new IllegalArgumentException("outfitId is required");
+        }
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("title is required");
+        }
+
+        String userIdTrim = userId.trim();
+        Outfit outfit = repo.find("id = ?1 and userId = ?2", outfitId, userIdTrim).firstResult();
+        if (outfit == null) {
+            throw new NotFoundException("Outfit not found");
+        }
+
+        List<Wearable> wearables = new ArrayList<>();
+        if (wearableIds != null) {
+            for (UUID wearableId : wearableIds) {
+                Wearable wearable = wearableRepo.find("id = ?1 and userId = ?2", wearableId, userIdTrim).firstResult();
+                if (wearable == null) {
+                    throw new IllegalArgumentException("Wearable not found: " + wearableId);
+                }
+                wearables.add(wearable);
+            }
+        }
+
+        outfit.title = title.trim();
+        outfit.description = normalize(description);
+        outfit.tags = (tags == null) ? List.of() : normalizeTags(tags);
+        outfit.wearables = wearables;
+
+        repo.flush();
+
+        return toResponseDto(outfit);
+    }
+
     // --- Helper: map entity to response DTO ---
 
     private OutfitResponseDto toResponseDto(Outfit o) {
         List<WearableResponseDto> wearableDtos = new ArrayList<>();
         if (o.wearables != null) {
-            for (Wearable w : o.wearables) {
+            List<Wearable> sortedWearables = new ArrayList<>(o.wearables);
+            sortedWearables.sort(Comparator.comparing((Wearable w) -> w.createdAt).reversed());
+            for (Wearable w : sortedWearables) {
                 wearableDtos.add(new WearableResponseDto(
                         w.id,
                         w.userId,
