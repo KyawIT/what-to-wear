@@ -32,14 +32,16 @@ The service is implemented with **FastAPI** and uses **Qdrant** as vector databa
 
 At startup, the service:
 
-1. Loads the embedding model (`clip-ViT-B-32` by default)
-2. Connects to Qdrant (`QDRANT_HOST`, `QDRANT_PORT`)
-3. Creates and injects shared services:
+1. Loads typed settings from environment (`core/config.py`)
+2. Configures structured application logging (`core/logging_config.py`)
+3. Initializes long-lived services:
+   - `ImageEmbedder`
    - `WearableRepository`
    - `OutfitGenerator`
    - `OutfitCombiner`
    - `AIOutfitService`
-4. Injects dependencies into routers
+4. Stores all shared services in `app.state.services` (`ServiceContainer`)
+5. Routers resolve dependencies via FastAPI `Depends` (`core/dependencies.py`)
 
 ### Data flow
 
@@ -112,6 +114,11 @@ Main runtime variables:
 - `QDRANT_PORT` (default: `6333`)
 - `QDRANT_COLLECTION` (default: `wearables`)
 - `MODEL_NAME` (default: `clip-ViT-B-32`)
+- `OUTFIT_TEXT_MODEL_NAME` (default: `all-MiniLM-L6-v2`)
+- `AI_MAX_SUGGESTIONS` (default: `6`)
+- `CORS_ALLOW_ORIGINS` (default: `*`, comma-separated list supported)
+- `APP_ENV` (default: `development`)
+- `LOG_LEVEL` (default: `INFO`)
 
 ## 7. Local Development
 
@@ -146,6 +153,27 @@ python embedding/scripts/qdrant_indexer.py --help
 ```
 
 or inside Docker compose according to your environment setup.
+
+## 8.1 Production CI/CD + Reindex Workflow
+
+This repository includes production GitHub Actions workflows at monorepo root:
+
+- `.github/workflows/deploy-prod.yml`
+  - Builds and pushes `wtw-backend`, `wtw-rembg`, `wtw-python`, and `wtw-embedding` images to GHCR.
+  - Deploys with SHA-pinned images (`:${github.sha}`) using `docker/docker-compose.prod.yml`.
+- `.github/workflows/reindex-qdrant-prod.yml`
+  - Manual workflow (`workflow_dispatch`) for running one-off Qdrant indexing on the production server.
+  - Requires `dataset_dir` on the server with:
+    - `dataset.csv`
+    - `images/`
+
+Recommended operational model:
+
+1. Deploy API containers normally via `deploy-prod.yml`.
+2. Run reindex only when needed (initial bootstrap, model changes, mapping changes).
+3. For daily app usage, rely on live inserts via `/wearables/upload` instead of full reindex.
+
+Important: `docker/docker-compose.prod.yml` keeps Qdrant data in a persistent Docker volume (`wtw_qdrant`) so vectors survive container updates.
 
 ## 9. Troubleshooting
 
