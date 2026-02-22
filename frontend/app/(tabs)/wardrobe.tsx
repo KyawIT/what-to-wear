@@ -1,4 +1,4 @@
-import { ScrollView, FlatList, Dimensions, Alert, Text as RNText, View, StyleSheet } from "react-native";
+import { ScrollView, FlatList, Dimensions, Alert, Text as RNText, View } from "react-native";
 import { Image } from "expo-image";
 import React, { useEffect, useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -56,6 +56,10 @@ import {
 } from "@/api/backend/category.api";
 import { OutfitResponseDto } from "@/api/backend/outfit.model";
 import { colors } from "@/lib/theme";
+import WardrobeErrorState from "@/components/common/WardrobeErrorState";
+import WardrobeTabSwitcher from "@/components/common/WardrobeTabSwitcher";
+import WardrobeListEmptyState from "@/components/common/WardrobeListEmptyState";
+import { styles } from "../../styles/screens/tabs/wardrobe.styles";
 
 type TabType = "items" | "outfits";
 type CategoryFilter = string;
@@ -335,26 +339,13 @@ const Wardrobe = () => {
 
   if (fetchError) {
     return (
-      <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
-        <AppHeader title="My Wardrobe" titleStyle={styles.headerTitle} />
-        <Center className="flex-1 px-8">
-          <Image
-            source={require("../../assets/mascot/mascot-sad.png")}
-            style={styles.errorMascot}
-            contentFit="contain"
-          />
-          <RNText style={styles.emptyTitle}>Something went wrong</RNText>
-          <RNText style={styles.emptySubtitle}>{fetchError}</RNText>
-          <RNText style={styles.errorHint}>Try logging out and back in.</RNText>
-          <Pressable
-            onPress={() => { setFetchError(null); setRetryCount((c) => c + 1); }}
-            className="rounded-full px-6 py-3 active:opacity-80 mt-6"
-            style={{ backgroundColor: colors.primary }}
-          >
-            <RNText style={styles.retryText}>Try Again</RNText>
-          </Pressable>
-        </Center>
-      </SafeAreaView>
+      <WardrobeErrorState
+        message={fetchError}
+        onRetry={() => {
+          setFetchError(null);
+          setRetryCount((c) => c + 1);
+        }}
+      />
     );
   }
 
@@ -362,43 +353,13 @@ const Wardrobe = () => {
     <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
       <AppHeader title="My Wardrobe" titleStyle={styles.headerTitle} />
 
-      {/* Tab Switcher */}
-      <View style={styles.tabContainer}>
-        <View style={styles.tabBar}>
-          <Pressable
-            onPress={() => {
-              setActiveTab("items");
-              setSearchQuery("");
-            }}
-            style={[styles.tab, activeTab === "items" && styles.tabActive]}
-          >
-            <RNText
-              style={[
-                styles.tabText,
-                activeTab === "items" && styles.tabTextActive,
-              ]}
-            >
-              Items
-            </RNText>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setActiveTab("outfits");
-              setSearchQuery("");
-            }}
-            style={[styles.tab, activeTab === "outfits" && styles.tabActive]}
-          >
-            <RNText
-              style={[
-                styles.tabText,
-                activeTab === "outfits" && styles.tabTextActive,
-              ]}
-            >
-              Outfits
-            </RNText>
-          </Pressable>
-        </View>
-      </View>
+      <WardrobeTabSwitcher
+        activeTab={activeTab}
+        onChangeTab={(tab) => {
+          setActiveTab(tab);
+          setSearchQuery("");
+        }}
+      />
 
       {activeTab === "items" ? (
         <FlatList
@@ -512,23 +473,21 @@ const Wardrobe = () => {
                 <RNText style={styles.loadingText}>Loading...</RNText>
               </Center>
             ) : (
-              <Center className="pt-12 px-4">
-                <View style={styles.emptyIcon}>
-                  <Shirt size={40} color={colors.primary} strokeWidth={1.5} />
-                </View>
-                <RNText style={styles.emptyTitle}>
-                  {searchQuery
+              <WardrobeListEmptyState
+                icon={<Shirt size={40} color={colors.primary} strokeWidth={1.5} />}
+                title={
+                  searchQuery
                     ? "No items found"
                     : activeCategory === "ALL"
                     ? "Your wardrobe is empty"
-                    : `No ${activeCategoryName} items yet`}
-                </RNText>
-                <RNText style={styles.emptySubtitle}>
-                  {searchQuery
+                    : `No ${activeCategoryName} items yet`
+                }
+                subtitle={
+                  searchQuery
                     ? "Try a different search term"
-                    : "Start adding items to build your wardrobe"}
-                </RNText>
-              </Center>
+                    : "Start adding items to build your wardrobe"
+                }
+              />
             )
           }
           renderItem={renderWearableItem}
@@ -572,19 +531,15 @@ const Wardrobe = () => {
                 <RNText style={styles.loadingText}>Loading...</RNText>
               </Center>
             ) : (
-              <Center className="pt-12 px-4">
-                <View style={styles.emptyIcon}>
-                  <LayoutGrid size={40} color={colors.primary} strokeWidth={1.5} />
-                </View>
-                <RNText style={styles.emptyTitle}>
-                  {searchQuery ? "No outfits found" : "No outfits yet"}
-                </RNText>
-                <RNText style={styles.emptySubtitle}>
-                  {searchQuery
+              <WardrobeListEmptyState
+                icon={<LayoutGrid size={40} color={colors.primary} strokeWidth={1.5} />}
+                title={searchQuery ? "No outfits found" : "No outfits yet"}
+                subtitle={
+                  searchQuery
                     ? "Try a different search term"
-                    : "Create and save your favorite outfit combinations"}
-                </RNText>
-              </Center>
+                    : "Create and save your favorite outfit combinations"
+                }
+              />
             )
           }
           renderItem={renderOutfitItem}
@@ -850,200 +805,5 @@ const Wardrobe = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  headerTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 22,
-    color: "#3D2E22",
-    letterSpacing: -0.3,
-  },
-  tabContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  tabBar: {
-    flexDirection: "row",
-    borderRadius: 999,
-    padding: 4,
-    backgroundColor: "#F5EFE6",
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  tabActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#C9BAAA",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  tabText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    color: "#9B8B7F",
-  },
-  tabTextActive: {
-    fontFamily: "Inter_600SemiBold",
-    color: "#3D2E22",
-  },
-  categoryCircle: {
-    height: 56,
-    width: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-    backgroundColor: "#F5EFE6",
-  },
-  categoryCircleActive: {
-    backgroundColor: "#F7E9D7",
-    borderWidth: 2,
-    borderColor: "#D4A574",
-  },
-  categoryLabel: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    color: "#9B8B7F",
-  },
-  categoryLabelActive: {
-    fontFamily: "Inter_600SemiBold",
-    color: "#D4A574",
-  },
-  categoryLetter: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 20,
-  },
-  itemCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
-    shadowColor: "#C9BAAA",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  itemLabel: {
-    position: "absolute",
-    left: 8,
-    right: 8,
-    bottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-    borderRadius: 8,
-  },
-  itemLabelText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-    color: "#3D2E22",
-    textAlign: "center",
-  },
-  loadingText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    marginTop: 16,
-  },
-  emptyIcon: {
-    height: 96,
-    width: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    backgroundColor: "#F7E9D7",
-  },
-  emptyTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 18,
-    color: "#6B5B4F",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    textAlign: "center",
-  },
-  modalTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 18,
-    color: "#3D2E22",
-    letterSpacing: -0.2,
-  },
-  modalImageCard: {
-    height: 220,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#FAF7F2",
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
-  },
-  modalItemTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 20,
-    color: "#3D2E22",
-    letterSpacing: -0.3,
-  },
-  modalItemSub: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: "#9B8B7F",
-  },
-  modalDescription: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#6B5B4F",
-    lineHeight: 20,
-  },
-  modalSectionLabel: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#9B8B7F",
-  },
-  modalDate: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: "#9B8B7F",
-  },
-  alertTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 17,
-    color: "#3D2E22",
-  },
-  alertBody: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#6B5B4F",
-    lineHeight: 20,
-  },
-  errorMascot: {
-    width: 120,
-    height: 120,
-    marginBottom: 20,
-    opacity: 0.6,
-  },
-  errorHint: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#9B8B7F",
-    textAlign: "center",
-    marginTop: 4,
-  },
-  retryText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-});
 
 export default Wardrobe;
