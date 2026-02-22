@@ -1,7 +1,6 @@
-"""AI Outfit generation endpoint."""
+"""AI outfit generation endpoint."""
 import logging
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Request
-import io
+from fastapi import APIRouter, Form, HTTPException, Request
 
 from dto import AIOutfitResponse
 
@@ -19,10 +18,7 @@ async def generate_ai_outfit(
     user_id: str = Form(...)
 ):
     """
-    Generate outfit suggestions from an image using the neural network model.
-    
-    Das Modell analysiert das hochgeladene Bild und schlägt passende Wearables vor,
-    die zum Style/zur Kleidung im Bild passen oder diese ergänzen.
+    Generate outfit suggestions from a user image.
     
     Expects multipart form data with:
     - user_id: User ID (required)
@@ -44,8 +40,8 @@ async def generate_ai_outfit(
         ]
     }
     
-    **Nächster Schritt:** 
-    Mit den item_ids aus MinIO die Bilder fetchen und `/outfit/upload` aufrufen.
+    Next step:
+    Fetch image files for returned item_ids and call `/outfit/upload`.
     """
     if ai_outfit_service is None:
         raise HTTPException(status_code=503, detail="AI outfit service not initialized")
@@ -53,7 +49,7 @@ async def generate_ai_outfit(
     if not ai_outfit_service.is_ready():
         raise HTTPException(
             status_code=503,
-            detail="AI model not yet ready. Neural network is still being trained."
+            detail="AI outfit service is not ready yet."
         )
     
     try:
@@ -71,6 +67,9 @@ async def generate_ai_outfit(
             logger.debug(f"Loaded image: {len(image_bytes)} bytes")
         else:
             raise HTTPException(status_code=400, detail="Invalid image file")
+
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded image is empty")
         
         logger.info(f"Generating outfit suggestions from image for user: {user_id}")
         
@@ -84,9 +83,9 @@ async def generate_ai_outfit(
         
         return response
         
-    except NotImplementedError as e:
-        logger.warning(str(e))
-        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        logger.warning(f"Invalid AI outfit request: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to generate outfit: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate outfit: {str(e)}")
