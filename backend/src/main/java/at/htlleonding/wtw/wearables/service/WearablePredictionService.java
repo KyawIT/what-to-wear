@@ -26,6 +26,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @ApplicationScoped
 public class WearablePredictionService {
@@ -155,9 +156,9 @@ public class WearablePredictionService {
 
     private static String normalizeContentType(String contentType, String fileName) {
         if (contentType != null && !contentType.isBlank()) {
-            return contentType.trim().toLowerCase();
+            return contentType.trim().toLowerCase(Locale.ROOT);
         }
-        String lower = (fileName == null) ? "" : fileName.toLowerCase();
+        String lower = (fileName == null) ? "" : fileName.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".png")) return "image/png";
         if (lower.endsWith(".webp")) return "image/webp";
         if (lower.endsWith(".jpeg") || lower.endsWith(".jpg")) return "image/jpeg";
