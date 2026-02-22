@@ -1,103 +1,94 @@
-"""
-FastAPI Application for Wearable Classification
+"""FastAPI application bootstrap for the core wearable service."""
+from __future__ import annotations
 
-Provides REST API endpoint for classifying wearable images.
-"""
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import sys
-import os
-from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+from core.config import Settings
+from core.dependencies import ServiceContainer
+from core.logging_config import configure_logging
+from core.repositories import WearableRepository
+from core.routers import ai_outfit_router, health_router, outfit_router, wearables_router
+from core.service import AIOutfitService, OutfitCombiner, OutfitGenerator
+from core.utils import ImageEmbedder
 
-from utils import ImageEmbedder
-from repositories import WearableRepository
-from service import OutfitGenerator, OutfitCombiner, AIOutfitService
-from routers import health_router, outfit_router, wearables_router, ai_outfit_router
-import routers.health as health_module
-import routers.outfit as outfit_module
-import routers.wearables as wearables_module
-import routers.ai_outfit as ai_outfit_module
+configure_logging()
+logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and teardown shared services."""
+    settings = Settings.from_env()
+    logger.info("Initializing application", extra={"env": settings.app_env})
+
+    embedder = ImageEmbedder(model_name=settings.model_name)
+    logger.info("Embedding model loaded", extra={"model": settings.model_name, "dim": embedder.embedding_dim})
+
+    repository = WearableRepository(
+        collection_name=settings.qdrant_collection,
+        host=settings.qdrant_host,
+        port=settings.qdrant_port,
+        embedding_dim=embedder.embedding_dim,
+    )
+
+    ai_outfit_service = AIOutfitService(
+        embedder=embedder,
+        repository=repository,
+        max_suggestions=settings.ai_max_suggestions,
+    )
+
+    app.state.services = ServiceContainer(
+        settings=settings,
+        embedder=embedder,
+        repository=repository,
+        ai_outfit_service=ai_outfit_service,
+        outfit_generator=OutfitGenerator(model_name=settings.outfit_text_model_name),
+        outfit_combiner=OutfitCombiner(),
+    )
+
+    logger.info(
+        "Application ready",
+        extra={
+            "qdrant_host": settings.qdrant_host,
+            "qdrant_port": settings.qdrant_port,
+            "qdrant_collection": settings.qdrant_collection,
+        },
+    )
+
+    try:
+        yield
+    finally:
+        app.state.services = None
+        logger.info("Application shutdown complete")
+
+
+settings = Settings.from_env()
 app = FastAPI(
-    title="Wearable Classification API",
+    title=settings.app_name,
     description="API for classifying wearable items by category and tags",
-    version="1.0.0"
+    version=settings.app_version,
+    lifespan=lifespan,
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
 app.include_router(health_router)
 app.include_router(outfit_router)
 app.include_router(ai_outfit_router)
 app.include_router(wearables_router, prefix="/wearables", tags=["wearables"])
 
-# Global instances (initialized on startup)
-embedder: ImageEmbedder = None
-repository: WearableRepository = None
-ai_outfit_service: AIOutfitService = None
-outfit_generator: OutfitGenerator = None
-outfit_combiner: OutfitCombiner = None
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize models and connections on startup."""
-    global embedder, repository, ai_outfit_service, outfit_generator, outfit_combiner
-    
-    print("Initializing application...")
-    
-    # Configuration
-    QDRANT_HOST = os.getenv("QDRANT_HOST", "wtw-qdrant")
-    QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
-    COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "wearables")
-    MODEL_NAME = os.getenv("MODEL_NAME", "clip-ViT-B-32")
-    
-    # Initialize embedder
-    print(f"Loading embedding model: {MODEL_NAME}")
-    embedder = ImageEmbedder(model_name=MODEL_NAME)
-    print(f"Embedding dimension: {embedder.embedding_dim}")
-    
-    # Initialize repository
-    print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
-    repository = WearableRepository(
-        collection_name=COLLECTION_NAME,
-        host=QDRANT_HOST,
-        port=QDRANT_PORT,
-        embedding_dim=embedder.embedding_dim
-    )
-    
-    # Initialize AI outfit service with shared embedder + repository
-    ai_outfit_service = AIOutfitService(embedder=embedder, repository=repository)
-    
-    # Initialize outfit generator (standalone, no repository needed)
-    outfit_generator = OutfitGenerator()
-    
-    # Initialize outfit combiner
-    outfit_combiner = OutfitCombiner()
-    
-    # Inject dependencies into routers
-    health_module.repository = repository
-    outfit_module.outfit_generator = outfit_generator
-    outfit_module.outfit_combiner = outfit_combiner
-    ai_outfit_module.ai_outfit_service = ai_outfit_service
-    wearables_module.embedder = embedder
-    wearables_module.repository = repository
-    
-    print("Application ready!")
-
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    uvicorn.run("core.app:app", host="0.0.0.0", port=8000, reload=False)
