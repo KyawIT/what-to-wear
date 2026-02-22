@@ -78,8 +78,8 @@ async def startup_event():
         embedding_dim=embedder.embedding_dim
     )
     
-    # Initialize AI outfit service
-    ai_outfit_service = AIOutfitService()
+    # Initialize AI outfit service with shared embedder + repository
+    ai_outfit_service = AIOutfitService(embedder=embedder, repository=repository)
     
     # Initialize outfit generator (standalone, no repository needed)
     outfit_generator = OutfitGenerator()
