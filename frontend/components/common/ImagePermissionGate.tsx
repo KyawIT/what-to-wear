@@ -55,7 +55,7 @@ const ImagePermissionGate = ({
                 useNativeDriver: true,
             }).start();
         }
-    }, [granted]); // only for the gate screen entry
+    }, [granted, anim]); // only for the gate screen entry
 
     const handleCTA = async () => {
         if (canAskAgain) {
