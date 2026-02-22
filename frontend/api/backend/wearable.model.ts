@@ -23,6 +23,13 @@ export type CreateWearableInput = {
     };
 };
 
+export type UpdateWearableInput = {
+    categoryId: string;
+    title: string;
+    description?: string;
+    tags: string[];
+};
+
 export type WearableResponseDto = {
     id: string;
     userId: string;
