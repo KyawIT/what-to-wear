@@ -1,18 +1,14 @@
 import React, { useState } from "react";
-import { Text, ScrollView, View } from "react-native";
+import { Text, ScrollView, View, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Box } from "@/components/ui/box";
-import { HStack } from "@/components/ui/hstack";
-import { VStack } from "@/components/ui/vstack";
 import { Pressable } from "@/components/ui/pressable";
-import { Divider } from "@/components/ui/divider";
+import { AppHeader } from "@/components/navigation/app-header";
 import {
     ChevronLeft,
     ChevronDown,
     ChevronUp,
     Mail,
-    MessageCircleQuestion,
     Shirt,
     Sparkles,
     FolderOpen,
@@ -53,146 +49,201 @@ const FAQ_ITEMS: FAQItem[] = [
     },
 ];
 
-const FAQAccordion = ({ item }: { item: FAQItem }) => {
+const FAQAccordion = ({ item, isLast }: { item: FAQItem; isLast: boolean }) => {
     const [expanded, setExpanded] = useState(false);
 
     return (
-        <Pressable
-            onPress={() => setExpanded(!expanded)}
-            className="active:opacity-80"
-        >
-            <HStack className="items-center py-4">
-                <View
-                    className="h-8 w-8 rounded-full items-center justify-center mr-3"
-                    style={{ backgroundColor: `${colors.primary}15` }}
-                >
-                    {item.icon}
-                </View>
-                <Text
-                    className="flex-1 text-sm font-medium"
-                    style={{ color: colors.textPrimary }}
-                >
-                    {item.question}
-                </Text>
+        <View>
+            <Pressable
+                onPress={() => setExpanded(!expanded)}
+                style={styles.faqRow}
+            >
+                <View style={styles.faqIcon}>{item.icon}</View>
+                <Text style={styles.faqQuestion}>{item.question}</Text>
                 {expanded ? (
                     <ChevronUp size={18} color={colors.textMuted} />
                 ) : (
                     <ChevronDown size={18} color={colors.textMuted} />
                 )}
-            </HStack>
+            </Pressable>
 
             {expanded && (
-                <Box
-                    className="ml-11 mb-4 p-3 rounded-xl"
-                    style={{ backgroundColor: `${colors.primary}08` }}
-                >
-                    <Text
-                        className="text-sm leading-5"
-                        style={{ color: colors.textSecondary }}
-                    >
-                        {item.answer}
-                    </Text>
-                </Box>
+                <View style={styles.faqAnswer}>
+                    <Text style={styles.faqAnswerText}>{item.answer}</Text>
+                </View>
             )}
-        </Pressable>
+
+            {!isLast && <View style={styles.faqDivider} />}
+        </View>
     );
 };
 
 export default function HelpScreen() {
     return (
         <SafeAreaView
-            className="flex-1"
-            style={{ backgroundColor: colors.background }}
+            style={[styles.container, { backgroundColor: colors.background }]}
             edges={["top"]}
         >
-            {/* Header */}
-            <HStack
-                className="h-14 items-center px-4"
-                style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-            >
-                <Pressable
-                    onPress={() => router.back()}
-                    className="h-10 w-10 items-center justify-center rounded-full active:opacity-60 mr-2"
-                    style={{ backgroundColor: `${colors.secondary}15` }}
-                >
-                    <ChevronLeft size={22} color={colors.textSecondary} />
-                </Pressable>
-                <Text
-                    className="text-xl font-bold"
-                    style={{ color: colors.textPrimary }}
-                >
-                    Help & Support
-                </Text>
-            </HStack>
+            <AppHeader
+                title="Help & Support"
+                titleStyle={styles.headerTitle}
+                left={(
+                    <Pressable
+                        onPress={() => router.back()}
+                        style={styles.backButton}
+                    >
+                        <ChevronLeft size={22} color={colors.textSecondary} />
+                    </Pressable>
+                )}
+            />
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                {/* FAQ Section */}
-                <Box
-                    className="mx-4 mt-6 rounded-2xl overflow-hidden"
-                    style={{ backgroundColor: colors.cardBg }}
-                >
-                    <HStack className="items-center px-4 pt-4 pb-2">
-                        <MessageCircleQuestion size={18} color={colors.secondary} />
-                        <Text
-                            className="text-xs font-semibold uppercase tracking-wide ml-2"
-                            style={{ color: colors.textMuted }}
-                        >
-                            Frequently Asked Questions
-                        </Text>
-                    </HStack>
-
-                    <Box className="px-4">
+            <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
+                {/* FAQ Card */}
+                <View style={styles.card}>
+                    <Text style={styles.cardHeader}>Frequently Asked</Text>
+                    <View style={styles.cardBody}>
                         {FAQ_ITEMS.map((item, index) => (
-                            <React.Fragment key={index}>
-                                <FAQAccordion item={item} />
-                                {index < FAQ_ITEMS.length - 1 && (
-                                    <Divider style={{ backgroundColor: colors.border }} />
-                                )}
-                            </React.Fragment>
+                            <FAQAccordion
+                                key={index}
+                                item={item}
+                                isLast={index === FAQ_ITEMS.length - 1}
+                            />
                         ))}
-                    </Box>
-                </Box>
+                    </View>
+                </View>
 
-                {/* Contact Section */}
-                <Box
-                    className="mx-4 mt-4 mb-8 rounded-2xl overflow-hidden"
-                    style={{ backgroundColor: colors.cardBg }}
-                >
-                    <Box className="px-4 pt-4 pb-2">
-                        <Text
-                            className="text-xs font-semibold uppercase tracking-wide"
-                            style={{ color: colors.textMuted }}
-                        >
-                            Contact Us
-                        </Text>
-                    </Box>
-
-                    <Box className="px-4 pb-4">
-                        <HStack className="items-center py-3">
-                            <View
-                                className="h-9 w-9 rounded-full items-center justify-center mr-3"
-                                style={{ backgroundColor: `${colors.primary}15` }}
-                            >
+                {/* Contact Card */}
+                <View style={[styles.card, { marginBottom: 40 }]}>
+                    <Text style={styles.cardHeader}>Contact Us</Text>
+                    <View style={styles.cardBody}>
+                        <View style={styles.contactRow}>
+                            <View style={styles.contactIcon}>
                                 <Mail size={18} color={colors.secondary} />
                             </View>
-                            <VStack>
-                                <Text
-                                    className="text-sm font-medium"
-                                    style={{ color: colors.textPrimary }}
-                                >
-                                    Email Support
-                                </Text>
-                                <Text
-                                    className="text-xs mt-0.5"
-                                    style={{ color: colors.textMuted }}
-                                >
-                                    support@what-to-wear.app
-                                </Text>
-                            </VStack>
-                        </HStack>
-                    </Box>
-                </Box>
+                            <View style={styles.contactContent}>
+                                <Text style={styles.contactTitle}>Email Support</Text>
+                                <Text style={styles.contactSub}>support@what-to-wear.app</Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    flex: {
+        flex: 1,
+    },
+    backButton: {
+        height: 40,
+        width: 40,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 20,
+        backgroundColor: "#8B735512",
+        marginRight: 8,
+    },
+    headerTitle: {
+        fontFamily: "PlayfairDisplay_600SemiBold",
+        fontSize: 20,
+        color: "#3D2E22",
+        letterSpacing: -0.3,
+    },
+    card: {
+        marginHorizontal: 20,
+        marginTop: 20,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: "#F0E8DC",
+        shadowColor: "#C9BAAA",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 2,
+        overflow: "hidden",
+    },
+    cardHeader: {
+        fontFamily: "PlayfairDisplay_500Medium",
+        fontSize: 13,
+        color: "#9B8B7F",
+        letterSpacing: 0.3,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 4,
+    },
+    cardBody: {
+        paddingHorizontal: 16,
+    },
+    faqRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 14,
+    },
+    faqIcon: {
+        height: 32,
+        width: 32,
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#D4A57415",
+        marginRight: 12,
+    },
+    faqQuestion: {
+        fontFamily: "Inter_500Medium",
+        fontSize: 14,
+        color: "#3D2E22",
+        flex: 1,
+    },
+    faqAnswer: {
+        marginLeft: 44,
+        marginBottom: 14,
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: "#FAF7F2",
+    },
+    faqAnswerText: {
+        fontFamily: "Inter_400Regular",
+        fontSize: 13.5,
+        lineHeight: 20,
+        color: "#6B5B4F",
+    },
+    faqDivider: {
+        height: 1,
+        backgroundColor: "#F0E8DC",
+        marginLeft: 44,
+    },
+    contactRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 14,
+    },
+    contactIcon: {
+        height: 36,
+        width: 36,
+        borderRadius: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#D4A57415",
+        marginRight: 12,
+    },
+    contactContent: {
+        flex: 1,
+    },
+    contactTitle: {
+        fontFamily: "Inter_500Medium",
+        fontSize: 14,
+        color: "#3D2E22",
+    },
+    contactSub: {
+        fontFamily: "Inter_400Regular",
+        fontSize: 12,
+        color: "#9B8B7F",
+        marginTop: 2,
+    },
+});
