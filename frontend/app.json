@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "What to Wear",
+    "slug": "what-to-wear",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,7 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "at.cmsbuilding.whattowear",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -27,6 +29,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow What to Wear to access your photos so you can import clothing items.",
+          "savePhotosPermission": "Allow What to Wear to save edited outfit images to your photo library."
+        }
+      ],
       [
         "expo-splash-screen",
         {
