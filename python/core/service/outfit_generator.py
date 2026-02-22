@@ -5,7 +5,7 @@ import json
 import logging
 import random
 from sentence_transformers import SentenceTransformer
-from dto.outfit_response import WearableItem, Outfit, OutfitResponse
+from core.dto.outfit_response import WearableItem, Outfit, OutfitResponse
 
 # Setup logging
 logger = logging.getLogger(__name__)
