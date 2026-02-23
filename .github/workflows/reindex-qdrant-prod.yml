@@ -64,6 +64,21 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:latest
 
+      - name: Resolve dataset dir
+        env:
+          DATASET_DIR_INPUT: ${{ github.event.inputs.dataset_dir }}
+          DATASET_DIR_SECRET: ${{ secrets.PROD_EMBEDDING_DATASET_DIR }}
+        run: |
+          DIR="$DATASET_DIR_INPUT"
+          if [ "$DIR" = "__unset__" ] || [ -z "$DIR" ]; then
+            DIR="$DATASET_DIR_SECRET"
+          fi
+          if [ -z "$DIR" ]; then
+            echo "::error::Dataset path is required. Set workflow input 'dataset_dir' or secret 'PROD_EMBEDDING_DATASET_DIR'."
+            exit 1
+          fi
+          echo "DATASET_DIR_RESOLVED=$DIR" >> "$GITHUB_ENV"
+
       - name: Run reindex on server
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -74,27 +89,16 @@ jobs:
           COLLECTION_NAME: ${{ github.event.inputs.collection_name }}
           QDRANT_HOST: ${{ github.event.inputs.qdrant_host }}
           QDRANT_PORT: ${{ github.event.inputs.qdrant_port }}
-          DATASET_DIR: ${{ github.event.inputs.dataset_dir }}
-          DATASET_DIR_DEFAULT: ${{ secrets.PROD_EMBEDDING_DATASET_DIR }}
+          DATASET_DIR_RESOLVED: ${{ env.DATASET_DIR_RESOLVED }}
           RECREATE: ${{ github.event.inputs.recreate }}
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          envs: EMBEDDING_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD,COLLECTION_NAME,QDRANT_HOST,QDRANT_PORT,DATASET_DIR,DATASET_DIR_DEFAULT,RECREATE
+          envs: EMBEDDING_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD,COLLECTION_NAME,QDRANT_HOST,QDRANT_PORT,DATASET_DIR_RESOLVED,RECREATE
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
-
-            # appleboy/ssh-action drops env vars with empty values,
-            # so we use "__unset__" as a sentinel for "not provided".
-            if [ "${DATASET_DIR:-}" = "__unset__" ]; then DATASET_DIR=""; fi
-
-            DATASET_DIR_RESOLVED="${DATASET_DIR:-${DATASET_DIR_DEFAULT:-}}"
-            if [ -z "$DATASET_DIR_RESOLVED" ]; then
-              echo "Dataset path is required. Set workflow input 'dataset_dir' or secret 'PROD_EMBEDDING_DATASET_DIR'."
-              exit 1
-            fi
 
             echo "Using dataset dir: $DATASET_DIR_RESOLVED"
             echo "Using collection: $COLLECTION_NAME"
@@ -147,11 +151,10 @@ jobs:
       - name: Summary
         env:
           DATASET_DIR_INPUT: ${{ github.event.inputs.dataset_dir }}
-          DATASET_DIR_DEFAULT: ${{ secrets.PROD_EMBEDDING_DATASET_DIR }}
+          DATASET_DIR_RESOLVED: ${{ env.DATASET_DIR_RESOLVED }}
         run: |
-          DATASET_DIR_RESOLVED="${DATASET_DIR_INPUT:-${DATASET_DIR_DEFAULT:-}}"
           DATASET_SOURCE="input"
-          if [ -z "${DATASET_DIR_INPUT:-}" ]; then
+          if [ "$DATASET_DIR_INPUT" = "__unset__" ] || [ -z "$DATASET_DIR_INPUT" ]; then
             DATASET_SOURCE="secret(PROD_EMBEDDING_DATASET_DIR)"
           fi
 
