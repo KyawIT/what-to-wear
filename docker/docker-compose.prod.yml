@@ -98,6 +98,31 @@ services:
     volumes:
       - wtw_qdrant:/qdrant/storage
 
+  wtw-embeddings:
+    build:
+      context: ../python/embedding
+      dockerfile: ../../docker/embedding/Dockerfile
+    container_name: wtw-embeddings
+    restart: "no"
+    depends_on:
+      - wtw-qdrant
+    networks:
+      - wtw_internal
+    environment:
+      QDRANT_HOST: wtw-qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: wearables
+      MODEL_NAME: clip-ViT-B-32
+      APP_ENV: production
+    working_dir: /app
+    command:
+      - /bin/bash
+      - -c
+      - |
+        echo "Starting Qdrant indexing..."
+        python scripts/qdrant_indexer.py --csv-path ./preprocessed_dataset/dataset.csv --images-path ./preprocessed_dataset/images --collection-name wearables --qdrant-host wtw-qdrant --qdrant-port 6333 --batch-size 32
+        echo "Indexing completed successfully."
+
   python-service:
     image: ${PYTHON_IMAGE}
     container_name: python-service
