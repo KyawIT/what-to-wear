@@ -145,6 +145,36 @@ services:
       start_period: 120s
       retries: 5
 
+  wtw-frontend-auth:
+    image: ${FRONTEND_IMAGE}
+    container_name: wtw-frontend-auth
+    restart: unless-stopped
+    depends_on:
+      - wtw-db
+      - wtw-keycloak
+    networks:
+      - wtw_internal
+      - proxy_default
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASS}@wtw-db:5432/${DB_NAME}?options=-c%20search_path%3Dauth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      EXPO_PUBLIC_BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      EXPO_PUBLIC_KC_CLIENT_ID: ${FRONTEND_KC_CLIENT_ID}
+      EXPO_PUBLIC_KC_SECRET: ${FRONTEND_KC_SECRET}
+      EXPO_PUBLIC_KC_DISCOVERY_URL: ${FRONTEND_KC_DISCOVERY_URL}
+      EXPO_PUBLIC_KC_ISSUER: ${FRONTEND_KC_ISSUER}
+      EXPO_PUBLIC_KC_LOGOUT_URL: ${FRONTEND_KC_LOGOUT_URL}
+      EXPO_PUBLIC_KC_POST_LOGOUT_REDIRECT_URL: frontend://logout-complete
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-frontend-auth.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api/auth`)
+      - traefik.http.routers.wtw-frontend-auth.entrypoints=websecure
+      - traefik.http.routers.wtw-frontend-auth.tls=true
+      - traefik.http.routers.wtw-frontend-auth.tls.certresolver=default
+      - traefik.http.routers.wtw-frontend-auth.priority=100
+      - traefik.http.services.wtw-frontend-auth.loadbalancer.server.port=8081
+
   wtw-backend:
     image: ${BACKEND_IMAGE}
     container_name: wtw-backend
@@ -177,6 +207,7 @@ services:
       - traefik.http.routers.wtw-backend.entrypoints=websecure
       - traefik.http.routers.wtw-backend.tls=true
       - traefik.http.routers.wtw-backend.tls.certresolver=default
+      - traefik.http.routers.wtw-backend.priority=10
       - traefik.http.services.wtw-backend.loadbalancer.server.port=8080
 
 volumes:

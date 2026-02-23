@@ -16,7 +16,7 @@ on:
         required: true
         default: "6333"
       dataset_dir:
-        description: "Optional override: absolute server path containing dataset.csv and images/"
+        description: "Optional override (default comes from secret PROD_EMBEDDING_DATASET_DIR)"
         required: false
         default: "__unset__"
       recreate:
@@ -69,12 +69,12 @@ jobs:
           DATASET_DIR_INPUT: ${{ github.event.inputs.dataset_dir }}
           DATASET_DIR_SECRET: ${{ secrets.PROD_EMBEDDING_DATASET_DIR }}
         run: |
-          DIR="$DATASET_DIR_INPUT"
-          if [ "$DIR" = "__unset__" ] || [ -z "$DIR" ]; then
-            DIR="$DATASET_DIR_SECRET"
+          DIR="$DATASET_DIR_SECRET"
+          if [ "$DATASET_DIR_INPUT" != "__unset__" ] && [ -n "$DATASET_DIR_INPUT" ]; then
+            DIR="$DATASET_DIR_INPUT"
           fi
           if [ -z "$DIR" ]; then
-            echo "::error::Dataset path is required. Set workflow input 'dataset_dir' or secret 'PROD_EMBEDDING_DATASET_DIR'."
+            echo "::error::Dataset path is required. Set secret 'PROD_EMBEDDING_DATASET_DIR' or pass workflow input 'dataset_dir' as override."
             exit 1
           fi
           echo "DATASET_DIR_RESOLVED=$DIR" >> "$GITHUB_ENV"
@@ -154,9 +154,9 @@ jobs:
           DATASET_DIR_INPUT: ${{ github.event.inputs.dataset_dir }}
           DATASET_DIR_RESOLVED: ${{ env.DATASET_DIR_RESOLVED }}
         run: |
-          DATASET_SOURCE="input"
-          if [ "$DATASET_DIR_INPUT" = "__unset__" ] || [ -z "$DATASET_DIR_INPUT" ]; then
-            DATASET_SOURCE="secret(PROD_EMBEDDING_DATASET_DIR)"
+          DATASET_SOURCE="secret(PROD_EMBEDDING_DATASET_DIR)"
+          if [ "$DATASET_DIR_INPUT" != "__unset__" ] && [ -n "$DATASET_DIR_INPUT" ]; then
+            DATASET_SOURCE="input(override)"
           fi
 
           {

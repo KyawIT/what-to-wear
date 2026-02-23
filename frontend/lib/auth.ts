@@ -3,9 +3,15 @@ import {genericOAuth} from "better-auth/plugins";
 import {expo} from "@better-auth/expo";
 import {Pool} from "pg"
 
+const betterAuthUrl =
+    process.env.BETTER_AUTH_URL ??
+    process.env.EXPO_PUBLIC_BETTER_AUTH_URL;
+
 export const auth = betterAuth({
+    baseURL: betterAuthUrl,
+    secret: process.env.BETTER_AUTH_SECRET as string,
     database: new Pool({
-        connectionString: process.env.EXPO_PUBLIC_DATABASE_URL as string
+        connectionString: process.env.DATABASE_URL as string
     }),
     account: {
         accountLinking: {
@@ -35,6 +41,5 @@ export const auth = betterAuth({
             ]
         })
     ],
-    trustedOrigins: ["exp://", "frontend://", process.env.EXPO_PUBLIC_BETTER_AUTH_URL as string],
+    trustedOrigins: ["exp://", "frontend://", betterAuthUrl as string],
 })
-
