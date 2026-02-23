@@ -23,6 +23,7 @@ class ImageEmbedder:
         self.model = SentenceTransformer(model_name)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(self.device)
+        self._embedding_dim: int | None = None
         logger.info("Image embedding model loaded on device: %s", self.device)
     
     def embed_image(self, image_path: Union[str, Path]) -> List[float]:
@@ -57,4 +58,13 @@ class ImageEmbedder:
     @property
     def embedding_dim(self) -> int:
         """Get the dimensionality of embeddings."""
-        return self.model.get_sentence_embedding_dimension()
+        if self._embedding_dim is not None:
+            return self._embedding_dim
+        dim = self.model.get_sentence_embedding_dimension()
+        if dim is None:
+            # Fallback for models (e.g. CLIP) where the method returns None
+            dummy = Image.new("RGB", (64, 64))
+            embedding = self.model.encode(dummy, convert_to_numpy=True)
+            dim = len(embedding)
+        self._embedding_dim = dim
+        return dim
