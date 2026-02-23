@@ -243,14 +243,12 @@ jobs:
 
             # Smoke checks for critical services.
             # python-service can take longer on cold start while loading ML models.
-            # backend can also take longer after schema changes or container restarts.
-            for svc_url in "python-service http://localhost:8000/health" "wtw-backend http://localhost:8080/q/health"; do
+            for svc_url in "python-service http://localhost:8000/health"; do
               svc="${svc_url%% *}"
               url="${svc_url##* }"
               max_retries=6
               case "$svc" in
                 python-service) max_retries=18 ;; # 90s
-                wtw-backend) max_retries=24 ;;   # 120s
               esac
               timeout_sec=$((max_retries * 5))
 
@@ -269,6 +267,22 @@ jobs:
                 echo "Waiting for $svc... ($i/$max_retries)"
                 sleep 5
               done
+            done
+
+            # Backend readiness check via Quarkus startup log (no /q/health endpoint configured).
+            backend_retries=24 # 120s
+            for i in $(seq 1 "$backend_retries"); do
+              if docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=120 wtw-backend | grep -q "Listening on: http://0.0.0.0:8080"; then
+                echo "✓ wtw-backend ready"
+                break
+              fi
+              if [ "$i" -eq "$backend_retries" ]; then
+                echo "✗ wtw-backend did not report readiness after $((backend_retries * 5))s"
+                docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=120 wtw-backend
+                exit 1
+              fi
+              echo "Waiting for wtw-backend startup log... ($i/$backend_retries)"
+              sleep 5
             done
 
       - name: Deploy summary
