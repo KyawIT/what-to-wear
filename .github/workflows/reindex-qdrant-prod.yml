@@ -134,7 +134,8 @@ jobs:
                 $RECREATE_FLAG
 
             # Strict post-run verification: collection must exist and contain points.
-            COLLECTION_JSON="$(docker exec -i python-service sh -lc \"wget -qO- http://wtw-qdrant:6333/collections/$COLLECTION_NAME\")"
+            COLLECTION_URL="http://$QDRANT_HOST:$QDRANT_PORT/collections/$COLLECTION_NAME"
+            COLLECTION_JSON="$(docker exec -i python-service wget -qO- "$COLLECTION_URL")"
             echo "Collection response: $COLLECTION_JSON"
 
             POINTS_COUNT="$(echo "$COLLECTION_JSON" | grep -o '"points_count":[0-9]*' | head -n1 | cut -d: -f2)"
