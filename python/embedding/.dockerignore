@@ -1,0 +1,6 @@
+preprocessed_dataset/
+*.pyc
+__pycache__/
+.git/
+*.md
+.env
