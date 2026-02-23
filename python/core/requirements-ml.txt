@@ -1,5 +1,7 @@
 # Heavy ML dependencies - split out for better Docker layer caching
-# These rarely change and take a long time to install (~2GB+)
+# These rarely change and take a long time to install
+# Use CPU-only wheels (~200MB vs ~2.4GB CUDA-enabled)
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0
 torchvision>=0.15.0
 sentence-transformers==3.3.1

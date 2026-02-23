@@ -241,9 +241,24 @@ jobs:
             docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml pull
             docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d --remove-orphans
 
-            # Smoke checks for critical services
-            docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T python-service wget -qO- http://localhost:8000/health >/dev/null
-            docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T wtw-backend wget -qO- http://localhost:8080/q/health >/dev/null
+            # Smoke checks for critical services (retry up to 30s for startup)
+            for svc_url in "python-service http://localhost:8000/health" "wtw-backend http://localhost:8080/q/health"; do
+              svc="${svc_url%% *}"
+              url="${svc_url##* }"
+              for i in $(seq 1 6); do
+                if docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T "$svc" wget -qO- "$url" >/dev/null 2>&1; then
+                  echo "✓ $svc healthy"
+                  break
+                fi
+                if [ "$i" -eq 6 ]; then
+                  echo "✗ $svc failed health check after 30s"
+                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=20 "$svc"
+                  exit 1
+                fi
+                echo "Waiting for $svc... ($i/6)"
+                sleep 5
+              done
+            done
 
       - name: Deploy summary
         run: |
