@@ -311,8 +311,8 @@ jobs:
                 if [ "$i" -eq "$max_retries" ]; then
                   echo "✗ $svc failed health check after ${timeout_sec}s"
                   echo "Last health response from $svc ($url):"
-                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T "$svc" sh -lc "wget -S -O- '$url' || true"
-                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=80 "$svc"
+                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T "$svc" sh -lc "wget -S -O- '$url' || true" || true
+                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=80 "$svc" || true
                   exit 1
                 fi
                 echo "Waiting for $svc... ($i/$max_retries)"
