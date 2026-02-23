@@ -241,21 +241,28 @@ jobs:
             docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml pull
             docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d --remove-orphans
 
-            # Smoke checks for critical services (retry up to 30s for startup)
+            # Smoke checks for critical services.
+            # python-service can take longer on cold start while loading ML models.
             for svc_url in "python-service http://localhost:8000/health" "wtw-backend http://localhost:8080/q/health"; do
               svc="${svc_url%% *}"
               url="${svc_url##* }"
-              for i in $(seq 1 6); do
+              max_retries=6
+              case "$svc" in
+                python-service) max_retries=18 ;; # 90s
+              esac
+              timeout_sec=$((max_retries * 5))
+
+              for i in $(seq 1 "$max_retries"); do
                 if docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T "$svc" wget -qO- "$url" >/dev/null 2>&1; then
                   echo "✓ $svc healthy"
                   break
                 fi
-                if [ "$i" -eq 6 ]; then
-                  echo "✗ $svc failed health check after 30s"
+                if [ "$i" -eq "$max_retries" ]; then
+                  echo "✗ $svc failed health check after ${timeout_sec}s"
                   docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=20 "$svc"
                   exit 1
                 fi
-                echo "Waiting for $svc... ($i/6)"
+                echo "Waiting for $svc... ($i/$max_retries)"
                 sleep 5
               done
             done
