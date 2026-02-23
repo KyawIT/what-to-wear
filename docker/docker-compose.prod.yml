@@ -99,6 +99,8 @@ services:
       - wtw_qdrant:/qdrant/storage
 
   wtw-embeddings:
+    profiles:
+      - indexing
     build:
       context: ../python/embedding
       dockerfile: ../../docker/embedding/Dockerfile
