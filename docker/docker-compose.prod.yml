@@ -101,9 +101,7 @@ services:
   wtw-embeddings:
     profiles:
       - indexing
-    build:
-      context: ../python/embedding
-      dockerfile: ../../docker/embedding/Dockerfile
+    image: ${EMBEDDING_IMAGE}
     container_name: wtw-embeddings
     restart: "no"
     depends_on:

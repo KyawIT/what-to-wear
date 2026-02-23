@@ -16,8 +16,9 @@ on:
         required: true
         default: "6333"
       dataset_dir:
-        description: "Absolute server path containing dataset.csv and images/"
-        required: true
+        description: "Optional override: absolute server path containing dataset.csv and images/"
+        required: false
+        default: ""
       recreate:
         description: "Recreate collection before indexing (true/false)"
         required: true
@@ -74,22 +75,33 @@ jobs:
           QDRANT_HOST: ${{ github.event.inputs.qdrant_host }}
           QDRANT_PORT: ${{ github.event.inputs.qdrant_port }}
           DATASET_DIR: ${{ github.event.inputs.dataset_dir }}
+          DATASET_DIR_DEFAULT: ${{ secrets.PROD_EMBEDDING_DATASET_DIR }}
           RECREATE: ${{ github.event.inputs.recreate }}
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          envs: EMBEDDING_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD,COLLECTION_NAME,QDRANT_HOST,QDRANT_PORT,DATASET_DIR,RECREATE
+          envs: EMBEDDING_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD,COLLECTION_NAME,QDRANT_HOST,QDRANT_PORT,DATASET_DIR,DATASET_DIR_DEFAULT,RECREATE
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
 
-            if [ ! -f "$DATASET_DIR/dataset.csv" ]; then
-              echo "Missing $DATASET_DIR/dataset.csv"
+            DATASET_DIR_RESOLVED="${DATASET_DIR:-${DATASET_DIR_DEFAULT:-}}"
+            if [ -z "$DATASET_DIR_RESOLVED" ]; then
+              echo "Dataset path is required. Set workflow input 'dataset_dir' or secret 'PROD_EMBEDDING_DATASET_DIR'."
               exit 1
             fi
-            if [ ! -d "$DATASET_DIR/images" ]; then
-              echo "Missing $DATASET_DIR/images"
+
+            echo "Using dataset dir: $DATASET_DIR_RESOLVED"
+            echo "Using collection: $COLLECTION_NAME"
+            echo "Using Qdrant: $QDRANT_HOST:$QDRANT_PORT"
+
+            if [ ! -f "$DATASET_DIR_RESOLVED/dataset.csv" ]; then
+              echo "Missing $DATASET_DIR_RESOLVED/dataset.csv"
+              exit 1
+            fi
+            if [ ! -d "$DATASET_DIR_RESOLVED/images" ]; then
+              echo "Missing $DATASET_DIR_RESOLVED/images"
               exit 1
             fi
 
@@ -103,7 +115,7 @@ jobs:
 
             docker run --rm \
               --network wtw_internal \
-              -v "$DATASET_DIR:/data/input:ro" \
+              -v "$DATASET_DIR_RESOLVED:/data/input:ro" \
               "$EMBEDDING_IMAGE" \
               python /app/scripts/qdrant_indexer.py \
                 --csv-path /data/input/dataset.csv \
@@ -113,14 +125,40 @@ jobs:
                 --qdrant-port "$QDRANT_PORT" \
                 $RECREATE_FLAG
 
+            # Strict post-run verification: collection must exist and contain points.
+            COLLECTION_JSON="$(docker exec -i python-service sh -lc \"wget -qO- http://wtw-qdrant:6333/collections/$COLLECTION_NAME\")"
+            echo "Collection response: $COLLECTION_JSON"
+
+            POINTS_COUNT="$(echo "$COLLECTION_JSON" | grep -o '"points_count":[0-9]*' | head -n1 | cut -d: -f2)"
+            if [ -z "$POINTS_COUNT" ]; then
+              echo "Unable to parse points_count from Qdrant response."
+              exit 1
+            fi
+            if [ "$POINTS_COUNT" -le 0 ]; then
+              echo "Indexing verification failed: points_count=$POINTS_COUNT"
+              exit 1
+            fi
+            echo "Indexing verification passed: points_count=$POINTS_COUNT"
+
       - name: Summary
+        env:
+          DATASET_DIR_INPUT: ${{ github.event.inputs.dataset_dir }}
+          DATASET_DIR_DEFAULT: ${{ secrets.PROD_EMBEDDING_DATASET_DIR }}
         run: |
+          DATASET_DIR_RESOLVED="${DATASET_DIR_INPUT:-${DATASET_DIR_DEFAULT:-}}"
+          DATASET_SOURCE="input"
+          if [ -z "${DATASET_DIR_INPUT:-}" ]; then
+            DATASET_SOURCE="secret(PROD_EMBEDDING_DATASET_DIR)"
+          fi
+
           {
             echo "## Reindex Summary"
             echo ""
             echo "- Embedding image: ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}"
             echo "- Collection: ${{ github.event.inputs.collection_name }}"
             echo "- Qdrant: ${{ github.event.inputs.qdrant_host }}:${{ github.event.inputs.qdrant_port }}"
-            echo "- Dataset dir: ${{ github.event.inputs.dataset_dir }}"
+            echo "- Dataset dir: ${DATASET_DIR_RESOLVED}"
+            echo "- Dataset source: ${DATASET_SOURCE}"
             echo "- Recreate: ${{ github.event.inputs.recreate }}"
+            echo "- Verification: strict (fails if points_count <= 0)"
           } >> "$GITHUB_STEP_SUMMARY"
