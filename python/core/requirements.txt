@@ -3,11 +3,8 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 
-# Image processing and embedding
+# Image processing
 pillow==11.1.0
-sentence-transformers==3.3.1
-torch>=2.0.0
-torchvision>=0.15.0
 
 # Vector database
 qdrant-client==1.16.2
@@ -19,3 +16,6 @@ scikit-learn>=1.0.0
 
 # Progress bars
 tqdm==4.67.1
+
+# NOTE: Heavy ML deps (torch, torchvision, sentence-transformers) are in
+# requirements-ml.txt and installed as a separate Docker layer for caching.

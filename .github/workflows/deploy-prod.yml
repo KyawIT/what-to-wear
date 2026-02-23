@@ -6,12 +6,45 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: deploy-prod-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
 
 jobs:
-  build-and-push:
+  # Detect which services have changed to skip unnecessary builds
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      rembg: ${{ steps.filter.outputs.rembg }}
+      python: ${{ steps.filter.outputs.python }}
+      deploy: ${{ steps.filter.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'docker/python-service/Dockerfile'
+            rembg:
+              - 'docker/rembg/**'
+            python:
+              - 'python/**'
+              - 'docker/python-service/Dockerfile'
+            deploy:
+              - 'docker/docker-compose.prod.yml'
+              - 'docker/keycloak-theme/**'
+              - 'docker/wtw-realm.json'
+
+  build-backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -47,11 +80,40 @@ jobs:
           context: ./backend
           file: ./backend/src/main/docker/Dockerfile
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=wtw-backend
+          cache-to: type=gha,mode=max,scope=wtw-backend
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest
+
+      - name: Build summary
+        run: |
+          {
+            echo "## Backend Build Summary"
+            echo ""
+            echo "- Backend image: ghcr.io/${OWNER_LC}/wtw-backend:${GITHUB_SHA}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-rembg:
+    needs: changes
+    if: needs.changes.outputs.rembg == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Normalize image owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push rembg image
         uses: docker/build-push-action@v6
@@ -59,11 +121,40 @@ jobs:
           context: ./docker/rembg
           file: ./docker/rembg/Dockerfile
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=wtw-rembg
+          cache-to: type=gha,mode=max,scope=wtw-rembg
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest
+
+      - name: Build summary
+        run: |
+          {
+            echo "## Rembg Build Summary"
+            echo ""
+            echo "- Rembg image: ghcr.io/${OWNER_LC}/wtw-rembg:${GITHUB_SHA}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Normalize image owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push python image
         uses: docker/build-push-action@v6
@@ -71,44 +162,54 @@ jobs:
           context: ./python
           file: ./docker/python-service/Dockerfile
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=wtw-python
+          cache-to: type=gha,mode=max,scope=wtw-python
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest
 
-      - name: Build and push embedding image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./python/embedding
-          file: ./docker/embedding/Dockerfile
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}
-            ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:latest
-
       - name: Build summary
         run: |
           {
-            echo "## Build Summary"
+            echo "## Python Build Summary"
             echo ""
-            echo "- Backend image: ghcr.io/${OWNER_LC}/wtw-backend:${GITHUB_SHA}"
-            echo "- Rembg image: ghcr.io/${OWNER_LC}/wtw-rembg:${GITHUB_SHA}"
             echo "- Python image: ghcr.io/${OWNER_LC}/wtw-python:${GITHUB_SHA}"
-            echo "- Embedding image: ghcr.io/${OWNER_LC}/wtw-embedding:${GITHUB_SHA}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build-and-push
+    if: always() && !failure() && !cancelled()
+    needs:
+      - changes
+      - build-backend
+      - build-rembg
+      - build-python
     steps:
       - name: Normalize image owner
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve image tags
+        id: tags
+        run: |
+          # Use SHA tag if the image was built this run, otherwise fall back to 'latest'
+          if [ "${{ needs.changes.outputs.backend }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "backend_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ needs.changes.outputs.rembg }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "rembg_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "rembg_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ needs.changes.outputs.python }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "python_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "python_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upload production compose + Keycloak assets
         uses: appleboy/scp-action@v0.1.7
@@ -122,9 +223,9 @@ jobs:
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         env:
-          BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}
-          REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
-          PYTHON_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}
+          BACKEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ steps.tags.outputs.backend_tag }}
+          REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ steps.tags.outputs.rembg_tag }}
+          PYTHON_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ steps.tags.outputs.python_tag }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
@@ -150,7 +251,7 @@ jobs:
             echo "## Deploy Summary"
             echo ""
             echo "- Deploy path: ${{ secrets.DEPLOY_PATH }}"
-            echo "- Backend image: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}"
-            echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}"
-            echo "- Python image: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}"
+            echo "- Backend image: ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ steps.tags.outputs.backend_tag }}"
+            echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ steps.tags.outputs.rembg_tag }}"
+            echo "- Python image: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ steps.tags.outputs.python_tag }}"
           } >> "$GITHUB_STEP_SUMMARY"

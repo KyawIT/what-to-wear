@@ -27,6 +27,10 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: reindex-qdrant-prod
+  cancel-in-progress: false
+
 jobs:
   reindex:
     runs-on: ubuntu-latest
@@ -53,8 +57,8 @@ jobs:
           context: ./python/embedding
           file: ./docker/embedding/Dockerfile
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=wtw-embedding
+          cache-to: type=gha,mode=max,scope=wtw-embedding
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-embedding:latest

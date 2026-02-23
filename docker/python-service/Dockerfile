@@ -7,7 +7,11 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Install heavy ML dependencies first (changes rarely, cached aggressively)
+COPY core/requirements-ml.txt /tmp/requirements-ml.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-ml.txt
+
+# Install remaining lightweight dependencies
 COPY core/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
