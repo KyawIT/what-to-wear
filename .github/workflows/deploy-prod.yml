@@ -243,23 +243,27 @@ jobs:
 
             # Smoke checks for critical services.
             # python-service can take longer on cold start while loading ML models.
+            # backend can also take longer after schema changes or container restarts.
             for svc_url in "python-service http://localhost:8000/health" "wtw-backend http://localhost:8080/q/health"; do
               svc="${svc_url%% *}"
               url="${svc_url##* }"
               max_retries=6
               case "$svc" in
                 python-service) max_retries=18 ;; # 90s
+                wtw-backend) max_retries=24 ;;   # 120s
               esac
               timeout_sec=$((max_retries * 5))
 
               for i in $(seq 1 "$max_retries"); do
-                if docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T "$svc" wget -qO- "$url" >/dev/null 2>&1; then
+                if docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T "$svc" sh -lc "wget -qO- '$url' >/dev/null 2>&1"; then
                   echo "✓ $svc healthy"
                   break
                 fi
                 if [ "$i" -eq "$max_retries" ]; then
                   echo "✗ $svc failed health check after ${timeout_sec}s"
-                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=20 "$svc"
+                  echo "Last health response from $svc ($url):"
+                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml exec -T "$svc" sh -lc "wget -S -O- '$url' || true"
+                  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml logs --tail=80 "$svc"
                   exit 1
                 fi
                 echo "Waiting for $svc... ($i/$max_retries)"
