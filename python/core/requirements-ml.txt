@@ -1,0 +1,5 @@
+# Heavy ML dependencies - split out for better Docker layer caching
+# These rarely change and take a long time to install (~2GB+)
+torch>=2.0.0
+torchvision>=0.15.0
+sentence-transformers==3.3.1
