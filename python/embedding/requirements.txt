@@ -1,6 +1,9 @@
+# Use CPU-only PyTorch (much smaller image, sufficient for embedding inference)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
+
 # ML and image processing
-torch>=2.0.0
-torchvision>=0.15.0
 pillow>=10.0.0
 numpy>=1.24.0
 opencv-python>=4.8.0

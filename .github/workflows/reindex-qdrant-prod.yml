@@ -18,7 +18,7 @@ on:
       dataset_dir:
         description: "Optional override: absolute server path containing dataset.csv and images/"
         required: false
-        default: ""
+        default: "__unset__"
       recreate:
         description: "Recreate collection before indexing (true/false)"
         required: true
@@ -85,6 +85,10 @@ jobs:
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
+
+            # appleboy/ssh-action drops env vars with empty values,
+            # so we use "__unset__" as a sentinel for "not provided".
+            if [ "${DATASET_DIR:-}" = "__unset__" ]; then DATASET_DIR=""; fi
 
             DATASET_DIR_RESOLVED="${DATASET_DIR:-${DATASET_DIR_DEFAULT:-}}"
             if [ -z "$DATASET_DIR_RESOLVED" ]; then
