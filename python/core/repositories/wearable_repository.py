@@ -59,6 +59,25 @@ class WearableRepository:
             logger.info("Created collection: %s", self.collection_name)
         except Exception as e:
             logger.info("Collection already exists or error: %s", e)
+
+    def ensure_collection_exists(self) -> None:
+        """Create the collection if it does not exist yet."""
+        try:
+            exists = self.client.collection_exists(self.collection_name)
+        except Exception:
+            # Fallback for older client/server combinations where collection_exists may fail.
+            try:
+                self.client.get_collection(self.collection_name)
+                exists = True
+            except Exception:
+                exists = False
+
+        if exists:
+            logger.info("Collection already present: %s", self.collection_name)
+            return
+
+        logger.info("Collection missing, creating: %s", self.collection_name)
+        self.create_collection(recreate=False)
     
     def insert_batch(self, wearables: List[Wearable]):
         """

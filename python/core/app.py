@@ -34,6 +34,7 @@ async def lifespan(app: FastAPI):
         port=settings.qdrant_port,
         embedding_dim=embedder.embedding_dim,
     )
+    repository.ensure_collection_exists()
 
     ai_outfit_service = AIOutfitService(
         embedder=embedder,
