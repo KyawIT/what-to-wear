@@ -1,5 +1,6 @@
 """Qdrant repository for wearable items."""
 import logging
+import time
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from typing import List, Dict, Any, Tuple
@@ -61,23 +62,61 @@ class WearableRepository:
             logger.info("Collection already exists or error: %s", e)
 
     def ensure_collection_exists(self) -> None:
-        """Create the collection if it does not exist yet."""
+        """Create the collection if it does not exist yet, waiting for Qdrant readiness."""
+        max_attempts = 12
+        delay_seconds = 5
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                if self._collection_exists():
+                    logger.info("Collection already present: %s", self.collection_name)
+                    return
+
+                logger.info(
+                    "Collection missing, creating: %s (attempt %s/%s)",
+                    self.collection_name,
+                    attempt,
+                    max_attempts,
+                )
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=models.VectorParams(
+                        size=self.embedding_dim,
+                        distance=models.Distance.COSINE
+                    )
+                )
+
+                if self._collection_exists():
+                    logger.info("Collection ensured: %s", self.collection_name)
+                    return
+            except Exception as exc:
+                logger.warning(
+                    "Failed to ensure collection %s (attempt %s/%s): %s",
+                    self.collection_name,
+                    attempt,
+                    max_attempts,
+                    exc,
+                )
+
+            if attempt < max_attempts:
+                time.sleep(delay_seconds)
+
+        raise RuntimeError(
+            f"Unable to ensure Qdrant collection '{self.collection_name}' after "
+            f"{max_attempts * delay_seconds}s"
+        )
+
+    def _collection_exists(self) -> bool:
+        """Check whether the collection exists using available client APIs."""
         try:
-            exists = self.client.collection_exists(self.collection_name)
+            return self.client.collection_exists(self.collection_name)
         except Exception:
-            # Fallback for older client/server combinations where collection_exists may fail.
+            # Fallback for client/server versions where collection_exists is unavailable.
             try:
                 self.client.get_collection(self.collection_name)
-                exists = True
+                return True
             except Exception:
-                exists = False
-
-        if exists:
-            logger.info("Collection already present: %s", self.collection_name)
-            return
-
-        logger.info("Collection missing, creating: %s", self.collection_name)
-        self.create_collection(recreate=False)
+                return False
     
     def insert_batch(self, wearables: List[Wearable]):
         """
