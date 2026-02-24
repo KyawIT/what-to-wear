@@ -166,6 +166,7 @@ services:
       EXPO_PUBLIC_KC_ISSUER: ${FRONTEND_KC_ISSUER}
       EXPO_PUBLIC_KC_LOGOUT_URL: ${FRONTEND_KC_LOGOUT_URL}
       EXPO_PUBLIC_KC_POST_LOGOUT_REDIRECT_URL: frontend://logout-complete
+      KC_INTERNAL_URL: http://wtw-keycloak:8080/auth/realms/wtw/
     labels:
       - traefik.enable=true
       - traefik.http.routers.wtw-frontend-auth.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api/auth`)
