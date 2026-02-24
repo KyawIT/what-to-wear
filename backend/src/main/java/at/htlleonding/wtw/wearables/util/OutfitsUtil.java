@@ -3,6 +3,7 @@ package at.htlleonding.wtw.wearables.util;
 import at.htlleonding.wtw.wearables.dto.UploadResultDto;
 import io.minio.*;
 import io.minio.http.Method;
+import io.minio.StatObjectResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -117,6 +118,33 @@ public class OutfitsUtil {
             } catch (Exception e) {
                 throw new RuntimeException("Failed to create folder marker in MinIO: " + markerKey, e);
             }
+        }
+    }
+
+    public InputStream getObjectStream(String objectKey) {
+        try {
+            return minio.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get object from MinIO: " + objectKey, e);
+        }
+    }
+
+    public String getObjectContentType(String objectKey) {
+        try {
+            StatObjectResponse stat = minio.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .build()
+            );
+            return stat.contentType();
+        } catch (Exception e) {
+            return "application/octet-stream";
         }
     }
 

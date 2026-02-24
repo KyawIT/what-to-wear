@@ -21,6 +21,7 @@ import {
 } from "@/api/backend/category.api";
 import { WearableResponseDto } from "@/api/backend/wearable.model";
 import { colors } from "@/lib/theme";
+import { resolveImageUrl } from "@/lib/resolve-image-url";
 
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -212,7 +213,7 @@ const Create = () => {
           >
             {item.cutoutImageUrl ? (
               <Image
-                source={{ uri: item.cutoutImageUrl }}
+                source={{ uri: resolveImageUrl(item.cutoutImageUrl) }}
                 style={{ width: "100%", height: "100%" }}
                 contentFit="contain"
               />
@@ -353,7 +354,7 @@ const Create = () => {
                           <View style={s.thumbWrap}>
                             {item.cutoutImageUrl ? (
                               <Image
-                                source={{ uri: item.cutoutImageUrl }}
+                                source={{ uri: resolveImageUrl(item.cutoutImageUrl) }}
                                 style={{ width: "100%", height: "100%" }}
                                 contentFit="contain"
                               />

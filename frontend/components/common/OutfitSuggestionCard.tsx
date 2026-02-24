@@ -3,6 +3,7 @@ import { Text as RNText, View } from "react-native";
 import { Image } from "expo-image";
 import { Sparkles, Plus, Check } from "lucide-react-native";
 import { colors } from "@/lib/theme";
+import { resolveImageUrl } from "@/lib/resolve-image-url";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
 import { Badge, BadgeText } from "@/components/ui/badge";
@@ -35,7 +36,7 @@ export default function OutfitSuggestionCard({ outfit, isSaved, isSaving, onSave
           {outfit.items.slice(0, 4).map((w) => (
             <View key={w.id} style={styles.outfitItemThumb}>
               {w.cutoutImageUrl ? (
-                <Image source={{ uri: w.cutoutImageUrl }} style={{ width: "100%", height: "100%" }} contentFit="contain" />
+                <Image source={{ uri: resolveImageUrl(w.cutoutImageUrl) }} style={{ width: "100%", height: "100%" }} contentFit="contain" />
               ) : (
                 <Center className="flex-1">
                   <RNText style={styles.thumbPlaceholder}>{(w.categoryName ?? "?").charAt(0)}</RNText>

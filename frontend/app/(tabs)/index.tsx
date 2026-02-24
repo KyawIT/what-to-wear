@@ -13,6 +13,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Center } from "@/components/ui/center";
 import { VStack } from "@/components/ui/vstack";
 import { colors } from "@/lib/theme";
+import { resolveImageUrl } from "@/lib/resolve-image-url";
 import RecommendationIntroState from "@/components/common/RecommendationIntroState";
 import RecommendationLoadingState from "@/components/common/RecommendationLoadingState";
 import RecommendationEmptyState from "@/components/common/RecommendationEmptyState";
@@ -442,7 +443,7 @@ const Index = () => {
               <View key={`${wearable.id}-${idx}`} style={styles.captureCell}>
                 {wearable.cutoutImageUrl ? (
                   <Image
-                    source={{ uri: wearable.cutoutImageUrl }}
+                    source={{ uri: resolveImageUrl(wearable.cutoutImageUrl) }}
                     style={styles.captureImage}
                     contentFit="contain"
                   />

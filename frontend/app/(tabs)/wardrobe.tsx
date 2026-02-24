@@ -56,6 +56,7 @@ import {
 } from "@/api/backend/category.api";
 import { OutfitResponseDto } from "@/api/backend/outfit.model";
 import { colors } from "@/lib/theme";
+import { resolveImageUrl } from "@/lib/resolve-image-url";
 import WardrobeErrorState from "@/components/common/WardrobeErrorState";
 import WardrobeTabSwitcher from "@/components/common/WardrobeTabSwitcher";
 import WardrobeListEmptyState from "@/components/common/WardrobeListEmptyState";
@@ -118,12 +119,10 @@ const Wardrobe = () => {
         }
         if (__DEV__ && items.length > 0) {
           console.log(
-            "[Wardrobe] First wearable image URL:",
-            items[0].cutoutImageUrl ?? "(none)"
-          );
-          console.log(
-            "[Wardrobe] All image URLs:",
-            items.map((i) => ({ title: i.title, url: i.cutoutImageUrl }))
+            "[Wardrobe] First image URL (raw → resolved):",
+            items[0].cutoutImageUrl ?? "(none)",
+            "→",
+            resolveImageUrl(items[0].cutoutImageUrl) ?? "(none)"
           );
         }
         setWearables(items);
@@ -213,9 +212,9 @@ const Wardrobe = () => {
       <View
         style={[styles.itemCard, { width: ITEM_SIZE, height: ITEM_SIZE * 1.2 }]}
       >
-        {item.cutoutImageUrl ? (
+        {resolveImageUrl(item.cutoutImageUrl) ? (
           <Image
-            source={{ uri: item.cutoutImageUrl }}
+            source={{ uri: resolveImageUrl(item.cutoutImageUrl) }}
             style={{ width: "100%", height: "100%" }}
             contentFit="contain"
           />
@@ -256,9 +255,9 @@ const Wardrobe = () => {
       <View
         style={[styles.itemCard, { width: ITEM_SIZE, height: ITEM_SIZE * 1.2 }]}
       >
-        {item.imageUrl ? (
+        {resolveImageUrl(item.imageUrl) ? (
           <Image
-            source={{ uri: item.imageUrl }}
+            source={{ uri: resolveImageUrl(item.imageUrl) }}
             style={{ width: "100%", height: "100%" }}
             contentFit="cover"
           />
@@ -585,9 +584,9 @@ const Wardrobe = () => {
             ) : selectedWearable ? (
               <VStack className="gap-4">
                 <View style={styles.modalImageCard}>
-                  {selectedWearable.cutoutImageUrl ? (
+                  {resolveImageUrl(selectedWearable.cutoutImageUrl) ? (
                     <Image
-                      source={{ uri: selectedWearable.cutoutImageUrl }}
+                      source={{ uri: resolveImageUrl(selectedWearable.cutoutImageUrl) }}
                       style={{ width: "100%", height: "100%" }}
                       contentFit="contain"
                     />
@@ -684,9 +683,9 @@ const Wardrobe = () => {
             ) : selectedOutfit ? (
               <VStack className="gap-4">
                 <View style={styles.modalImageCard}>
-                  {selectedOutfit.imageUrl ? (
+                  {resolveImageUrl(selectedOutfit.imageUrl) ? (
                     <Image
-                      source={{ uri: selectedOutfit.imageUrl }}
+                      source={{ uri: resolveImageUrl(selectedOutfit.imageUrl) }}
                       style={{ width: "100%", height: "100%" }}
                       contentFit="cover"
                     />

@@ -8,6 +8,7 @@ import { WearableResponseDto } from "@/api/backend/wearable.model";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { colors } from "@/lib/theme";
+import { resolveImageUrl } from "@/lib/resolve-image-url";
 
 const ITEM_SIZE = 100;
 const CANVAS_HEIGHT = Dimensions.get("window").height * 0.45;
@@ -75,7 +76,7 @@ export default function DraggableItem({ item, isActive, zIndex, onActivate }: Dr
     <GestureDetector gesture={composedGesture}>
       <Animated.View style={[{ position: "absolute", width: ITEM_SIZE, height: ITEM_SIZE }, animatedStyle]}>
         {item.cutoutImageUrl ? (
-          <Image source={{ uri: item.cutoutImageUrl }} style={{ width: "100%", height: "100%" }} contentFit="contain" />
+          <Image source={{ uri: resolveImageUrl(item.cutoutImageUrl) }} style={{ width: "100%", height: "100%" }} contentFit="contain" />
         ) : (
           <Center className="flex-1 bg-backgroundSecondary rounded-xl border border-border">
             <Shirt size={24} color={colors.textMuted} />
