@@ -116,6 +116,16 @@ const Wardrobe = () => {
             accessToken
           );
         }
+        if (__DEV__ && items.length > 0) {
+          console.log(
+            "[Wardrobe] First wearable image URL:",
+            items[0].cutoutImageUrl ?? "(none)"
+          );
+          console.log(
+            "[Wardrobe] All image URLs:",
+            items.map((i) => ({ title: i.title, url: i.cutoutImageUrl }))
+          );
+        }
         setWearables(items);
       } catch (err) {
         console.error("Failed to fetch wearables:", err);
