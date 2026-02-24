@@ -90,6 +90,21 @@ function prettyBucket(bucket: CoreBucket): string {
   return "footwear";
 }
 
+function toFriendlyRecommendationError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const lowered = message.toLowerCase();
+  if (
+    lowered.includes("failed to recommend outfits") &&
+    (lowered.includes("download failed") ||
+      lowered.includes("network request failed") ||
+      lowered.includes("name not resolved") ||
+      lowered.includes("could not resolve host"))
+  ) {
+    return "Outfit generation could not access your clothing images. Check backend MinIO/public image URL configuration.";
+  }
+  return message.trim() || "Something went wrong generating outfits.";
+}
+
 const Index = () => {
   const { data } = authClient.useSession();
 
@@ -195,11 +210,7 @@ const Index = () => {
         }
       } catch (err) {
         console.error("Outfit generation error:", err);
-        setError(
-          err instanceof Error && err.message.trim()
-            ? err.message
-            : "Something went wrong generating outfits."
-        );
+        setError(toFriendlyRecommendationError(err));
       } finally {
         setGenerating(false);
       }

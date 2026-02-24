@@ -9,6 +9,7 @@ import org.jboss.logging.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -121,15 +122,39 @@ public class OutfitsUtil {
 
     public String presignedGetUrl(String objectKey, int expirySeconds) {
         try {
-            return minio.getPresignedObjectUrl(
+            String signedUrl = minio.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(bucket)
                             .object(objectKey)
                             .expiry(expirySeconds)
                             .build());
+            return rewriteToPublicBase(signedUrl);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create presigned URL", e);
+        }
+    }
+
+    private String rewriteToPublicBase(String signedUrl) {
+        if (publicBaseUrl == null || publicBaseUrl.isBlank()) {
+            return signedUrl;
+        }
+        try {
+            URI signed = URI.create(signedUrl);
+            URI base = URI.create(trimTrailingSlash(publicBaseUrl));
+            String prefix = trimTrailingSlash(base.getPath());
+            String path = (signed.getPath() == null) ? "" : signed.getPath();
+            String mergedPath = (prefix.isEmpty() ? "" : prefix) + path;
+            URI rewritten = new URI(
+                    base.getScheme(),
+                    base.getAuthority(),
+                    mergedPath,
+                    signed.getQuery(),
+                    signed.getFragment());
+            return rewritten.toString();
+        } catch (Exception e) {
+            LOG.warnf(e, "Failed to rewrite presigned URL to public base. Returning original URL.");
+            return signedUrl;
         }
     }
 

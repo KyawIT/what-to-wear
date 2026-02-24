@@ -1,8 +1,8 @@
 import { Text, ScrollView, View } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Avatar, AvatarFallbackText, AvatarImage } from "@/components/ui/avatar";
 import { Pressable } from "@/components/ui/pressable";
@@ -64,26 +64,26 @@ const Profile = () => {
     return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
   };
 
-  useEffect(() => {
+  const loadStats = useCallback(async () => {
     if (!data?.user?.id) return;
-
-    (async () => {
-      try {
-        const accessToken = await getKeycloakAccessToken(data.user.id);
-        if (__DEV__) {
-          console.log("[Profile] Access token:", accessToken);
-        }
-        const [allItems, allOutfits] = await Promise.all([
-          fetchAllWearables(accessToken),
-          fetchAllOutfits(accessToken),
-        ]);
-        setTotalItemsCount(allItems.length);
-        setOutfitsCount(allOutfits.length);
-      } catch (err) {
-        console.error("Failed to fetch total wearables:", err);
-      }
-    })();
+    try {
+      const accessToken = await getKeycloakAccessToken(data.user.id);
+      const [allItems, allOutfits] = await Promise.all([
+        fetchAllWearables(accessToken),
+        fetchAllOutfits(accessToken),
+      ]);
+      setTotalItemsCount(allItems.length);
+      setOutfitsCount(allOutfits.length);
+    } catch (err) {
+      console.error("Failed to fetch total wearables:", err);
+    }
   }, [data?.user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+    }, [loadStats])
+  );
 
   const settingsItems = [
     { icon: <User size={18} color={colors.secondary} />, label: "Account", route: "/profile/account" as const },

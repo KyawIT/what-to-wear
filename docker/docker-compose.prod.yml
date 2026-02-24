@@ -57,6 +57,7 @@ services:
     restart: unless-stopped
     networks:
       - wtw_internal
+      - proxy_default
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -69,6 +70,15 @@ services:
       - wtw_minio_data:/data
       - wtw_minio_config:/root/.minio
     command: server /data --console-address ":9001"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-minio.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/minio`)
+      - traefik.http.routers.wtw-minio.entrypoints=websecure
+      - traefik.http.routers.wtw-minio.tls=true
+      - traefik.http.routers.wtw-minio.tls.certresolver=default
+      - traefik.http.routers.wtw-minio.middlewares=wtw-minio-stripprefix
+      - traefik.http.middlewares.wtw-minio-stripprefix.stripprefix.prefixes=/minio
+      - traefik.http.services.wtw-minio.loadbalancer.server.port=9000
 
   wtw-rembg:
     image: ${REMBG_IMAGE}
@@ -199,7 +209,7 @@ services:
       QUARKUS_MINIO_SECURE: "false"
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      APP_MINIO_PUBLIC_BASE_URL: ${APP_MINIO_PUBLIC_BASE_URL}
+      APP_MINIO_PUBLIC_BASE_URL: ${APP_MINIO_PUBLIC_BASE_URL:-https://what-to-wear.cms-building.at/minio}
       APP_PYTHON_PREDICT_URL: http://python-service:8000/wearables/predict
       APP_PYTHON_BASE_URL: http://python-service:8000
     labels:
