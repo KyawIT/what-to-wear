@@ -1,6 +1,7 @@
 import { CreateOutfitInput, OutfitResponseDto, UpdateOutfitInput } from "@/api/backend/outfit.model";
 import * as FileSystem from "expo-file-system/legacy";
 import { uploadOutfitToPython } from "@/api/backend/python-proxy.api";
+import { resolveImageUrl } from "@/lib/resolve-image-url";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080").replace(
   /\/+$/,
@@ -74,11 +75,27 @@ async function ensureLocalUri(uri: string, itemId: string): Promise<string> {
   if (!dir) throw new Error("No cache directory available");
 
   const localPath = `${dir}outfit_reco_${itemId}.png`;
-  const result = await FileSystem.downloadAsync(uri, localPath);
-  if (result.status !== 200) {
-    throw new Error(`Download failed (${result.status}) for ${itemId}`);
+  const resolvedUri = resolveImageUrl(uri) ?? uri;
+  const candidates = resolvedUri === uri ? [uri] : [resolvedUri, uri];
+
+  let lastStatus: number | null = null;
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      const result = await FileSystem.downloadAsync(candidate, localPath);
+      if (result.status === 200) {
+        return result.uri;
+      }
+      lastStatus = result.status;
+    } catch (error) {
+      lastError = error;
+    }
   }
-  return result.uri;
+
+  if (lastStatus !== null) {
+    throw new Error(`Download failed (${lastStatus}) for ${itemId}`);
+  }
+  throw lastError instanceof Error ? lastError : new Error(`Download failed for ${itemId}`);
 }
 
 async function readErrorBody(res: Response): Promise<string> {
