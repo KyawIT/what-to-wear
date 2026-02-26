@@ -14,7 +14,9 @@ WORKDIR /app
 
 # Copy and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN sed -i 's/^torch==2\.5\.1+cpu$/torch==2.5.1/' requirements.txt \
+    && sed -i 's/^torchvision==0\.20\.1+cpu$/torchvision==0.20.1/' requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy scripts only; dataset is mounted at runtime for indexing jobs.
 COPY scripts/ ./scripts/
