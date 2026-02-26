@@ -1,6 +1,6 @@
-import { ScrollView, FlatList, Dimensions, Alert, Text as RNText, View } from "react-native";
+import { ScrollView, FlatList, Dimensions, Alert, Text as RNText, View, RefreshControl } from "react-native";
 import { Image } from "expo-image";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { router, useFocusEffect } from "expo-router";
@@ -60,6 +60,7 @@ import { resolveImageUrl } from "@/lib/resolve-image-url";
 import WardrobeErrorState from "@/components/common/WardrobeErrorState";
 import WardrobeTabSwitcher from "@/components/common/WardrobeTabSwitcher";
 import WardrobeListEmptyState from "@/components/common/WardrobeListEmptyState";
+import PullToRefreshBanner from "@/components/common/PullToRefreshBanner";
 import { styles } from "../../styles/screens/tabs/wardrobe.styles";
 
 type TabType = "items" | "outfits";
@@ -77,6 +78,7 @@ const Wardrobe = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState<WearableCategoryDto[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -94,6 +96,82 @@ const Wardrobe = () => {
   const screenWidth = Dimensions.get("window").width;
   const ITEM_SIZE = (screenWidth - 48) / 2;
 
+  const loadWearables = useCallback(async () => {
+    if (!data?.user?.id) return;
+    setLoadingWearables(true);
+    setFetchError(null);
+    try {
+      const accessToken = await getKeycloakAccessToken(data.user.id);
+      let items: WearableResponseDto[];
+      if (activeCategory === "ALL") {
+        items = await fetchAllWearables(accessToken);
+      } else {
+        items = await fetchWearablesByCategory(
+          activeCategory,
+          accessToken
+        );
+      }
+      if (__DEV__ && items.length > 0) {
+        console.log(
+          "[Wardrobe] First image URL (raw → resolved):",
+          items[0].cutoutImageUrl ?? "(none)",
+          "→",
+          resolveImageUrl(items[0].cutoutImageUrl) ?? "(none)"
+        );
+      }
+      setWearables(items);
+    } catch (err) {
+      console.error("Failed to fetch wearables:", err);
+      const msg = err instanceof Error ? err.message : "Failed to load wardrobe";
+      setFetchError(msg);
+      setWearables([]);
+    } finally {
+      setLoadingWearables(false);
+    }
+  }, [activeCategory, data?.user?.id]);
+
+  const loadOutfits = useCallback(async () => {
+    if (!data?.user?.id) return;
+    setLoadingOutfits(true);
+    try {
+      const accessToken = await getKeycloakAccessToken(data.user.id);
+      const list = await fetchAllOutfits(accessToken);
+      setOutfits(list);
+    } catch (err) {
+      console.error("Failed to fetch outfits:", err);
+      setOutfits([]);
+    } finally {
+      setLoadingOutfits(false);
+    }
+  }, [data?.user?.id]);
+
+  const loadCategories = useCallback(async () => {
+    if (!data?.user?.id) return;
+    setLoadingCategories(true);
+    try {
+      const token = await getKeycloakAccessToken(data.user.id);
+      setCategories(await fetchWearableCategories(token));
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, [data?.user?.id]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (activeTab === "outfits") {
+        await Promise.all([loadOutfits(), loadCategories()]);
+      } else {
+        await Promise.all([loadWearables(), loadCategories()]);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeTab, loadCategories, loadOutfits, loadWearables]);
+
   useFocusEffect(
     React.useCallback(() => {
       setRetryCount((c) => c + 1);
@@ -102,74 +180,18 @@ const Wardrobe = () => {
 
   useEffect(() => {
     if (!data?.user?.id) return;
-
-    const fetchData = async () => {
-      setLoadingWearables(true);
-      setFetchError(null);
-      try {
-        const accessToken = await getKeycloakAccessToken(data.user.id);
-        let items: WearableResponseDto[];
-        if (activeCategory === "ALL") {
-          items = await fetchAllWearables(accessToken);
-        } else {
-          items = await fetchWearablesByCategory(
-            activeCategory,
-            accessToken
-          );
-        }
-        if (__DEV__ && items.length > 0) {
-          console.log(
-            "[Wardrobe] First image URL (raw → resolved):",
-            items[0].cutoutImageUrl ?? "(none)",
-            "→",
-            resolveImageUrl(items[0].cutoutImageUrl) ?? "(none)"
-          );
-        }
-        setWearables(items);
-      } catch (err) {
-        console.error("Failed to fetch wearables:", err);
-        const msg = err instanceof Error ? err.message : "Failed to load wardrobe";
-        setFetchError(msg);
-        setWearables([]);
-      } finally {
-        setLoadingWearables(false);
-      }
-    };
-
-    fetchData();
-  }, [activeCategory, data?.user?.id, retryCount]);
+    loadWearables();
+  }, [data?.user?.id, loadWearables, retryCount]);
 
   useEffect(() => {
     if (!data?.user?.id || activeTab !== "outfits") return;
-
-    (async () => {
-      setLoadingOutfits(true);
-      try {
-        const accessToken = await getKeycloakAccessToken(data.user.id);
-        const list = await fetchAllOutfits(accessToken);
-        setOutfits(list);
-      } catch (err) {
-        console.error("Failed to fetch outfits:", err);
-        setOutfits([]);
-      } finally {
-        setLoadingOutfits(false);
-      }
-    })();
-  }, [data?.user?.id, activeTab, retryCount]);
+    loadOutfits();
+  }, [activeTab, data?.user?.id, loadOutfits, retryCount]);
 
   useEffect(() => {
     if (!data?.user?.id) return;
-    (async () => {
-      try {
-        const token = await getKeycloakAccessToken(data.user.id);
-        setCategories(await fetchWearableCategories(token));
-      } catch (err) {
-        console.error("Failed to fetch categories:", err);
-      } finally {
-        setLoadingCategories(false);
-      }
-    })();
-  }, [data?.user?.id]);
+    loadCategories();
+  }, [data?.user?.id, loadCategories, retryCount]);
 
   const activeCategoryName =
     activeCategory === "ALL"
@@ -369,6 +391,10 @@ const Wardrobe = () => {
           setSearchQuery("");
         }}
       />
+      <PullToRefreshBanner
+        refreshing={refreshing}
+        label={activeTab === "outfits" ? "Refreshing outfit rack..." : "Refreshing wardrobe rail..."}
+      />
 
       {activeTab === "items" ? (
         <FlatList
@@ -382,6 +408,15 @@ const Wardrobe = () => {
           }}
           columnWrapperStyle={filteredWearables.length > 0 ? { justifyContent: "space-between" } : undefined}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressViewOffset={16}
+            />
+          }
           ListHeaderComponent={
             <>
               {/* Category Icons */}
@@ -513,6 +548,15 @@ const Wardrobe = () => {
           }}
           columnWrapperStyle={filteredOutfits.length > 0 ? { justifyContent: "space-between" } : undefined}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressViewOffset={16}
+            />
+          }
           ListHeaderComponent={
             <View style={{ paddingTop: 16 }}>
               <Input

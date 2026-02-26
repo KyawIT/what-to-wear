@@ -1,7 +1,4 @@
-import { Dimensions, StyleSheet } from "react-native";
-
-const screenWidth = Dimensions.get("window").width;
-const CARD_WIDTH = (screenWidth - 48) / 2;
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   headerTitle: {
@@ -29,48 +26,46 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     color: "#9B8B7F",
   },
-  outfitCard: {
-    width: CARD_WIDTH,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
-    justifyContent: "space-between" as const,
-    shadowColor: "#C9BAAA",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+  pagerContent: {
+    paddingLeft: 24,
+    paddingBottom: 16,
+    flexGrow: 1,
   },
-  outfitCardContent: {
-    flex: 1,
+  pagerCardWrap: {
+    marginRight: 12,
   },
-  outfitHeader: {
+  lastPagerCardWrap: {
+    marginRight: 0,
+  },
+  pagerFooterSpacer: {
+    width: 24,
+  },
+  pagerDotsRow: {
     flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 10,
+    marginTop: 8,
   },
-  outfitLabel: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-    color: "#3D2E22",
+  pagerDot: {
+    height: 8,
+    borderRadius: 999,
   },
-  outfitGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
+  pagerHintRow: {
+    marginTop: 8,
+    marginBottom: 12,
+    alignItems: "center",
   },
-  outfitItemThumb: {
-    width: (CARD_WIDTH - 30) / 2,
-    height: (CARD_WIDTH - 30) / 2,
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "#FAF7F2",
-    borderWidth: 1,
-    borderColor: "#F0E8DC",
+  pagerHintText: {
+    color: "#A59486",
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+  emptyContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   captureHost: {
     position: "absolute",
@@ -129,98 +124,5 @@ export const styles = StyleSheet.create({
     color: "#9B8B7F",
     textAlign: "center",
     marginTop: 4,
-  },
-  mascot: {
-    width: 160,
-    height: 160,
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 20,
-    color: "#3D2E22",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    textAlign: "center",
-    lineHeight: 20,
-    maxWidth: 280,
-  },
-  categoryHint: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#B89E8E",
-    textAlign: "center",
-    marginTop: 12,
-    lineHeight: 18,
-    maxWidth: 260,
-  },
-  progressRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  progressDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  progressDotFilled: {
-    backgroundColor: "#D4A574",
-  },
-  progressDotEmpty: {
-    backgroundColor: "#F0E8DC",
-  },
-  progressText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: "#9B8B7F",
-  },
-  loadingText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: "#9B8B7F",
-    marginTop: 16,
-  },
-  emptyIcon: {
-    height: 96,
-    width: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    backgroundColor: "#F7E9D7",
-  },
-  errorMascot: {
-    width: 120,
-    height: 120,
-    marginBottom: 20,
-    opacity: 0.6,
-  },
-  retryText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-  saveButton: {
-    marginTop: 10,
-    backgroundColor: "#D4A574",
-    borderRadius: 10,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonSaved: {
-    backgroundColor: "#8BAF7A",
-  },
-  saveButtonText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    color: "#FFFFFF",
   },
 });

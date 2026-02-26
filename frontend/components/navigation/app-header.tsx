@@ -1,6 +1,7 @@
 import React from "react";
-import { Text, TextStyle, View, ViewStyle } from "react-native";
+import { Text, TextStyle, View, ViewStyle, StyleProp } from "react-native";
 import { ChevronLeft } from "lucide-react-native";
+import { BlurView } from "expo-blur";
 
 import { Pressable } from "@/components/ui/pressable";
 import { colors } from "@/lib/theme";
@@ -19,6 +20,50 @@ type AppHeaderProps = {
   testID?: string;
 };
 
+type HeaderActionProps = {
+  onPress?: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  containerStyle?: StyleProp<ViewStyle>;
+  style?: StyleProp<ViewStyle>;
+  className?: string;
+};
+
+/**
+ * A reusable glass-effect component for AppHeader clickables.
+ */
+export const HeaderAction = ({
+  onPress,
+  disabled,
+  children,
+  containerStyle,
+  style,
+  className = "active:opacity-70",
+}: HeaderActionProps) => {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      className={className}
+      style={[
+        { borderRadius: 999, overflow: 'hidden' },
+        containerStyle
+      ]}
+    >
+      <BlurView
+        intensity={40}
+        tint="light"
+        style={[
+          styles.glassButton,
+          style
+        ]}
+      >
+        {children}
+      </BlurView>
+    </Pressable>
+  );
+};
+
 const DEFAULT_SIDE_WIDTH = 96;
 
 export const AppHeader = ({
@@ -34,9 +79,9 @@ export const AppHeader = ({
   testID,
 }: AppHeaderProps) => {
   const leftNode = left ?? (onBack ? (
-    <Pressable onPress={onBack} style={styles.backButton}>
+    <HeaderAction onPress={onBack}>
       <ChevronLeft size={22} color={colors.textSecondary} />
-    </Pressable>
+    </HeaderAction>
   ) : null);
 
   return (

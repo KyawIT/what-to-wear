@@ -26,12 +26,14 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: -0.3,
   },
-  backButton: {
+  glassButton: {
     height: 40,
-    width: 40,
+    minWidth: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 20,
-    backgroundColor: "#8B735512",
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.45)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.75)",
   },
 });

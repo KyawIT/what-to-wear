@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, FlatList, Text as RNText, Alert, ActivityIndicator, RefreshControl } from "react-native";
+import { View, FlatList, Text as RNText, Alert, ActivityIndicator, RefreshControl, Animated } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { RefreshCw } from "lucide-react-native";
 import ViewShot from "react-native-view-shot";
 
@@ -18,6 +18,7 @@ import RecommendationIntroState from "@/components/common/RecommendationIntroSta
 import RecommendationLoadingState from "@/components/common/RecommendationLoadingState";
 import RecommendationEmptyState from "@/components/common/RecommendationEmptyState";
 import OutfitSuggestionCard from "@/components/common/OutfitSuggestionCard";
+import { CARD_WIDTH } from "@/components/common/OutfitSuggestionCard.styles";
 
 import {
   WearableResponseDto,
@@ -35,6 +36,8 @@ import {
 } from "@/lib/image/outfit-preview";
 
 const MIN_ITEMS_FOR_RECOMMENDATION = 5;
+const PAGER_GAP = 12;
+const PAGER_INTERVAL = CARD_WIDTH + PAGER_GAP;
 
 type ResolvedOutfit = {
   id: string;
@@ -108,6 +111,7 @@ function toFriendlyRecommendationError(error: unknown): string {
 
 const Index = () => {
   const { data } = authClient.useSession();
+  const router = useRouter();
 
   const [wearables, setWearables] = useState<WearableResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,6 +125,7 @@ const Index = () => {
   const [captureExtraCount, setCaptureExtraCount] = useState(0);
   const captureRef = useRef<ViewShot>(null);
   const captureResolverRef = useRef<((uri: string | null) => void) | null>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
 
   const loadWearables = useCallback(async () => {
     if (!data?.user?.id) return;
@@ -144,9 +149,15 @@ const Index = () => {
       setError(null);
       try {
         const itemsWithImage = items.filter((w) => w.cutoutImageUrl);
-        if (itemsWithImage.length < MIN_ITEMS_FOR_RECOMMENDATION) {
+        const categorizedItems = itemsWithImage.filter(
+          (w) => Boolean(w.categoryId?.trim()) && Boolean(w.categoryName?.trim())
+        );
+
+        if (categorizedItems.length < MIN_ITEMS_FOR_RECOMMENDATION) {
           setOutfits([]);
-          setError("At least 5 wardrobe items with processed images are required.");
+          setError(
+            "At least 5 wardrobe items with processed images and categories are required."
+          );
           return;
         }
 
@@ -155,7 +166,7 @@ const Index = () => {
           BOTTOM: 0,
           FOOTWEAR: 0,
         };
-        for (const item of itemsWithImage) {
+        for (const item of categorizedItems) {
           const bucket = inferBucket(item.categoryName);
           if (bucket) {
             bucketCounts[bucket] += 1;
@@ -172,9 +183,10 @@ const Index = () => {
           return;
         }
 
-        const wearableInput = itemsWithImage.map((w) => ({
+        const wearableInput = categorizedItems.map((w) => ({
           wearableId: w.id,
           imageUri: w.cutoutImageUrl!,
+          tags: w.tags ?? [],
         }));
 
         const result = await recommendOutfitsFromUploads(
@@ -223,12 +235,13 @@ const Index = () => {
     setLoading(true);
     setError(null);
     setSavedOutfitIds(new Set());
+    scrollX.setValue(0);
     const result = await loadWearables();
     if (result) {
       await generateOutfits(result.items, result.token);
     }
     setLoading(false);
-  }, [loadWearables, generateOutfits]);
+  }, [loadWearables, generateOutfits, scrollX]);
 
   useFocusEffect(
     useCallback(() => {
@@ -247,6 +260,7 @@ const Index = () => {
     setGenerating(true);
     setError(null);
     setSavedOutfitIds(new Set());
+    scrollX.setValue(0);
     try {
       const token = await getKeycloakAccessToken(data.user.id);
       const items = await fetchAllWearables(token);
@@ -260,7 +274,7 @@ const Index = () => {
     } finally {
       setGenerating(false);
     }
-  }, [data?.user?.id, generateOutfits]);
+  }, [data?.user?.id, generateOutfits, scrollX]);
 
   const captureOutfitPreviewImage = useCallback(async (items: WearableResponseDto[]) => {
     const previewItems = getOutfitPreviewItems(items);
@@ -344,7 +358,12 @@ const Index = () => {
 
   // Not enough items state
   if (!loading && wearables.length < MIN_ITEMS_FOR_RECOMMENDATION) {
-    return <RecommendationIntroState wearablesCount={wearables.length} />;
+    return (
+      <RecommendationIntroState
+        wearablesCount={wearables.length}
+        onScanPress={() => router.push("/scan")}
+      />
+    );
   }
 
   // Loading state
@@ -356,17 +375,21 @@ const Index = () => {
     );
   }
 
-  const renderOutfitCard = ({ item }: { item: ResolvedOutfit }) => {
+  const renderOutfitCard = ({ item, index }: { item: ResolvedOutfit; index: number }) => {
     const isSaved = savedOutfitIds.has(item.id);
     const isSaving = savingOutfitId === item.id;
 
     return (
-      <OutfitSuggestionCard
-        outfit={item}
-        isSaved={isSaved}
-        isSaving={isSaving}
-        onSave={handleSaveOutfit}
-      />
+      <View style={[styles.pagerCardWrap, index === outfits.length - 1 && styles.lastPagerCardWrap]}>
+        <OutfitSuggestionCard
+          outfit={item}
+          index={index}
+          total={outfits.length}
+          isSaved={isSaved}
+          isSaving={isSaving}
+          onSave={handleSaveOutfit}
+        />
+      </View>
     );
   };
 
@@ -391,19 +414,26 @@ const Index = () => {
         }
       />
 
+      <VStack className="gap-1 px-6 pt-4 pb-4">
+        <RNText style={styles.sectionTitle}>Outfit Suggestions</RNText>
+        <RNText style={styles.sectionSubtitle}>
+          Based on your {wearables.length} wardrobe items
+        </RNText>
+      </VStack>
+
       <FlatList
         data={outfits}
         keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: 100,
-          flexGrow: 1,
-        }}
-        columnWrapperStyle={
-          outfits.length > 0 ? { justifyContent: "space-between" } : undefined
-        }
-        showsVerticalScrollIndicator={false}
+        horizontal={outfits.length > 0}
+        directionalLockEnabled
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        snapToInterval={outfits.length > 0 ? PAGER_INTERVAL : undefined}
+        decelerationRate={outfits.length > 0 ? "fast" : "normal"}
+        disableIntervalMomentum={outfits.length > 0}
+        pagingEnabled={false}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={outfits.length > 0 ? styles.pagerContent : styles.emptyContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -411,23 +441,66 @@ const Index = () => {
             tintColor={colors.primary}
           />
         }
-        ListHeaderComponent={
-          <VStack className="gap-1 pt-4 pb-4">
-            <RNText style={styles.sectionTitle}>Outfit Suggestions</RNText>
-            <RNText style={styles.sectionSubtitle}>
-              Based on your {wearables.length} wardrobe items
-            </RNText>
-          </VStack>
+        onScroll={
+          outfits.length > 0
+            ? Animated.event(
+                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                { useNativeDriver: false }
+              )
+            : undefined
         }
+        scrollEventThrottle={16}
+        ListFooterComponent={outfits.length > 0 ? <View style={styles.pagerFooterSpacer} /> : null}
         ListEmptyComponent={
           <RecommendationEmptyState
             generating={generating}
             error={error}
+            wearablesCount={wearables.length}
             onRetry={handleRegenerate}
+            onScanPress={() => router.push("/scan")}
           />
         }
         renderItem={renderOutfitCard}
       />
+
+      {outfits.length > 1 ? (
+        <View style={styles.pagerDotsRow}>
+          {outfits.map((outfit, idx) => (
+            <Animated.View
+              key={`dot-${outfit.id}-${idx}`}
+              style={[
+                styles.pagerDot,
+                {
+                  width: scrollX.interpolate({
+                    inputRange: [
+                      (idx - 1) * PAGER_INTERVAL,
+                      idx * PAGER_INTERVAL,
+                      (idx + 1) * PAGER_INTERVAL,
+                    ],
+                    outputRange: [8, 26, 8],
+                    extrapolate: "clamp",
+                  }),
+                  backgroundColor: scrollX.interpolate({
+                    inputRange: [
+                      (idx - 1) * PAGER_INTERVAL,
+                      idx * PAGER_INTERVAL,
+                      (idx + 1) * PAGER_INTERVAL,
+                    ],
+                    outputRange: ["#E9DED1", "#D4A574", "#E9DED1"],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ]}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {outfits.length === 0 ? null : (
+        <View style={styles.pagerHintRow}>
+          <RNText style={styles.pagerHintText}>Swipe for more looks</RNText>
+        </View>
+      )}
 
       <View pointerEvents="none" style={styles.captureHost}>
         <ViewShot

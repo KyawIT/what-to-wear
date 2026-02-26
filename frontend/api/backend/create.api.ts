@@ -1,4 +1,5 @@
 import { CreateWearableInput, Wearable } from "@/api/backend/wearable.model";
+import { uploadWearableToPython } from "@/api/backend/python-proxy.api";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080")
     .replace(/\/+$/, "");
@@ -8,6 +9,13 @@ const ENDPOINT = "/api/wearable";
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function normalizeTags(tags: string[]): string {
+    return (tags ?? [])
+        .map(t => t.trim())
+        .filter(Boolean)
+        .join(",");
+}
+
+function normalizeProxyTags(tags: string[]): string {
     return (tags ?? [])
         .map(t => t.trim())
         .filter(Boolean)
@@ -108,5 +116,27 @@ export async function createWearableMultipart(
         throw new Error(`Failed to create wearable (${res.status}): ${errBody}`);
     }
 
-    return res.json();
+    const created = await res.json() as Wearable;
+
+    // Best-effort sync to AI proxy; do not block successful wearable creation.
+    if (input.file?.uri && created?.id && created?.categoryName) {
+        void (async () => {
+            const proxyResult = await uploadWearableToPython(
+                {
+                    fileUri: input.file.uri,
+                    fileName: input.file.name,
+                    fileType: input.file.type,
+                    category: created.categoryName,
+                    tags: normalizeProxyTags(created.tags ?? input.tags ?? []),
+                    itemId: created.id,
+                },
+                accessToken
+            );
+            if (!proxyResult.ok) {
+                console.warn("Wearable AI proxy upload failed:", proxyResult.error);
+            }
+        })();
+    }
+
+    return created;
 }

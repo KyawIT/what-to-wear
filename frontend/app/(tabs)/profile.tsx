@@ -1,4 +1,4 @@
-import { Text, ScrollView, View } from "react-native";
+import { Text, ScrollView, View, RefreshControl } from "react-native";
 import React, { useCallback, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
@@ -19,12 +19,15 @@ import { fetchAllWearables } from "@/api/backend/wearable.api";
 import { fetchAllOutfits } from "@/api/backend/outfit.api";
 import { colors } from "@/lib/theme";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import PullToRefreshBanner from "@/components/common/PullToRefreshBanner";
 import { styles } from "../../styles/screens/tabs/profile.styles";
 
 const Profile = () => {
   const { data } = authClient.useSession();
   const [totalItemsCount, setTotalItemsCount] = useState(0);
   const [outfitsCount, setOutfitsCount] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
 
   const handleFullLogout = async () => {
     const clientId = process.env.EXPO_PUBLIC_KC_CLIENT_ID as string;
@@ -85,6 +88,16 @@ const Profile = () => {
     }, [loadStats])
   );
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadStats();
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadStats]);
+
   const settingsItems = [
     { icon: <User size={18} color={colors.secondary} />, label: "Account", route: "/profile/account" as const },
     { icon: <Shield size={18} color={colors.secondary} />, label: "Privacy", route: "/profile/privacy" as const },
@@ -98,8 +111,21 @@ const Profile = () => {
       edges={["top"]}
     >
       <AppHeader title="Profile" titleStyle={styles.headerTitle} />
+      <PullToRefreshBanner refreshing={refreshing} label="Refreshing your profile stats..." />
 
-      <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.flex}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressViewOffset={16}
+          />
+        }
+      >
 
         {/* Hero Profile Section */}
         <View style={styles.heroSection}>
