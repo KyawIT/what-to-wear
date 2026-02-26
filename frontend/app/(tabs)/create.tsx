@@ -32,7 +32,7 @@ import CreateEmptyWardrobeState from "@/components/common/CreateEmptyWardrobeSta
 import PullToRefreshBanner from "@/components/common/PullToRefreshBanner";
 import { s } from "../../styles/screens/tabs/create.styles";
 
-import { ChevronLeft, Shirt, Check, X, Sparkles } from "lucide-react-native";
+import { ChevronLeft, Shirt, Check, X, Sparkles, ArrowUpRight } from "lucide-react-native";
 
 const GRID_GAP = 12;
 const GRID_HORIZONTAL_PADDING = 20;
@@ -41,8 +41,7 @@ function getColumnCount(width: number): number {
   if (width >= 1120) return 6;
   if (width >= 900) return 5;
   if (width >= 700) return 4;
-  if (width >= 520) return 3;
-  return 2;
+  return 3;
 }
 
 const Create = () => {
@@ -239,13 +238,13 @@ const Create = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background-50" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-background-50" edges={["top"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <AppHeader
-          title="Create"
+          title="Create Outfit"
           titleStyle={s.headerTitle}
           left={
             <Pressable onPress={() => router.back()} className="active:opacity-60">
@@ -276,22 +275,48 @@ const Create = () => {
             {
               alignSelf: "center",
               width: contentWidth,
-              paddingBottom: 28,
             },
           ]}
         >
           <View style={s.heroCard}>
             <View style={s.heroTopRow}>
-              <View style={s.sparkleBadge}>
-                <Sparkles size={14} color={colors.secondaryDark} />
+              <View style={s.heroTopLeft}>
+                <View style={s.sparkleBadge}>
+                  <Sparkles size={14} color={colors.secondaryDark} />
+                </View>
+                <RNText style={s.heroEyebrow}>Outfit Studio</RNText>
               </View>
-              <RNText style={s.heroEyebrow}>Outfit Studio</RNText>
+
+              <Pressable
+                onPress={handleContinue}
+                className="active:opacity-80"
+                style={[s.cornerComposeButton, !isFormValid ? s.cornerComposeButtonDisabled : null]}
+                disabled={!isFormValid}
+              >
+                <RNText
+                  style={[
+                    s.cornerComposeLabel,
+                    { color: isFormValid ? colors.white : colors.textMuted },
+                  ]}
+                >
+                  Compose
+                </RNText>
+                <View
+                  style={[
+                    s.cornerComposeIconWrap,
+                    !isFormValid ? s.cornerComposeIconWrapDisabled : null,
+                  ]}
+                >
+                  <ArrowUpRight
+                    size={12}
+                    color={isFormValid ? colors.secondary : colors.textMuted}
+                    strokeWidth={3}
+                  />
+                </View>
+              </Pressable>
             </View>
 
             <RNText style={s.heroTitle}>Build a clean capsule look</RNText>
-            <RNText style={s.heroDescription}>
-              Select 2 or more pieces. Keep tapping to mix silhouettes and tones.
-            </RNText>
 
             <View style={s.heroStatsRow}>
               <View style={s.statPill}>
@@ -354,32 +379,6 @@ const Create = () => {
                 <RNText style={s.emptySelectionText}>No pieces selected yet</RNText>
               </View>
             )}
-
-            <Pressable
-              onPress={handleContinue}
-              className="active:opacity-80"
-              style={[s.continueButton, !isFormValid ? s.continueButtonDisabled : null]}
-              disabled={!isFormValid}
-            >
-              <RNText
-                style={[
-                  s.continueText,
-                  { color: isFormValid ? colors.white : colors.textMuted },
-                ]}
-              >
-                Continue to Compose
-              </RNText>
-              <RNText
-                style={[
-                  s.continueSubText,
-                  { color: isFormValid ? "#F5EADC" : colors.textMuted },
-                ]}
-              >
-                {isFormValid
-                  ? `${selectedCount} piece${selectedCount > 1 ? "s" : ""} selected`
-                  : "Select at least 2 pieces"}
-              </RNText>
-            </Pressable>
           </View>
 
           <View style={s.sectionRow}>
