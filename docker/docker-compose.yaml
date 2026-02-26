@@ -74,6 +74,48 @@ services:
       timeout: 3s
       retries: 10
 
+  wtw-hm-scraper:
+    build:
+      context: ./hm-scraper
+      dockerfile: Dockerfile
+    container_name: wtw-hm-scraper
+    restart: unless-stopped
+    ports:
+      - "4523:4523"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4523/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  wtw-pinterest-scraper:
+    build:
+      context: ./pinterest-scraper
+      dockerfile: Dockerfile
+    container_name: wtw-pinterest-scraper
+    restart: unless-stopped
+    ports:
+      - "4524:4524"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4524/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  wtw-zalando-scraper:
+    build:
+      context: ./zalando-scraper
+      dockerfile: Dockerfile
+    container_name: wtw-zalando-scraper
+    restart: unless-stopped
+    ports:
+      - "4525:4525"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4525/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   wtw-qdrant:
     image: qdrant/qdrant:latest
     container_name: wtw-qdrant
@@ -138,6 +180,9 @@ services:
       - wtw-minio
       - wtw-keycloak
       - wtw-python
+      - wtw-hm-scraper
+      - wtw-pinterest-scraper
+      - wtw-zalando-scraper
     ports:
       - "8080:8080"
     environment:
@@ -156,6 +201,9 @@ services:
       OIDC_CLIENT_ID: wtw-client
       APP_PYTHON_PREDICT_URL: http://wtw-python:8000/wearables/predict
       APP_PYTHON_BASE_URL: http://wtw-python:8000
+      APP_SCRAPER_HM_BASE_URL: http://wtw-hm-scraper:4523
+      APP_SCRAPER_PINTEREST_BASE_URL: http://wtw-pinterest-scraper:4524
+      APP_SCRAPER_ZALANDO_BASE_URL: http://wtw-zalando-scraper:4525
 
 volumes:
   wtw_data:

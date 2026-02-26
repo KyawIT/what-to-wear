@@ -111,14 +111,6 @@ const Wardrobe = () => {
           accessToken
         );
       }
-      if (__DEV__ && items.length > 0) {
-        console.log(
-          "[Wardrobe] First image URL (raw → resolved):",
-          items[0].cutoutImageUrl ?? "(none)",
-          "→",
-          resolveImageUrl(items[0].cutoutImageUrl) ?? "(none)"
-        );
-      }
       setWearables(items);
     } catch (err) {
       console.error("Failed to fetch wearables:", err);

@@ -99,6 +99,74 @@ services:
       - traefik.http.middlewares.wtw-rembg-stripprefix.stripprefix.prefixes=/rembg
       - traefik.http.services.wtw-rembg.loadbalancer.server.port=8080
 
+  wtw-hm-scraper:
+    image: ${HM_SCRAPER_IMAGE}
+    container_name: wtw-hm-scraper
+    restart: unless-stopped
+    networks:
+      - wtw_internal
+      - proxy_default
+    environment:
+      LOG_LEVEL: ${HM_SCRAPER_LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4523/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-hm-scraper.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/hm-scraper`)
+      - traefik.http.routers.wtw-hm-scraper.entrypoints=websecure
+      - traefik.http.routers.wtw-hm-scraper.tls=true
+      - traefik.http.routers.wtw-hm-scraper.tls.certresolver=default
+      - traefik.http.routers.wtw-hm-scraper.middlewares=wtw-hm-scraper-stripprefix
+      - traefik.http.middlewares.wtw-hm-scraper-stripprefix.stripprefix.prefixes=/hm-scraper
+      - traefik.http.services.wtw-hm-scraper.loadbalancer.server.port=4523
+
+  wtw-pinterest-scraper:
+    image: ${PINTEREST_SCRAPER_IMAGE}
+    container_name: wtw-pinterest-scraper
+    restart: unless-stopped
+    networks:
+      - wtw_internal
+      - proxy_default
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4524/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-pinterest-scraper.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/pinterest-scraper`)
+      - traefik.http.routers.wtw-pinterest-scraper.entrypoints=websecure
+      - traefik.http.routers.wtw-pinterest-scraper.tls=true
+      - traefik.http.routers.wtw-pinterest-scraper.tls.certresolver=default
+      - traefik.http.routers.wtw-pinterest-scraper.middlewares=wtw-pinterest-scraper-stripprefix
+      - traefik.http.middlewares.wtw-pinterest-scraper-stripprefix.stripprefix.prefixes=/pinterest-scraper
+      - traefik.http.services.wtw-pinterest-scraper.loadbalancer.server.port=4524
+
+  wtw-zalando-scraper:
+    image: ${ZALANDO_SCRAPER_IMAGE}
+    container_name: wtw-zalando-scraper
+    restart: unless-stopped
+    networks:
+      - wtw_internal
+      - proxy_default
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4525/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-zalando-scraper.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/zalando-scraper`)
+      - traefik.http.routers.wtw-zalando-scraper.entrypoints=websecure
+      - traefik.http.routers.wtw-zalando-scraper.tls=true
+      - traefik.http.routers.wtw-zalando-scraper.tls.certresolver=default
+      - traefik.http.routers.wtw-zalando-scraper.middlewares=wtw-zalando-scraper-stripprefix
+      - traefik.http.middlewares.wtw-zalando-scraper-stripprefix.stripprefix.prefixes=/zalando-scraper
+      - traefik.http.services.wtw-zalando-scraper.loadbalancer.server.port=4525
+
   wtw-qdrant:
     image: qdrant/qdrant:latest
     container_name: wtw-qdrant
@@ -194,6 +262,9 @@ services:
       - wtw-db
       - wtw-minio
       - python-service
+      - wtw-hm-scraper
+      - wtw-pinterest-scraper
+      - wtw-zalando-scraper
     networks:
       - wtw_internal
       - proxy_default
@@ -212,6 +283,9 @@ services:
       APP_MINIO_PUBLIC_BASE_URL: ${APP_MINIO_PUBLIC_BASE_URL:-https://what-to-wear.cms-building.at/minio}
       APP_PYTHON_PREDICT_URL: http://python-service:8000/wearables/predict
       APP_PYTHON_BASE_URL: http://python-service:8000
+      APP_SCRAPER_HM_BASE_URL: http://wtw-hm-scraper:4523
+      APP_SCRAPER_PINTEREST_BASE_URL: http://wtw-pinterest-scraper:4524
+      APP_SCRAPER_ZALANDO_BASE_URL: http://wtw-zalando-scraper:4525
     labels:
       - traefik.enable=true
       - traefik.http.routers.wtw-backend.rule=Host(`what-to-wear.cms-building.at`) && PathPrefix(`/api`)
