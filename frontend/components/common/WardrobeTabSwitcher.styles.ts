@@ -6,10 +6,20 @@ export const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tabBar: {
+    position: "relative",
     flexDirection: "row",
     backgroundColor: "#F5EFE7",
     borderRadius: 999,
     padding: 4,
+    overflow: "hidden",
+  },
+  tabIndicator: {
+    position: "absolute",
+    left: 4,
+    top: 4,
+    bottom: 4,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
   },
   tab: {
     flex: 1,
@@ -17,9 +27,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 999,
     paddingVertical: 10,
-  },
-  tabActive: {
-    backgroundColor: "#FFFFFF",
+    zIndex: 1,
   },
   tabText: {
     fontFamily: "Inter_600SemiBold",

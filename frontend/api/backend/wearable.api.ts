@@ -1,4 +1,5 @@
 import {UpdateWearableInput, WearableResponseDto} from "@/api/backend/wearable.model";
+import { deleteWearableInPython, updateWearableInPython } from "@/api/backend/python-proxy.api";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080")
     .replace(/\/+$/, "");
@@ -126,6 +127,14 @@ export async function deleteWearableById(
         return { success: false, message: `Could not delete clothing item.${details}` };
     }
 
+    // Best-effort async sync: do not block UI delete completion on AI proxy latency.
+    void (async () => {
+        const proxyResult = await deleteWearableInPython({ itemId: wearableId }, accessToken);
+        if (!proxyResult.ok) {
+            console.warn("Wearable AI proxy delete failed:", proxyResult.error);
+        }
+    })();
+
     return { success: true };
 }
 
@@ -168,5 +177,21 @@ export async function updateWearableById(
         throw new Error(`Failed to update wearable (${res.status}): ${text}`);
     }
 
-    return res.json();
+    const updated = await res.json() as WearableResponseDto;
+
+    void (async () => {
+        const proxyResult = await updateWearableInPython(
+            {
+                itemId: updated.id,
+                category: updated.categoryName,
+                tags: (updated.tags ?? []).map((tag) => tag.trim()).filter(Boolean).join(","),
+            },
+            accessToken
+        );
+        if (!proxyResult.ok) {
+            console.warn("Wearable AI proxy update failed:", proxyResult.error);
+        }
+    })();
+
+    return updated;
 }

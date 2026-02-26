@@ -82,6 +82,7 @@ export default function PreviewScreen() {
   const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
   const [aiPredictionError, setAiPredictionError] = useState<string | null>(null);
   const [hasAutoFilledMetadata, setHasAutoFilledMetadata] = useState(false);
+  const [hasAutoAppliedAiTags, setHasAutoAppliedAiTags] = useState(false);
 
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -115,6 +116,28 @@ export default function PreviewScreen() {
 
     let cancelled = false;
 
+    const applyPredictionResult = (predictedTags: string[]) => {
+      const normalized = predictedTags
+        .map(normalizeTagForDisplay)
+        .filter(Boolean)
+        .filter((tag, index, arr) => arr.findIndex((t) => t.toLowerCase() === tag.toLowerCase()) === index);
+
+      setAiSuggestedTags(normalized);
+      setAiPredictionError(
+        normalized.length === 0
+          ? "No confident tags were detected for this image. Add tags manually."
+          : null
+      );
+
+      if (normalized.length === 0 || hasAutoAppliedAiTags) return;
+
+      setTags((prev) => {
+        if (prev.length > 0) return prev;
+        setHasAutoAppliedAiTags(true);
+        return normalized;
+      });
+    };
+
     (async () => {
       try {
         setPredictingTags(true);
@@ -142,11 +165,7 @@ export default function PreviewScreen() {
         if (cancelled) return;
 
         if (predictionResult.ok) {
-          const normalized = (predictionResult.data.tags ?? [])
-            .map(normalizeTagForDisplay)
-            .filter(Boolean);
-          setAiSuggestedTags(normalized);
-          setAiPredictionError(null);
+          applyPredictionResult(predictionResult.data.tags ?? []);
           return;
         }
 
@@ -166,11 +185,7 @@ export default function PreviewScreen() {
           if (cancelled) return;
 
           if (retryResult.ok) {
-            const normalized = (retryResult.data.tags ?? [])
-              .map(normalizeTagForDisplay)
-              .filter(Boolean);
-            setAiSuggestedTags(normalized);
-            setAiPredictionError(null);
+            applyPredictionResult(retryResult.data.tags ?? []);
             return;
           }
 
@@ -195,7 +210,7 @@ export default function PreviewScreen() {
     return () => {
       cancelled = true;
     };
-  }, [cutoutUri, loading, error, data?.user?.id]);
+  }, [cutoutUri, loading, error, data?.user?.id, hasAutoAppliedAiTags]);
 
   const onBack = () => router.back();
   const retake = () => router.back();
@@ -800,6 +815,18 @@ export default function PreviewScreen() {
 function buildAiPredictionMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
   const normalized = raw.toLowerCase();
+
+  if (normalized.includes("timed out") || normalized.includes("abort")) {
+    return "AI suggestion timed out. Please try again.";
+  }
+
+  if (normalized.includes("prediction service unavailable")) {
+    return "AI service is currently unavailable. Please try again shortly.";
+  }
+
+  if (normalized.includes("network request failed")) {
+    return "Network error while generating AI suggestions.";
+  }
 
   if (normalized.includes("low confidence")) {
     return "I couldn't confidently suggest tags for this image. Try another photo.";

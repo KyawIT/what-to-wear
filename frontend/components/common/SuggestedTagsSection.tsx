@@ -24,7 +24,7 @@ export default function SuggestedTagsSection({
   aiPredictionError,
   onAddTag,
 }: SuggestedTagsSectionProps) {
-  if (!(availableSuggestions.length > 0 || aiPredictionError)) return null;
+  if (!(availableSuggestions.length > 0 || aiPredictionError || predictingTags)) return null;
 
   return (
     <Box className="mt-3">
@@ -73,4 +73,3 @@ export default function SuggestedTagsSection({
     </Box>
   );
 }
-

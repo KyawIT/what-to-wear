@@ -1,7 +1,7 @@
 import React from "react";
 import { Text as RNText, View } from "react-native";
 import { Image } from "expo-image";
-import { Sparkles } from "lucide-react-native";
+import { Camera, Sparkles } from "lucide-react-native";
 import { Center } from "@/components/ui/center";
 import { Pressable } from "@/components/ui/pressable";
 import { colors } from "@/lib/theme";
@@ -11,10 +11,18 @@ import { styles } from "./RecommendationEmptyState.styles";
 type RecommendationEmptyStateProps = {
   generating: boolean;
   error: string | null;
+  wearablesCount: number;
   onRetry: () => void;
+  onScanPress: () => void;
 };
 
-export default function RecommendationEmptyState({ generating, error, onRetry }: RecommendationEmptyStateProps) {
+export default function RecommendationEmptyState({
+  generating,
+  error,
+  wearablesCount,
+  onRetry,
+  onScanPress,
+}: RecommendationEmptyStateProps) {
   if (generating) {
     return (
       <Center className="pt-12">
@@ -39,12 +47,19 @@ export default function RecommendationEmptyState({ generating, error, onRetry }:
 
   return (
     <Center className="pt-12 px-4">
-      <View style={styles.emptyIcon}>
-        <Sparkles size={40} color={colors.primary} strokeWidth={1.5} />
-      </View>
+      <Image source={require("../../assets/mascot/mascot-dilemma.png")} style={styles.defaultMascot} contentFit="contain" />
       <RNText style={styles.emptyTitle}>No outfits yet</RNText>
-      <RNText style={styles.emptySubtitle}>Upload more items to get outfit recommendations.</RNText>
+      <RNText style={styles.emptySubtitle}>
+        We need a little more style variety. You currently have {wearablesCount} items in your wardrobe.
+      </RNText>
+      <View style={styles.hintRow}>
+        <Sparkles size={14} color={colors.primary} strokeWidth={2} />
+        <RNText style={styles.hintText}>Add tops, bottoms, and footwear for better combinations.</RNText>
+      </View>
+      <Pressable onPress={onScanPress} className="active:opacity-80 mt-5" style={styles.primaryCta}>
+        <Camera size={16} color="#FFFFFF" strokeWidth={2} />
+        <RNText style={styles.primaryCtaText}>Scan More Items</RNText>
+      </Pressable>
     </Center>
   );
 }
-

@@ -1,5 +1,6 @@
 import { CreateOutfitInput, OutfitResponseDto, UpdateOutfitInput } from "@/api/backend/outfit.model";
 import * as FileSystem from "expo-file-system/legacy";
+import { uploadOutfitToPython } from "@/api/backend/python-proxy.api";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080").replace(
   /\/+$/,
@@ -7,6 +8,7 @@ const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_ROOT ?? "http://localhost:8080
 );
 
 const ENDPOINT = "/api/outfit";
+const OUTFIT_RECOMMEND_ENDPOINT = "/api/outfit/recommend-from-uploads";
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type DeleteOutfitResult = {
@@ -18,6 +20,7 @@ export type RecommendFromUploadsInput = {
   items: Array<{
     wearableId: string;
     imageUri: string;
+    tags?: string[];
     fileName?: string;
     fileType?: string;
   }>;
@@ -29,14 +32,13 @@ export type RecommendedOutfitResponse = {
     id: string;
     wearables: Array<{
       id: string;
-      categoryId: string;
-      categoryName: string;
-      title: string;
-      tags: string[];
+      category?: string;
+      tags?: string[];
       cutoutImageUrl?: string | null;
     }>;
+    image?: string | null;
   }>;
-  warnings: string[];
+  warnings?: string[];
 };
 
 function normalizeTags(tags: string[] = []): string {
@@ -108,6 +110,60 @@ async function readErrorBody(res: Response): Promise<string> {
   }
 }
 
+function extractBoundary(contentType: string): string | null {
+  const match = contentType.match(/boundary="?([^";]+)"?/i);
+  return match?.[1]?.trim() || null;
+}
+
+function extractJsonPart(body: string, boundary: string, preferredName?: string): any | null {
+  const delimiter = `--${boundary}`;
+  const parts = body.split(delimiter);
+  for (const part of parts) {
+    const lowered = part.toLowerCase();
+    if (!lowered.includes("content-type: application/json")) {
+      continue;
+    }
+    if (preferredName && !part.includes(`name="${preferredName}"`)) {
+      continue;
+    }
+    const splitIndex = part.search(/\r?\n\r?\n/);
+    if (splitIndex < 0) {
+      continue;
+    }
+    const payload = part.slice(splitIndex).replace(/^\r?\n\r?\n/, "").trim();
+    if (!payload) {
+      continue;
+    }
+    try {
+      return JSON.parse(payload);
+    } catch {
+      // Continue scanning additional parts.
+    }
+  }
+  return null;
+}
+
+async function readRecommendationResponse(res: Response): Promise<RecommendedOutfitResponse> {
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("multipart/form-data")) {
+    return (await res.json()) as RecommendedOutfitResponse;
+  }
+
+  const boundary = extractBoundary(contentType);
+  const rawBody = await res.text();
+  if (!boundary) {
+    throw new Error("Recommendation response boundary is missing");
+  }
+
+  const preferred = extractJsonPart(rawBody, boundary, "outfits");
+  const fallback = preferred ?? extractJsonPart(rawBody, boundary);
+  if (!fallback || !Array.isArray(fallback.outfits)) {
+    throw new Error("Recommendation response missing JSON outfits part");
+  }
+
+  return fallback as RecommendedOutfitResponse;
+}
+
 function assertCreateInput(input: CreateOutfitInput) {
   if (!input?.title?.trim()) {
     throw new Error("title is required");
@@ -119,6 +175,31 @@ function assertCreateInput(input: CreateOutfitInput) {
     if (!UUID_REGEX.test(id)) {
       throw new Error(`Invalid wearable id: "${id}"`);
     }
+  }
+}
+
+async function syncOutfitToAiProxy(outfit: OutfitResponseDto, accessToken: string): Promise<void> {
+  const wearableInputs = (outfit.wearables ?? [])
+    .filter((w) => Boolean(w.id?.trim()) && Boolean(w.categoryName?.trim()) && Boolean(w.cutoutImageUrl?.trim()))
+    .map((w) => ({
+      id: w.id,
+      category: w.categoryName,
+      tags: w.tags ?? [],
+      imageUri: w.cutoutImageUrl!,
+    }));
+
+  if (wearableInputs.length === 0) {
+    return;
+  }
+
+  const proxyResult = await uploadOutfitToPython(
+    {
+      wearables: wearableInputs,
+    },
+    accessToken
+  );
+  if (!proxyResult.ok) {
+    console.warn("Outfit AI proxy upload failed:", proxyResult.error);
   }
 }
 
@@ -163,7 +244,9 @@ export async function createOutfitMultipart(
     throw new Error(`Failed to create outfit (${res.status}): ${errBody}`);
   }
 
-  return (await res.json()) as OutfitResponseDto;
+  const created = (await res.json()) as OutfitResponseDto;
+  void syncOutfitToAiProxy(created, accessToken);
+  return created;
 }
 
 export async function fetchAllOutfits(accessToken?: string): Promise<OutfitResponseDto[]> {
@@ -238,6 +321,7 @@ export async function deleteOutfitById(
     return { success: false, message: `Could not delete outfit.${details}` };
   }
 
+  // No proxy delete endpoint exists for outfits on /api/wearableai.
   return { success: true };
 }
 
@@ -284,7 +368,9 @@ export async function updateOutfitById(
     throw new Error(`Failed to update outfit (${res.status}): ${errBody}`);
   }
 
-  return (await res.json()) as OutfitResponseDto;
+  const updated = (await res.json()) as OutfitResponseDto;
+  void syncOutfitToAiProxy(updated, accessToken);
+  return updated;
 }
 
 export async function recommendOutfitsFromUploads(
@@ -299,7 +385,10 @@ export async function recommendOutfitsFromUploads(
   }
 
   const formData = new FormData();
-  const requestItems: Array<{ wearableId: string; fileKey: string }> = [];
+  const requestItems: Array<{
+    wearableId: string;
+    fileKey: string;
+  }> = [];
 
   for (let i = 0; i < input.items.length; i++) {
     const item = input.items[i];
@@ -310,7 +399,7 @@ export async function recommendOutfitsFromUploads(
       throw new Error(`imageUri is required for wearable ${item.wearableId}`);
     }
 
-    const fileKey = `img_${i + 1}`;
+    const fileKey = `file_${i}_${item.wearableId}`;
     const localUri = await ensureLocalUri(item.imageUri, item.wearableId);
 
     formData.append(fileKey, {
@@ -328,7 +417,7 @@ export async function recommendOutfitsFromUploads(
   formData.append("items", JSON.stringify(requestItems));
   formData.append("limitOutfits", String(input.limitOutfits ?? 6));
 
-  const res = await fetch(`${BASE_URL}${ENDPOINT}/recommend-from-uploads`, {
+  const res = await fetch(`${BASE_URL}${OUTFIT_RECOMMEND_ENDPOINT}`, {
     method: "POST",
     headers: {
       ...buildHeaders(accessToken),
@@ -342,5 +431,5 @@ export async function recommendOutfitsFromUploads(
     throw new Error(`Failed to recommend outfits (${res.status}): ${detail}`);
   }
 
-  return (await res.json()) as RecommendedOutfitResponse;
+  return await readRecommendationResponse(res);
 }
