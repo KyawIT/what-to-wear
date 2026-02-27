@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import * as FileSystem from "expo-file-system/legacy";
 import {resolveUploadUri, blobToBase64} from "@/lib/image/image.utils"
 import { removeBackground } from "@/api/rembg/image.api"; // recommended: move to /lib/api/rembg/image.api
 
@@ -33,7 +34,21 @@ export function useRemoveBackground({ id, uri }: Args) {
         setState({ loading: true, cutoutUri: null, error: null });
 
         try {
-            const uploadUri = await resolveUploadUri({ id, uri });
+            let uploadUri: string;
+
+            // Remote HTTP URL (e.g. scraped product image) — download to local cache first
+            if (uri && (uri.startsWith("http://") || uri.startsWith("https://"))) {
+                const dir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+                if (!dir) throw new Error("No cache directory available");
+                const localPath = `${dir}rembg_input_${Date.now()}.jpg`;
+                const result = await FileSystem.downloadAsync(uri, localPath);
+                if (result.status !== 200) {
+                    throw new Error(`Failed to download image (${result.status})`);
+                }
+                uploadUri = result.uri;
+            } else {
+                uploadUri = await resolveUploadUri({ id, uri });
+            }
 
             const blob = await removeBackground(uploadUri);
             const base64 = await blobToBase64(blob);
