@@ -42,6 +42,7 @@ import {
   Check,
   Plus,
 } from "lucide-react-native";
+import * as FileSystem from "expo-file-system/legacy";
 import { authClient } from "@/lib/auth-client";
 import { dataUriToFileUri } from "@/lib/image/image.utils";
 import { colors } from "@/lib/theme";
@@ -49,6 +50,12 @@ import { getKeycloakAccessToken } from "@/lib/keycloak";
 import { predictWearableTags } from "@/api/backend/predict.api";
 import { suggestWearableMetadata } from "@/lib/ai/metadata-suggestions";
 import { s } from "../../styles/screens/preview/index.styles";
+
+const VENDOR_LABELS: Record<string, string> = {
+  hm: "H&M",
+  zalando: "Zalando",
+  pinterest: "Pinterest",
+};
 
 const SUGGESTED_TAGS = [
   "Casual",
@@ -62,11 +69,18 @@ const CREATE_NEW_VALUE = "__create_new__";
 type Params = {
   id?: string;
   uri?: string;
+  prefillName?: string;
+  prefillDescription?: string;
+  prefillTags?: string;
+  prefillSource?: string;
 };
 
 export default function PreviewScreen() {
   const { data } = authClient.useSession();
-  const { id, uri } = useLocalSearchParams<Params>();
+  const { id, uri, prefillName, prefillDescription, prefillTags, prefillSource } =
+    useLocalSearchParams<Params>();
+
+  const isLinkImport = !!prefillSource;
   const { loading, cutoutUri, error, retry } = useRemoveBackground({ id, uri });
 
   const [title, setTitle] = useState("");
@@ -88,6 +102,22 @@ export default function PreviewScreen() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [createCategoryError, setCreateCategoryError] = useState<string>("");
+
+  // Apply prefill data from link import
+  useEffect(() => {
+    if (!prefillSource) return;
+    if (prefillName) setTitle(prefillName);
+    if (prefillDescription) setDescription(prefillDescription);
+    if (prefillTags) {
+      try {
+        const parsed = JSON.parse(prefillTags);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTags(parsed);
+          setHasAutoAppliedAiTags(true);
+        }
+      } catch {}
+    }
+  }, [prefillSource, prefillName, prefillDescription, prefillTags]);
 
   useEffect(() => {
     (async () => {
@@ -338,9 +368,23 @@ export default function PreviewScreen() {
       const userId = data!.user.id;
       const accessToken = await getKeycloakAccessToken(userId);
 
-      const file = cutoutUri.startsWith("data:")
-        ? await dataUriToFileUri(cutoutUri)
-        : { uri: cutoutUri, mime: "image/png", name: `wearable_${Date.now()}.png` };
+      let file: { uri: string; mime: string; name: string };
+
+      if (cutoutUri.startsWith("data:")) {
+        file = await dataUriToFileUri(cutoutUri);
+      } else if (cutoutUri.startsWith("http://") || cutoutUri.startsWith("https://")) {
+        // Remote URL from link import — download to local cache first
+        const dir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+        if (!dir) throw new Error("No cache directory available");
+        const localPath = `${dir}import_${Date.now()}.png`;
+        const result = await FileSystem.downloadAsync(cutoutUri, localPath);
+        if (result.status !== 200) {
+          throw new Error(`Failed to download image (${result.status})`);
+        }
+        file = { uri: result.uri, mime: "image/png", name: `wearable_${Date.now()}.png` };
+      } else {
+        file = { uri: cutoutUri, mime: "image/png", name: `wearable_${Date.now()}.png` };
+      }
 
       const result = await createWearableMultipart(
         {
@@ -448,6 +492,27 @@ export default function PreviewScreen() {
                   <RNText style={s.loadingLabel}>Removing background...</RNText>
                 </View>
               </Box>
+            )}
+
+            {/* Vendor badge for link imports */}
+            {prefillSource && VENDOR_LABELS[prefillSource] && (
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: 12,
+                  left: 12,
+                  backgroundColor: "rgba(255,255,255,0.92)",
+                  borderRadius: 12,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
+                <RNText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.textSecondary }}>
+                  Imported from {VENDOR_LABELS[prefillSource]}
+                </RNText>
+              </View>
             )}
           </Box>
         </Box>
@@ -797,7 +862,9 @@ export default function PreviewScreen() {
               >
                 <HStack className="items-center">
                   <RotateCcw size={18} color={colors.textSecondary} />
-                  <RNText style={s.retakeButtonText}>Retake Photo</RNText>
+                  <RNText style={s.retakeButtonText}>
+                    {isLinkImport ? "Import Another" : "Retake Photo"}
+                  </RNText>
                 </HStack>
               </Pressable>
             )}

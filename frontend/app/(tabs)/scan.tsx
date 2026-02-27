@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import * as MediaLibrary from "expo-media-library";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { X, ChevronDown, ChevronRight, Image as ImageIcon } from "lucide-react-native";
+import { X, ChevronDown, ChevronRight, Image as ImageIcon, Link } from "lucide-react-native";
 import {
   Modal,
   ModalBackdrop,
@@ -175,6 +175,61 @@ const Scan = () => {
           </Pressable>
         )}
       />
+
+      {/* Import from Link button */}
+      <Pressable
+        onPress={() => router.push("/import-link")}
+        style={{
+          marginHorizontal: 16,
+          marginTop: 8,
+          marginBottom: 8,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          borderRadius: 14,
+          backgroundColor: colors.cardBg,
+          borderWidth: 1,
+          borderColor: colors.border,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+        className="active:opacity-60"
+      >
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: `${colors.primary}20`,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 12,
+          }}
+        >
+          <Link size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontFamily: "Inter_600SemiBold",
+              fontSize: 14,
+              color: colors.textPrimary,
+            }}
+          >
+            Import from Link
+          </Text>
+          <Text
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 12,
+              color: colors.textMuted,
+              marginTop: 1,
+            }}
+          >
+            H&M, Zalando, Pinterest
+          </Text>
+        </View>
+        <ChevronRight size={18} color={colors.textMuted} />
+      </Pressable>
 
       <ImagePermissionGate
         permission={permission}

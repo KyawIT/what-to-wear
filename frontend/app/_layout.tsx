@@ -136,6 +136,7 @@ export default function RootLayout() {
                             <Stack.Screen name={"profile/help"} />
                             <Stack.Screen name={"profile/about"} />
                             <Stack.Screen name={"compose/index"} />
+                            <Stack.Screen name={"import-link/index"} />
                         </Stack.Protected>
                         <Stack.Protected guard={isAuthenticated === null}>
                             <Stack.Screen name={"index"} />
