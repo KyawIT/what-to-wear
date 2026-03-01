@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import {
-  KeyboardAvoidingView, Platform, ScrollView, TextInput, Alert, View, Text as RNText } from "react-native";
+  KeyboardAvoidingView, Platform, ScrollView, Alert, View, Text as RNText
+} from "react-native";
+import { FocusTextInput } from "@/components/focus-input";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Box } from "@/components/ui/box";
@@ -52,7 +54,6 @@ import { suggestWearableMetadata } from "@/lib/ai/metadata-suggestions";
 import { s } from "../../styles/screens/preview/index.styles";
 
 const VENDOR_LABELS: Record<string, string> = {
-  hm: "H&M",
   zalando: "Zalando",
   pinterest: "Pinterest",
 };
@@ -115,7 +116,7 @@ export default function PreviewScreen() {
           setTags(parsed);
           setHasAutoAppliedAiTags(true);
         }
-      } catch {}
+      } catch { }
     }
   }, [prefillSource, prefillName, prefillDescription, prefillTags]);
 
@@ -176,10 +177,10 @@ export default function PreviewScreen() {
         const file = cutoutUri.startsWith("data:")
           ? await dataUriToFileUri(cutoutUri, `predict_${Date.now()}.png`)
           : {
-              uri: cutoutUri,
-              mime: "image/png",
-              name: `predict_${Date.now()}.png`,
-            };
+            uri: cutoutUri,
+            mime: "image/png",
+            name: `predict_${Date.now()}.png`,
+          };
 
         const predictionResult = await predictWearableTags(
           {
@@ -435,318 +436,394 @@ export default function PreviewScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Box className="flex-1" style={{ backgroundColor: colors.background }}>
-        <AppHeader
-          title="New Item"
-          titleStyle={s.headerTitle}
-          left={(
-            <Pressable onPress={onBack} className="active:opacity-60">
-              <HStack className="items-center">
-                <X size={20} color={colors.textSecondary} />
-                <RNText style={s.cancelText}>Cancel</RNText>
-              </HStack>
-            </Pressable>
-          )}
-          right={(
-            <Pressable
-              onPress={onUse}
-              className="active:opacity-60 rounded-full px-4 py-2"
-              style={{
-                backgroundColor: isFormValid ? colors.primary : "#E8DED3",
-              }}
-              disabled={!isFormValid || submitting}
-            >
-              <RNText
-                style={[
-                  s.saveText,
-                  { color: isFormValid ? "#FFFFFF" : colors.textMuted },
-                ]}
-              >
-                {submitting ? "Saving..." : "Save"}
-              </RNText>
-            </Pressable>
-          )}
-        />
-
-        {/* Image preview */}
-        <Box className="px-4 pt-4">
-          <Box
-            className="rounded-3xl overflow-hidden"
-            style={{ backgroundColor: colors.backgroundSecondary }}
-          >
-            <Image
-              source={{ uri: cutoutUri ?? uri ?? "" }}
-              contentFit="contain"
-              style={{ width: "100%", height: 320 }}
-            />
-
-            {loading && (
-              <Box
-                className="absolute inset-0 items-center justify-center"
-                style={{ backgroundColor: "rgba(250, 247, 242, 0.9)" }}
-              >
-                <View
-                  className="rounded-2xl px-6 py-4 items-center"
-                  style={{ backgroundColor: colors.cardBg }}
-                >
-                  <Sparkles size={28} color={colors.primary} />
-                  <RNText style={s.loadingLabel}>Removing background...</RNText>
-                </View>
-              </Box>
-            )}
-
-            {/* Vendor badge for link imports */}
-            {prefillSource && VENDOR_LABELS[prefillSource] && (
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 12,
-                  left: 12,
-                  backgroundColor: "rgba(255,255,255,0.92)",
-                  borderRadius: 12,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
-              >
-                <RNText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.textSecondary }}>
-                  Imported from {VENDOR_LABELS[prefillSource]}
-                </RNText>
-              </View>
-            )}
-          </Box>
-        </Box>
-
-        {/* Scrollable form */}
-        <ScrollView
-          className="flex-1 px-4"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Error */}
-          {error && (
-            <RemoveBgErrorCallout
-              error={error}
-              loading={loading}
-              onRetry={retry}
-              onRetake={retake}
-            />
-          )}
-
-          {/* Form Section */}
-          <Box className="mt-6">
-            {/* Title */}
-            <Box className="mb-5">
-              <HStack className="items-center justify-between mb-2">
+          <AppHeader
+            title="New Item"
+            titleStyle={s.headerTitle}
+            left={(
+              <Pressable onPress={onBack} className="active:opacity-60">
                 <HStack className="items-center">
-                  <RNText style={s.fieldLabel}>Title</RNText>
-                  <Pressable
-                    onPress={() => applyMetadataSuggestion({ force: true })}
-                    className="ml-2 active:opacity-70"
-                  >
-                    <HStack
-                      className="items-center rounded-full px-2.5 py-1"
-                      style={{
-                        backgroundColor: `${colors.primary}15`,
-                        borderWidth: 1,
-                        borderColor: `${colors.primary}30`,
-                      }}
-                    >
-                      <Sparkles size={12} color={colors.primary} />
-                      <RNText style={s.autoFillText}>Auto Fill</RNText>
-                    </HStack>
-                  </Pressable>
+                  <X size={20} color={colors.textSecondary} />
+                  <RNText style={s.cancelText}>Cancel</RNText>
                 </HStack>
-                <RNText style={s.charCount}>{title.trim().length}/60</RNText>
-              </HStack>
-
-              <Box
-                className="rounded-xl overflow-hidden"
+              </Pressable>
+            )}
+            right={(
+              <Pressable
+                onPress={onUse}
+                className="active:opacity-60 rounded-full px-4 py-2"
                 style={{
-                  backgroundColor: colors.cardBg,
-                  borderWidth: 1,
-                  borderColor: colors.border,
+                  backgroundColor: isFormValid ? colors.primary : "#E8DED3",
                 }}
+                disabled={!isFormValid || submitting}
               >
-                <HStack className="items-center px-4 py-3">
-                  <TextInput
-                    value={title}
-                    onChangeText={setTitle}
-                    placeholder="e.g. Vintage Nike Windbreaker"
-                    placeholderTextColor={colors.textMuted}
-                    style={s.textInput}
-                    maxLength={60}
-                    returnKeyType="next"
-                  />
-                </HStack>
-              </Box>
+                <RNText
+                  style={[
+                    s.saveText,
+                    { color: isFormValid ? "#FFFFFF" : colors.textMuted },
+                  ]}
+                >
+                  {submitting ? "Saving..." : "Save"}
+                </RNText>
+              </Pressable>
+            )}
+          />
+
+          {/* Image preview */}
+          <Box className="px-4 pt-4">
+            <Box
+              className="rounded-3xl overflow-hidden"
+              style={{ backgroundColor: colors.backgroundSecondary }}
+            >
+              <Image
+                source={{ uri: cutoutUri ?? uri ?? "" }}
+                contentFit="contain"
+                style={{ width: "100%", height: 320 }}
+              />
+
+              {loading && (
+                <Box
+                  className="absolute inset-0 items-center justify-center"
+                  style={{ backgroundColor: "rgba(250, 247, 242, 0.9)" }}
+                >
+                  <View
+                    className="rounded-2xl px-6 py-4 items-center"
+                    style={{ backgroundColor: colors.cardBg }}
+                  >
+                    <Sparkles size={28} color={colors.primary} />
+                    <RNText style={s.loadingLabel}>Removing background...</RNText>
+                  </View>
+                </Box>
+              )}
+
+              {/* Vendor badge for link imports */}
+              {prefillSource && VENDOR_LABELS[prefillSource] && (
+                <View
+                  style={{
+                    position: "absolute",
+                    bottom: 12,
+                    left: 12,
+                    backgroundColor: "rgba(255,255,255,0.92)",
+                    borderRadius: 12,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  <RNText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.textSecondary }}>
+                    Imported from {VENDOR_LABELS[prefillSource]}
+                  </RNText>
+                </View>
+              )}
             </Box>
+          </Box>
 
-            {/* Category Picker */}
-            <Box className="mb-5">
-              <RNText style={[s.fieldLabel, { marginBottom: 8 }]}>Category</RNText>
+          {/* Scrollable form */}
+          <ScrollView
+            className="flex-1 px-4"
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Error */}
+            {error && (
+              <RemoveBgErrorCallout
+                error={error}
+                loading={loading}
+                onRetry={retry}
+                onRetake={retake}
+              />
+            )}
 
-              <Select
-                selectedValue={selectedCategoryId || (showCreateCategory ? CREATE_NEW_VALUE : "")}
-                onValueChange={handleCategoryChange}
-                isDisabled={loadingCategories}
-              >
-                <SelectTrigger
-                  variant="outline"
-                  size="md"
-                  className="rounded-xl"
+            {/* Form Section */}
+            <Box className="mt-6">
+              {/* Title */}
+              <Box className="mb-5">
+                <HStack className="items-center justify-between mb-2">
+                  <HStack className="items-center">
+                    <RNText style={s.fieldLabel}>Title</RNText>
+                    <Pressable
+                      onPress={() => applyMetadataSuggestion({ force: true })}
+                      className="ml-2 active:opacity-70"
+                    >
+                      <HStack
+                        className="items-center rounded-full px-2.5 py-1"
+                        style={{
+                          backgroundColor: `${colors.primary}15`,
+                          borderWidth: 1,
+                          borderColor: `${colors.primary}30`,
+                        }}
+                      >
+                        <Sparkles size={12} color={colors.primary} />
+                        <RNText style={s.autoFillText}>Auto Fill</RNText>
+                      </HStack>
+                    </Pressable>
+                  </HStack>
+                  <RNText style={s.charCount}>{title.trim().length}/60</RNText>
+                </HStack>
+
+                <Box
+                  className="rounded-xl overflow-hidden"
                   style={{
                     backgroundColor: colors.cardBg,
+                    borderWidth: 1,
                     borderColor: colors.border,
                   }}
                 >
-                  <SelectInput
-                    placeholder={
-                      loadingCategories ? "Loading categories..." : "Select category"
-                    }
-                    className="text-base flex-1"
-                    style={{
-                      color: (selectedCategoryId || showCreateCategory)
-                        ? colors.textPrimary
-                        : colors.textMuted,
-                      fontFamily: "Inter_400Regular",
-                    }}
-                  />
-                  <SelectIcon
-                    style={{ color: colors.textMuted }}
-                    as={ChevronDownIcon}
-                  />
-                </SelectTrigger>
-                <SelectPortal>
-                  <SelectBackdrop style={{ backgroundColor: "rgba(0,0,0,0.5)" }} />
-                  <SelectContent
+                  <HStack className="items-center px-4 py-3">
+                    <FocusTextInput
+                      value={title}
+                      onChangeText={setTitle}
+                      placeholder="e.g. Vintage Nike Windbreaker"
+                      placeholderTextColor={colors.textMuted}
+                      style={s.textInput}
+                      maxLength={60}
+                      returnKeyType="next"
+                      label="Title"
+                    />
+                  </HStack>
+                </Box>
+              </Box>
+
+              {/* Category Picker */}
+              <Box className="mb-5">
+                <RNText style={[s.fieldLabel, { marginBottom: 8 }]}>Category</RNText>
+
+                <Select
+                  selectedValue={selectedCategoryId || (showCreateCategory ? CREATE_NEW_VALUE : "")}
+                  onValueChange={handleCategoryChange}
+                  isDisabled={loadingCategories}
+                >
+                  <SelectTrigger
+                    variant="outline"
+                    size="md"
+                    className="rounded-xl"
                     style={{
                       backgroundColor: colors.cardBg,
                       borderColor: colors.border,
                     }}
                   >
-                    <SelectDragIndicatorWrapper>
-                      <SelectDragIndicator style={{ backgroundColor: colors.border }} />
-                    </SelectDragIndicatorWrapper>
-                    {categories.map((category) => (
-                      <SelectItem
-                        key={category.id}
-                        label={category.name}
-                        value={category.id}
-                      />
-                    ))}
-                    <SelectItem
-                      label="+ New category"
-                      value={CREATE_NEW_VALUE}
+                    <SelectInput
+                      placeholder={
+                        loadingCategories ? "Loading categories..." : "Select category"
+                      }
+                      className="text-base flex-1"
+                      style={{
+                        color: (selectedCategoryId || showCreateCategory)
+                          ? colors.textPrimary
+                          : colors.textMuted,
+                        fontFamily: "Inter_400Regular",
+                      }}
                     />
-                  </SelectContent>
-                </SelectPortal>
-              </Select>
+                    <SelectIcon
+                      style={{ color: colors.textMuted }}
+                      as={ChevronDownIcon}
+                    />
+                  </SelectTrigger>
+                  <SelectPortal>
+                    <SelectBackdrop style={{ backgroundColor: "rgba(0,0,0,0.5)" }} />
+                    <SelectContent
+                      style={{
+                        backgroundColor: colors.cardBg,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <SelectDragIndicatorWrapper>
+                        <SelectDragIndicator style={{ backgroundColor: colors.border }} />
+                      </SelectDragIndicatorWrapper>
+                      {categories.map((category) => (
+                        <SelectItem
+                          key={category.id}
+                          label={category.name}
+                          value={category.id}
+                        />
+                      ))}
+                      <SelectItem
+                        label="+ New category"
+                        value={CREATE_NEW_VALUE}
+                      />
+                    </SelectContent>
+                  </SelectPortal>
+                </Select>
 
-              {/* Inline create category form */}
-              {showCreateCategory && (
+                {/* Inline create category form */}
+                {showCreateCategory && (
+                  <Box
+                    className="mt-3 rounded-xl p-3"
+                    style={{
+                      backgroundColor: colors.cardBg,
+                      borderWidth: 1,
+                      borderColor: colors.primary + "60",
+                    }}
+                  >
+                    <HStack className="items-center mb-2">
+                      <Plus size={14} color={colors.primary} />
+                      <RNText style={s.newCatLabel}>New category</RNText>
+                    </HStack>
+
+                    <HStack className="items-center">
+                      <Box
+                        className="flex-1 rounded-lg overflow-hidden mr-2"
+                        style={{
+                          backgroundColor: colors.background,
+                          borderWidth: 1,
+                          borderColor: createCategoryError ? colors.error : colors.border,
+                        }}
+                      >
+                        <FocusTextInput
+                          value={newCategoryName}
+                          onChangeText={(t: string) => {
+                            setNewCategoryName(t);
+                            if (createCategoryError) setCreateCategoryError("");
+                          }}
+                          placeholder="Category name..."
+                          placeholderTextColor={colors.textMuted}
+                          style={[s.textInput, { fontSize: 14, paddingHorizontal: 12, paddingVertical: 8 }]}
+                          maxLength={100}
+                          returnKeyType="done"
+                          label="New Category"
+                        />
+                      </Box>
+
+                      <Pressable
+                        onPress={handleCreateCategory}
+                        disabled={creatingCategory || !newCategoryName.trim()}
+                        className="rounded-lg px-3 py-2 active:opacity-80"
+                        style={{
+                          backgroundColor:
+                            newCategoryName.trim() && !creatingCategory
+                              ? colors.primary
+                              : "#E8DED3",
+                        }}
+                      >
+                        <RNText
+                          style={[
+                            s.createBtnText,
+                            {
+                              color:
+                                newCategoryName.trim() && !creatingCategory
+                                  ? "#FFFFFF"
+                                  : colors.textMuted,
+                            },
+                          ]}
+                        >
+                          {creatingCategory ? "..." : "Create"}
+                        </RNText>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={cancelCreateCategory}
+                        className="ml-2 active:opacity-60"
+                      >
+                        <X size={18} color={colors.textMuted} />
+                      </Pressable>
+                    </HStack>
+
+                    {createCategoryError ? (
+                      <RNText style={s.catError}>{createCategoryError}</RNText>
+                    ) : null}
+                  </Box>
+                )}
+
+                {/* Show selected category name as confirmation */}
+                {selectedCategoryName && !showCreateCategory && (
+                  <RNText style={s.selectedCatHint}>
+                    Selected: {selectedCategoryName}
+                  </RNText>
+                )}
+              </Box>
+
+              {/* Tags Section */}
+              <Box className="mb-5">
+                <HStack className="items-center justify-between mb-2">
+                  <HStack className="items-center">
+                    <Tag size={16} color={colors.textPrimary} />
+                    <RNText style={[s.fieldLabel, { marginLeft: 8 }]}>Tags</RNText>
+                    <RNText style={s.tagCount}>({tags.length})</RNText>
+                  </HStack>
+                  {tags.length > 0 && (
+                    <Pressable onPress={() => setTags([])}>
+                      <RNText style={s.clearAll}>Clear all</RNText>
+                    </Pressable>
+                  )}
+                </HStack>
+
+                {/* Tag input */}
                 <Box
-                  className="mt-3 rounded-xl p-3"
+                  className="rounded-xl overflow-hidden"
                   style={{
                     backgroundColor: colors.cardBg,
                     borderWidth: 1,
-                    borderColor: colors.primary + "60",
+                    borderColor: colors.border,
                   }}
                 >
-                  <HStack className="items-center mb-2">
-                    <Plus size={14} color={colors.primary} />
-                    <RNText style={s.newCatLabel}>New category</RNText>
-                  </HStack>
-
-                  <HStack className="items-center">
-                    <Box
-                      className="flex-1 rounded-lg overflow-hidden mr-2"
-                      style={{
-                        backgroundColor: colors.background,
-                        borderWidth: 1,
-                        borderColor: createCategoryError ? colors.error : colors.border,
-                      }}
-                    >
-                      <TextInput
-                        value={newCategoryName}
-                        onChangeText={(t) => {
-                          setNewCategoryName(t);
-                          if (createCategoryError) setCreateCategoryError("");
-                        }}
-                        placeholder="Category name..."
-                        placeholderTextColor={colors.textMuted}
-                        style={[s.textInput, { fontSize: 14, paddingHorizontal: 12, paddingVertical: 8 }]}
-                        autoFocus
-                        maxLength={100}
-                        returnKeyType="done"
-                        onSubmitEditing={handleCreateCategory}
-                      />
-                    </Box>
-
-                    <Pressable
-                      onPress={handleCreateCategory}
-                      disabled={creatingCategory || !newCategoryName.trim()}
-                      className="rounded-lg px-3 py-2 active:opacity-80"
-                      style={{
-                        backgroundColor:
-                          newCategoryName.trim() && !creatingCategory
-                            ? colors.primary
-                            : "#E8DED3",
-                      }}
-                    >
-                      <RNText
-                        style={[
-                          s.createBtnText,
-                          {
-                            color:
-                              newCategoryName.trim() && !creatingCategory
-                                ? "#FFFFFF"
-                                : colors.textMuted,
-                          },
-                        ]}
+                  <HStack className="items-center px-4 py-3">
+                    <RNText style={{ color: colors.textMuted, fontSize: 16, fontFamily: "Inter_400Regular" }}>#</RNText>
+                    <FocusTextInput
+                      value={tagInput}
+                      onChangeText={setTagInput}
+                      placeholder="Type a tag..."
+                      placeholderTextColor={colors.textMuted}
+                      style={[s.textInput, { marginLeft: 8 }]}
+                      autoCapitalize="none"
+                      returnKeyType="done"
+                      label="Add Tag"
+                    />
+                    {tagInput.length > 0 && (
+                      <Pressable
+                        onPress={() => addTag(tagInput)}
+                        className="ml-2 rounded-full px-4 py-1.5 active:opacity-80"
+                        style={{ backgroundColor: colors.primary }}
                       >
-                        {creatingCategory ? "..." : "Create"}
-                      </RNText>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={cancelCreateCategory}
-                      className="ml-2 active:opacity-60"
-                    >
-                      <X size={18} color={colors.textMuted} />
-                    </Pressable>
+                        <RNText style={s.addBtnText}>Add</RNText>
+                      </Pressable>
+                    )}
                   </HStack>
-
-                  {createCategoryError ? (
-                    <RNText style={s.catError}>{createCategoryError}</RNText>
-                  ) : null}
                 </Box>
-              )}
 
-              {/* Show selected category name as confirmation */}
-              {selectedCategoryName && !showCreateCategory && (
-                <RNText style={s.selectedCatHint}>
-                  Selected: {selectedCategoryName}
-                </RNText>
-              )}
+                {/* Added tags display */}
+                {tags.length > 0 && (
+                  <Box className="mt-3">
+                    <HStack className="flex-wrap">
+                      {tags.map((t) => (
+                        <Pressable
+                          key={t}
+                          onPress={() => removeTag(t)}
+                          className="mr-2 mb-2"
+                        >
+                          <HStack
+                            className="items-center rounded-full px-3 py-2"
+                            style={{
+                              backgroundColor: `${colors.primary}20`,
+                              borderWidth: 1,
+                              borderColor: `${colors.primary}40`,
+                            }}
+                          >
+                            <Check size={14} color={colors.primary} />
+                            <RNText style={s.tagText}>{t}</RNText>
+                            <X size={14} color={colors.primary} style={{ marginLeft: 6 }} />
+                          </HStack>
+                        </Pressable>
+                      ))}
+                    </HStack>
+                  </Box>
+                )}
+
+                <SuggestedTagsSection
+                  availableSuggestions={availableSuggestions}
+                  predictingTags={predictingTags}
+                  aiPredictionError={aiPredictionError}
+                  onAddTag={addTag}
+                />
+              </Box>
             </Box>
 
-            {/* Tags Section */}
+            {/* Description */}
             <Box className="mb-5">
               <HStack className="items-center justify-between mb-2">
-                <HStack className="items-center">
-                  <Tag size={16} color={colors.textPrimary} />
-                  <RNText style={[s.fieldLabel, { marginLeft: 8 }]}>Tags</RNText>
-                  <RNText style={s.tagCount}>({tags.length})</RNText>
-                </HStack>
-                {tags.length > 0 && (
-                  <Pressable onPress={() => setTags([])}>
-                    <RNText style={s.clearAll}>Clear all</RNText>
-                  </Pressable>
-                )}
+                <RNText style={s.fieldLabel}>Description</RNText>
+                <RNText style={s.charCount}>{description.trim().length}/200</RNText>
               </HStack>
 
-              {/* Tag input */}
               <Box
                 className="rounded-xl overflow-hidden"
                 style={{
@@ -755,84 +832,8 @@ export default function PreviewScreen() {
                   borderColor: colors.border,
                 }}
               >
-                <HStack className="items-center px-4 py-3">
-                  <RNText style={{ color: colors.textMuted, fontSize: 16, fontFamily: "Inter_400Regular" }}>#</RNText>
-                  <TextInput
-                    value={tagInput}
-                    onChangeText={setTagInput}
-                    placeholder="Type a tag..."
-                    placeholderTextColor={colors.textMuted}
-                    style={[s.textInput, { marginLeft: 8 }]}
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    onSubmitEditing={() => addTag(tagInput)}
-                  />
-                  {tagInput.length > 0 && (
-                    <Pressable
-                      onPress={() => addTag(tagInput)}
-                      className="ml-2 rounded-full px-4 py-1.5 active:opacity-80"
-                      style={{ backgroundColor: colors.primary }}
-                    >
-                      <RNText style={s.addBtnText}>Add</RNText>
-                    </Pressable>
-                  )}
-                </HStack>
-              </Box>
-
-              {/* Added tags display */}
-              {tags.length > 0 && (
-                <Box className="mt-3">
-                  <HStack className="flex-wrap">
-                    {tags.map((t) => (
-                      <Pressable
-                        key={t}
-                        onPress={() => removeTag(t)}
-                        className="mr-2 mb-2"
-                      >
-                        <HStack
-                          className="items-center rounded-full px-3 py-2"
-                          style={{
-                            backgroundColor: `${colors.primary}20`,
-                            borderWidth: 1,
-                            borderColor: `${colors.primary}40`,
-                          }}
-                        >
-                          <Check size={14} color={colors.primary} />
-                          <RNText style={s.tagText}>{t}</RNText>
-                          <X size={14} color={colors.primary} style={{ marginLeft: 6 }} />
-                        </HStack>
-                      </Pressable>
-                    ))}
-                  </HStack>
-                </Box>
-              )}
-
-              <SuggestedTagsSection
-                availableSuggestions={availableSuggestions}
-                predictingTags={predictingTags}
-                aiPredictionError={aiPredictionError}
-                onAddTag={addTag}
-              />
-            </Box>
-          </Box>
-
-          {/* Description */}
-          <Box className="mb-5">
-            <HStack className="items-center justify-between mb-2">
-              <RNText style={s.fieldLabel}>Description</RNText>
-              <RNText style={s.charCount}>{description.trim().length}/200</RNText>
-            </HStack>
-
-            <Box
-                className="rounded-xl overflow-hidden"
-                style={{
-                  backgroundColor: colors.cardBg,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-            >
-              <Box className="px-4 py-3">
-                <TextInput
+                <Box className="px-4 py-3">
+                  <FocusTextInput
                     value={description}
                     onChangeText={setDescription}
                     placeholder="Add details about color, material, condition..."
@@ -840,39 +841,39 @@ export default function PreviewScreen() {
                     style={[s.textInput, { minHeight: 80, textAlignVertical: "top" }]}
                     maxLength={200}
                     multiline
-                    numberOfLines={4}
                     returnKeyType="default"
-                />
+                    label="Description"
+                  />
+                </Box>
               </Box>
             </Box>
-          </Box>
 
-          {/* Retake button */}
-          <VStack className="pt-4 pb-10">
-            {!error && (
-              <Pressable
-                onPress={retake}
-                className="rounded-xl py-4 items-center active:opacity-80"
-                style={{
-                  backgroundColor: colors.cardBg,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                disabled={loading}
-              >
-                <HStack className="items-center">
-                  <RotateCcw size={18} color={colors.textSecondary} />
-                  <RNText style={s.retakeButtonText}>
-                    {isLinkImport ? "Import Another" : "Retake Photo"}
-                  </RNText>
-                </HStack>
-              </Pressable>
-            )}
-          </VStack>
+            {/* Retake button */}
+            <VStack className="pt-4 pb-10">
+              {!error && (
+                <Pressable
+                  onPress={retake}
+                  className="rounded-xl py-4 items-center active:opacity-80"
+                  style={{
+                    backgroundColor: colors.cardBg,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                  disabled={loading}
+                >
+                  <HStack className="items-center">
+                    <RotateCcw size={18} color={colors.textSecondary} />
+                    <RNText style={s.retakeButtonText}>
+                      {isLinkImport ? "Import Another" : "Retake Photo"}
+                    </RNText>
+                  </HStack>
+                </Pressable>
+              )}
+            </VStack>
 
-          {/* Bottom spacing */}
-          <Box className="h-8" />
-        </ScrollView>
+            {/* Bottom spacing */}
+            <Box className="h-8" />
+          </ScrollView>
         </Box>
       </KeyboardAvoidingView>
     </SafeAreaView>

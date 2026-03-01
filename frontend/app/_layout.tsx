@@ -1,4 +1,5 @@
 import { Stack, router } from "expo-router";
+import { FocusInputProvider } from "@/components/focus-input";
 
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import '@/global.css';
@@ -21,13 +22,12 @@ import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import { ShareIntent, useShareIntent } from "expo-share-intent";
 
-const SHARE_SOURCE_RULES: { source: "zalando" | "hm" | "pinterest"; patterns: RegExp[] }[] = [
+const SHARE_SOURCE_RULES: { source: "zalando" | "pinterest"; patterns: RegExp[] }[] = [
     { source: "zalando", patterns: [/zalando\./i] },
-    { source: "hm", patterns: [/\bhm\.com\b/i, /\bwww2\.hm\.com\b/i, /\bh&m\b/i] },
     { source: "pinterest", patterns: [/pinterest\./i, /pin\.it/i] },
 ];
 
-function inferShareSource(shareIntent: ShareIntent): "zalando" | "hm" | "pinterest" | "unknown" {
+function inferShareSource(shareIntent: ShareIntent): "zalando" | "pinterest" | "unknown" {
     const fileStrings = (shareIntent.files ?? []).flatMap((file) => [
         file.fileName ?? "",
         file.path ?? "",
@@ -119,29 +119,31 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
                 <GluestackUIProvider>
-                    <StatusBar hidden={true} />
-                    <Stack
-                        screenOptions={{
-                            headerShown: false,
-                            animation: "slide_from_right",
-                            gestureEnabled: true,
-                            fullScreenGestureEnabled: true,
-                        }}
-                    >
-                        <Stack.Protected guard={isAuthenticated !== null}>
-                            <Stack.Screen name={"(tabs)"} />
-                            <Stack.Screen name={"preview/index"} />
-                            <Stack.Screen name={"profile/account"} />
-                            <Stack.Screen name={"profile/privacy"} />
-                            <Stack.Screen name={"profile/help"} />
-                            <Stack.Screen name={"profile/about"} />
-                            <Stack.Screen name={"compose/index"} />
-                            <Stack.Screen name={"import-link/index"} />
-                        </Stack.Protected>
-                        <Stack.Protected guard={isAuthenticated === null}>
-                            <Stack.Screen name={"index"} />
-                        </Stack.Protected>
-                    </Stack>
+                    <FocusInputProvider>
+                        <StatusBar hidden={true} />
+                        <Stack
+                            screenOptions={{
+                                headerShown: false,
+                                animation: "slide_from_right",
+                                gestureEnabled: true,
+                                fullScreenGestureEnabled: true,
+                            }}
+                        >
+                            <Stack.Protected guard={isAuthenticated !== null}>
+                                <Stack.Screen name={"(tabs)"} />
+                                <Stack.Screen name={"preview/index"} />
+                                <Stack.Screen name={"profile/account"} />
+                                <Stack.Screen name={"profile/privacy"} />
+                                <Stack.Screen name={"profile/help"} />
+                                <Stack.Screen name={"profile/about"} />
+                                <Stack.Screen name={"compose/index"} />
+                                <Stack.Screen name={"import-link/index"} />
+                            </Stack.Protected>
+                            <Stack.Protected guard={isAuthenticated === null}>
+                                <Stack.Screen name={"index"} />
+                            </Stack.Protected>
+                        </Stack>
+                    </FocusInputProvider>
                 </GluestackUIProvider>
             </SafeAreaProvider>
         </GestureHandlerRootView>

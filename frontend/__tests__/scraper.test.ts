@@ -1,18 +1,13 @@
 import {
   detectVendor,
   mapToPreviewData,
-  HmScrapeResponse,
   PinterestScrapeResponse,
   ZalandoScrapeResponse,
 } from "@/api/backend/scraper.api";
 
 describe("detectVendor", () => {
-  it("detects H&M from hm.com", () => {
-    expect(detectVendor("https://www2.hm.com/en_gb/productpage.123456.html")).toBe("hm");
-  });
-
-  it("detects H&M from www2.hm.com", () => {
-    expect(detectVendor("https://www2.hm.com/some-product")).toBe("hm");
+  it("returns null for hm.com (unsupported)", () => {
+    expect(detectVendor("https://www2.hm.com/en_gb/productpage.123456.html")).toBeNull();
   });
 
   it("detects Zalando from zalando.at", () => {
@@ -41,29 +36,6 @@ describe("detectVendor", () => {
 });
 
 describe("mapToPreviewData", () => {
-  it("maps H&M response correctly", () => {
-    const response: HmScrapeResponse = {
-      name: "Slim Fit T-shirt",
-      article_code: "0123456001",
-      price: "EUR 9.99",
-      colors: ["White", "Black"],
-      sizes: ["S", "M", "L"],
-      images: [
-        "https://image.hm.com/1.jpg",
-        "https://image.hm.com/2.jpg",
-      ],
-    };
-
-    const result = mapToPreviewData("hm", response);
-
-    expect(result.name).toBe("Slim Fit T-shirt");
-    expect(result.description).toBe("Article: 0123456001 \u00b7 EUR 9.99");
-    expect(result.imageUrl).toBe("https://image.hm.com/1.jpg");
-    expect(result.images).toEqual(["https://image.hm.com/1.jpg", "https://image.hm.com/2.jpg"]);
-    expect(result.tags).toEqual(["White", "Black", "S", "M", "L"]);
-    expect(result.vendor).toBe("hm");
-  });
-
   it("maps Pinterest response correctly", () => {
     const response: PinterestScrapeResponse = {
       pin_id: "123456",

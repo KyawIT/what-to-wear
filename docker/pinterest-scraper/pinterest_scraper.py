@@ -23,7 +23,7 @@ import threading
 import time
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse, urlunparse
 
 from curl_cffi import requests
 from stem import Signal
@@ -190,6 +190,35 @@ class PinInfo:
     description: str
     post_name: str
     image_url: str
+
+
+def _is_short_url(url: str) -> bool:
+    """Return True if *url* is a Pinterest shortened link (pin.it)."""
+    return bool(re.match(r"https?://(www\.)?pin\.it/", url))
+
+
+def _resolve_short_url(url: str) -> str:
+    """Follow a pin.it redirect and return the canonical Pinterest URL.
+
+    Uses a HEAD request so we only fetch headers, not the full page.
+    The resolved URL is cleaned of tracking query parameters.
+    """
+    proxies = _get_proxies()
+    session = _get_session()
+
+    try:
+        resp = session.head(url, timeout=30, allow_redirects=True, proxies=proxies)
+    except (requests.errors.RequestsError, OSError) as exc:
+        raise RuntimeError(f"Failed to resolve short URL {url}: {exc}") from exc
+
+    final_url = str(resp.url)
+    logger.info("Resolved short URL %s -> %s", url, final_url)
+
+    # Strip query params (invite_code, sfo, etc.) — only the path matters.
+
+    parsed = urlparse(final_url)
+    clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+    return clean_url
 
 
 def extract_pin_id(url: str) -> str:
@@ -429,7 +458,13 @@ def fetch_pin_info(url: str) -> PinInfo:
     """Fetch pin data from Pinterest page relay payloads.
 
     Uses session reuse, rate limiting, caching, and retries with exponential backoff.
+    Supports short pin.it URLs by resolving them first.
     """
+    # Resolve pin.it short URLs to canonical pinterest.com URLs.
+    if _is_short_url(url):
+        url = _resolve_short_url(url)
+        logger.info("Using resolved URL: %s", url)
+
     pin_id = extract_pin_id(url)
 
     cached = _cache_get(pin_id)

@@ -1,20 +1,17 @@
 import React, { useState } from "react";
 import {
   View,
-  TextInput,
   Pressable,
   Text,
   ActivityIndicator,
-  FlatList,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { FocusTextInput } from "@/components/focus-input";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { X, Link, Clipboard, ExternalLink } from "lucide-react-native";
-import Svg, { Path, Circle, G } from "react-native-svg";
 import * as ExpoClipboard from "expo-clipboard";
 
 import { Box } from "@/components/ui/box";
@@ -33,68 +30,26 @@ import {
 } from "@/api/backend/scraper.api";
 import { s } from "../../styles/screens/import-link/index.styles";
 
-const W = Dimensions.get("window").width;
-const IMAGE_SIZE = (W - 48 - 16) / 3; // 3 columns with padding and gaps
-
 const VENDOR_LABELS: Record<VendorSource, string> = {
-  hm: "H&M",
   zalando: "Zalando",
   pinterest: "Pinterest",
 };
 
 const VENDOR_COLORS: Record<VendorSource, string> = {
-  hm: "#E50010",
   zalando: "#FF6900",
   pinterest: "#E60023",
 };
 
-// ── Vendor SVG Logos ───────────────────────────────────────────────
+// ── Vendor Logos ──────────────────────────────────────────────────
 
-function HmLogo({ size = 28 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <G fill="#E50010">
-        <Path d="M10 20 L10 80 L25 80 L25 55 L40 55 L40 80 L55 80 L55 20 L40 20 L40 45 L25 45 L25 20 Z" />
-        <Path d="M58 55 L58 80 L70 80 L70 40 L78 55 L70 40 L82 20 L70 20 L64 35 L58 20 L46 20 L58 42 Z" opacity={0} />
-        <Path d="M62 20 L62 80 L74 80 L74 55 L78 55 L82 80 L94 80 L88 52 C92 48 94 42 94 36 C94 26 88 20 78 20 Z M74 32 L78 32 C82 32 83 34 83 37 C83 40 82 43 78 43 L74 43 Z" transform="translate(-2,0)" />
-      </G>
-    </Svg>
-  );
-}
-
-function ZalandoLogo({ size = 28 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Path
-        d="M50 10 C28 10 10 28 10 50 C10 72 28 90 50 90 C72 90 90 72 90 50 C90 28 72 10 50 10 Z M65 68 L35 68 L35 62 L55 38 L35 38 L35 32 L65 32 L65 38 L45 62 L65 62 Z"
-        fill="#FF6900"
-      />
-    </Svg>
-  );
-}
-
-function PinterestLogo({ size = 28 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="40" fill="#E60023" />
-      <Path
-        d="M50 25 C38 25 30 33 30 43 C30 49 33 54 38 56 C38.5 54 38 52 38 51 C38 51 35 43 35 43 C35 35 41 30 50 30 C57 30 63 34 63 42 C63 52 58 60 52 60 C49 60 47 58 48 55 C49 51 51 47 51 44 C51 42 50 40 48 40 C45 40 43 43 43 47 C43 49 44 51 44 51 L40 68 C39 72 40 78 40 78 C40 78 40 78 41 78 C41 78 44 71 45 67 L48 56 C50 59 53 61 57 61 C66 61 72 53 72 42 C72 32 63 25 50 25 Z"
-        fill="#FFFFFF"
-      />
-    </Svg>
-  );
-}
-
-const VENDOR_LOGOS: Record<VendorSource, (props: { size?: number }) => React.ReactElement> = {
-  hm: HmLogo,
-  zalando: ZalandoLogo,
-  pinterest: PinterestLogo,
+const VENDOR_LOGOS: Record<VendorSource, number> = {
+  zalando: require("@/assets/vendors/zalando-logo.png"),
+  pinterest: require("@/assets/vendors/pinterest-logo.png"),
 };
 
 const SQUIRCLE_SIZE = 72;
 
 function VendorSquircle({ vendor }: { vendor: VendorSource }) {
-  const Logo = VENDOR_LOGOS[vendor];
   return (
     <VStack className="items-center" style={{ width: SQUIRCLE_SIZE + 16 }}>
       <View
@@ -109,7 +64,7 @@ function VendorSquircle({ vendor }: { vendor: VendorSource }) {
           justifyContent: "center",
         }}
       >
-        <Logo size={36} />
+        <Image source={VENDOR_LOGOS[vendor]} style={{ width: 36, height: 36 }} contentFit="contain" />
       </View>
       <Text
         style={{
@@ -131,8 +86,6 @@ export default function ImportLinkScreen() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scrapedData, setScrapedData] = useState<ScrapedPreviewData | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const detectedVendor = url.trim() ? detectVendor(url.trim()) : null;
 
@@ -141,7 +94,6 @@ export default function ImportLinkScreen() {
     if (text) {
       setUrl(text);
       setError(null);
-      setScrapedData(null);
     }
   };
 
@@ -154,7 +106,7 @@ export default function ImportLinkScreen() {
 
     const vendor = detectVendor(trimmedUrl);
     if (!vendor) {
-      setError("Unsupported vendor. We support H&M, Zalando, and Pinterest links.");
+      setError("Unsupported vendor. We support Zalando and Pinterest links.");
       return;
     }
 
@@ -165,7 +117,6 @@ export default function ImportLinkScreen() {
 
     setLoading(true);
     setError(null);
-    setScrapedData(null);
 
     try {
       const accessToken = await getKeycloakAccessToken(data.user.id);
@@ -177,13 +128,7 @@ export default function ImportLinkScreen() {
         return;
       }
 
-      setScrapedData(preview);
-      setSelectedImageIndex(0);
-
-      // If not H&M with multiple images, navigate directly
-      if (vendor !== "hm" || !preview.images || preview.images.length <= 1) {
-        navigateToPreview(preview, preview.imageUrl);
-      }
+      navigateToPreview(preview, preview.imageUrl);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to scrape link. Please try again.";
       setError(msg);
@@ -204,17 +149,6 @@ export default function ImportLinkScreen() {
       },
     });
   };
-
-  const handleContinueWithImage = () => {
-    if (!scrapedData) return;
-    const imageUrl = scrapedData.images?.[selectedImageIndex] ?? scrapedData.imageUrl;
-    navigateToPreview(scrapedData, imageUrl);
-  };
-
-  const showImagePicker =
-    scrapedData?.vendor === "hm" &&
-    scrapedData.images &&
-    scrapedData.images.length > 1;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
@@ -256,7 +190,7 @@ export default function ImportLinkScreen() {
             </View>
             <Text style={s.sectionTitle}>Paste a Product Link</Text>
             <Text style={s.sectionSubtitle}>
-              Import clothing from H&M, Zalando, or Pinterest
+              Import clothing from Zalando or Pinterest
             </Text>
           </VStack>
 
@@ -273,12 +207,11 @@ export default function ImportLinkScreen() {
           >
             <HStack className="items-center px-4 py-3">
               <ExternalLink size={18} color={colors.textMuted} />
-              <TextInput
+              <FocusTextInput
                 value={url}
-                onChangeText={(t) => {
+                onChangeText={(t: string) => {
                   setUrl(t);
                   setError(null);
-                  setScrapedData(null);
                 }}
                 placeholder="https://www.zalando.at/..."
                 placeholderTextColor={colors.textMuted}
@@ -287,7 +220,7 @@ export default function ImportLinkScreen() {
                 autoCorrect={false}
                 keyboardType="url"
                 returnKeyType="go"
-                onSubmitEditing={handleImport}
+                label="Product URL"
               />
               <Pressable onPress={handlePaste} className="ml-2 active:opacity-60">
                 <HStack className="items-center px-3 py-1.5 rounded-full" style={{ backgroundColor: `${colors.primary}15` }}>
@@ -344,60 +277,8 @@ export default function ImportLinkScreen() {
             </VStack>
           )}
 
-          {/* H&M Image Picker */}
-          {showImagePicker && (
-            <VStack className="mt-2">
-              <Text style={s.imagePickerTitle}>Select an Image</Text>
-              <Text style={s.imagePickerSubtitle}>
-                {scrapedData!.images!.length} images available - tap to select
-              </Text>
-
-              <FlatList
-                data={scrapedData!.images!}
-                keyExtractor={(_, i) => String(i)}
-                numColumns={3}
-                style={{ marginTop: 12 }}
-                columnWrapperStyle={{ gap: 8 }}
-                contentContainerStyle={{ gap: 8 }}
-                renderItem={({ item, index }) => {
-                  const isSelected = index === selectedImageIndex;
-                  return (
-                    <Pressable onPress={() => setSelectedImageIndex(index)}>
-                      <View
-                        style={{
-                          width: IMAGE_SIZE,
-                          height: IMAGE_SIZE,
-                          borderRadius: 12,
-                          overflow: "hidden",
-                          borderWidth: isSelected ? 3 : 1,
-                          borderColor: isSelected
-                            ? colors.primary
-                            : colors.border,
-                        }}
-                      >
-                        <Image
-                          source={{ uri: item }}
-                          style={{ width: "100%", height: "100%" }}
-                          contentFit="cover"
-                        />
-                      </View>
-                    </Pressable>
-                  );
-                }}
-              />
-
-              <Pressable
-                onPress={handleContinueWithImage}
-                className="rounded-xl py-4 items-center active:opacity-80 mt-4"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <Text style={s.continueText}>Continue</Text>
-              </Pressable>
-            </VStack>
-          )}
-
-          {/* Import button - only show when no image picker is visible */}
-          {!showImagePicker && !loading && (
+          {/* Import button */}
+          {!loading && (
             <Pressable
               onPress={handleImport}
               disabled={!url.trim() || loading}
@@ -420,11 +301,11 @@ export default function ImportLinkScreen() {
           )}
 
           {/* Supported vendors */}
-          {!loading && !showImagePicker && (
+          {!loading && (
             <VStack className="items-center mt-6">
               <Text style={s.supportedLabel}>Supported stores</Text>
               <HStack className="mt-3" style={{ gap: 16 }}>
-                {(["hm", "zalando", "pinterest"] as VendorSource[]).map((v) => (
+                {(["zalando", "pinterest"] as VendorSource[]).map((v) => (
                   <VendorSquircle key={v} vendor={v} />
                 ))}
               </HStack>

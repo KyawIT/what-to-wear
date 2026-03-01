@@ -9,15 +9,6 @@ const SCRAPER_TIMEOUT_MS = 15000;
 // Field names match Jackson @JsonProperty annotations in backend DTOs
 // (snake_case is used for serialization in both directions)
 
-export type HmScrapeResponse = {
-  name: string;
-  article_code: string;
-  price: string;
-  colors: string[];
-  sizes: string[];
-  images: string[];
-};
-
 export type PinterestScrapeResponse = {
   pin_id: string;
   url: string;
@@ -42,7 +33,7 @@ export type ZalandoScrapeResponse = {
 
 // ── Common types ───────────────────────────────────────────────────
 
-export type VendorSource = "hm" | "zalando" | "pinterest";
+export type VendorSource = "zalando" | "pinterest";
 
 export type ScrapedPreviewData = {
   name: string;
@@ -57,7 +48,6 @@ export type ScrapedPreviewData = {
 
 const VENDOR_RULES: { vendor: VendorSource; patterns: RegExp[] }[] = [
   { vendor: "zalando", patterns: [/zalando\./i] },
-  { vendor: "hm", patterns: [/\bhm\.com\b/i, /\bwww2\.hm\.com\b/i, /\bh&m\b/i] },
   { vendor: "pinterest", patterns: [/pinterest\./i, /pin\.it/i] },
 ];
 
@@ -102,7 +92,7 @@ export async function scrapeLink(
   vendor: VendorSource,
   link: string,
   accessToken?: string
-): Promise<HmScrapeResponse | PinterestScrapeResponse | ZalandoScrapeResponse> {
+): Promise<PinterestScrapeResponse | ZalandoScrapeResponse> {
   if (!accessToken) {
     throw new Error("accessToken is required");
   }
@@ -134,20 +124,9 @@ export async function scrapeLink(
 
 export function mapToPreviewData(
   vendor: VendorSource,
-  response: HmScrapeResponse | PinterestScrapeResponse | ZalandoScrapeResponse
+  response: PinterestScrapeResponse | ZalandoScrapeResponse
 ): ScrapedPreviewData {
   switch (vendor) {
-    case "hm": {
-      const r = response as HmScrapeResponse;
-      return {
-        name: r.name,
-        description: `Article: ${r.article_code} \u00b7 ${r.price}`,
-        imageUrl: r.images?.[0] ?? "",
-        images: r.images,
-        tags: [...(r.colors ?? []), ...(r.sizes ?? [])],
-        vendor: "hm",
-      };
-    }
     case "pinterest": {
       const r = response as PinterestScrapeResponse;
       return {

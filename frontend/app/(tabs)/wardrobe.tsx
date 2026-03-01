@@ -61,6 +61,7 @@ import WardrobeErrorState from "@/components/common/WardrobeErrorState";
 import WardrobeTabSwitcher from "@/components/common/WardrobeTabSwitcher";
 import WardrobeListEmptyState from "@/components/common/WardrobeListEmptyState";
 import PullToRefreshBanner from "@/components/common/PullToRefreshBanner";
+import { useWardrobeWeather } from "@/hooks/useWardrobeWeather";
 import { styles } from "../../styles/screens/tabs/wardrobe.styles";
 
 type TabType = "items" | "outfits";
@@ -92,6 +93,13 @@ const Wardrobe = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTargetType, setDeleteTargetType] = useState<DeleteTargetType | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const {
+    city: weatherCity,
+    weatherLine,
+    loading: loadingWeather,
+    error: weatherError,
+    refreshWeather,
+  } = useWardrobeWeather();
 
   const screenWidth = Dimensions.get("window").width;
   const ITEM_SIZE = (screenWidth - 48) / 2;
@@ -154,20 +162,21 @@ const Wardrobe = () => {
     setRefreshing(true);
     try {
       if (activeTab === "outfits") {
-        await Promise.all([loadOutfits(), loadCategories()]);
+        await Promise.all([loadOutfits(), loadCategories(), refreshWeather()]);
       } else {
-        await Promise.all([loadWearables(), loadCategories()]);
+        await Promise.all([loadWearables(), loadCategories(), refreshWeather()]);
       }
       await new Promise((resolve) => setTimeout(resolve, 350));
     } finally {
       setRefreshing(false);
     }
-  }, [activeTab, loadCategories, loadOutfits, loadWearables]);
+  }, [activeTab, loadCategories, loadOutfits, loadWearables, refreshWeather]);
 
   useFocusEffect(
     React.useCallback(() => {
       setRetryCount((c) => c + 1);
-    }, [])
+      void refreshWeather();
+    }, [refreshWeather])
   );
 
   useEffect(() => {
@@ -203,6 +212,26 @@ const Wardrobe = () => {
     const query = searchQuery.toLowerCase().trim();
     return outfits.filter((outfit) => outfit.title.toLowerCase().includes(query));
   }, [outfits, searchQuery]);
+
+  const weatherCityText = useMemo(() => {
+    if (weatherCity) {
+      return weatherCity;
+    }
+    if (loadingWeather) {
+      return "Locating city...";
+    }
+    return "City unavailable";
+  }, [loadingWeather, weatherCity]);
+
+  const weatherStatusText = useMemo(() => {
+    if (weatherLine) {
+      return weatherLine;
+    }
+    if (loadingWeather) {
+      return "Fetching weather...";
+    }
+    return "Weather unavailable";
+  }, [loadingWeather, weatherLine]);
 
   const renderWearableItem = ({ item }: { item: WearableResponseDto }) => (
     <Pressable
@@ -387,6 +416,14 @@ const Wardrobe = () => {
         refreshing={refreshing}
         label={activeTab === "outfits" ? "Refreshing outfit rack..." : "Refreshing wardrobe rail..."}
       />
+
+      <View style={styles.weatherCard}>
+        <RNText style={styles.weatherCity}>{weatherCityText}</RNText>
+        <RNText style={styles.weatherLine}>{weatherStatusText}</RNText>
+        {weatherError && !loadingWeather ? (
+          <RNText style={styles.weatherHint}>{weatherError}</RNText>
+        ) : null}
+      </View>
 
       {activeTab === "items" ? (
         <FlatList

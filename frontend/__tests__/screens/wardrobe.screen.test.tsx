@@ -9,6 +9,7 @@ const mockFetchAllWearables = jest.fn();
 const mockFetchWearablesByCategory = jest.fn();
 const mockFetchWearableCategories = jest.fn();
 const mockFetchAllOutfits = jest.fn();
+const mockRefreshWeather = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("expo-router", () => {
   const React = require("react");
@@ -60,6 +61,16 @@ jest.mock("@/api/backend/outfit.api", () => ({
 
 jest.mock("@/api/backend/category.api", () => ({
   fetchWearableCategories: (...args: unknown[]) => mockFetchWearableCategories(...args),
+}));
+
+jest.mock("@/hooks/useWardrobeWeather", () => ({
+  useWardrobeWeather: () => ({
+    city: "Yangon",
+    weatherLine: "☀️ +26°C",
+    loading: false,
+    error: null,
+    refreshWeather: mockRefreshWeather,
+  }),
 }));
 
 jest.mock("@/components/navigation/app-header", () => {
@@ -208,6 +219,7 @@ jest.mock("@/components/common/WardrobeListEmptyState", () => {
 describe("Wardrobe screen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRefreshWeather.mockResolvedValue(undefined);
 
     mockFetchAllWearables.mockResolvedValue([
       { id: "w1", title: "Blue Tee", categoryId: "c1", cutoutImageUrl: "https://img/1.png" },

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { TextInput, KeyboardAvoidingView, Platform, Alert, Dimensions, ScrollView } from "react-native";
+import { KeyboardAvoidingView, Platform, Alert, Dimensions, ScrollView } from "react-native";
+import { FocusTextInput } from "@/components/focus-input";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -445,7 +446,7 @@ export default function ComposeOutfitScreen() {
                             }}
                         >
                             <HStack className="items-center px-4 py-3">
-                                <TextInput
+                                <FocusTextInput
                                     value={outfitName}
                                     onChangeText={setOutfitName}
                                     placeholder="Name your outfit..."
@@ -457,6 +458,7 @@ export default function ComposeOutfitScreen() {
                                     }}
                                     maxLength={MAX_NAME_LENGTH}
                                     returnKeyType="done"
+                                    label="Outfit Name"
                                 />
                                 <Text
                                     className="ml-2"
@@ -475,7 +477,7 @@ export default function ComposeOutfitScreen() {
                                 borderColor: colors.border,
                             }}
                         >
-                            <TextInput
+                            <FocusTextInput
                                 value={description}
                                 onChangeText={setDescription}
                                 placeholder="Add a description (e.g. For summer casual Fridays...)"
@@ -488,6 +490,7 @@ export default function ComposeOutfitScreen() {
                                     paddingVertical: 12,
                                     textAlignVertical: "top",
                                 }}
+                                label="Description"
                             />
                         </Box>
 
@@ -540,7 +543,7 @@ export default function ComposeOutfitScreen() {
                                     <Text style={s.hashPrefix}>
                                         #
                                     </Text>
-                                    <TextInput
+                                    <FocusTextInput
                                         value={tagInput}
                                         onChangeText={setTagInput}
                                         placeholder="Type a tag..."
@@ -553,7 +556,7 @@ export default function ComposeOutfitScreen() {
                                         }}
                                         autoCapitalize="none"
                                         returnKeyType="done"
-                                        onSubmitEditing={() => addTag(tagInput)}
+                                        label="Add Tag"
                                     />
                                     {tagInput.length > 0 && (
                                         <Pressable

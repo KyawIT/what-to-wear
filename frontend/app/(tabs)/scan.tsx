@@ -225,7 +225,7 @@ const Scan = () => {
               marginTop: 1,
             }}
           >
-            H&M, Zalando, Pinterest
+            Zalando, Pinterest
           </Text>
         </View>
         <ChevronRight size={18} color={colors.textMuted} />

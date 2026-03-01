@@ -3,7 +3,7 @@ import { Alert, ScrollView, Text as RNText, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { AppHeader } from "@/components/navigation/app-header";
-import { Input, InputField } from "@/components/ui/input";
+import { FocusTextInput } from "@/components/focus-input";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Pressable } from "@/components/ui/pressable";
 import { authClient } from "@/lib/auth-client";
@@ -118,24 +118,25 @@ export default function EditWearableScreen() {
         </View>
 
         <RNText style={styles.label}>Title</RNText>
-        <Input variant="rounded" size="xl" className="mb-4 bg-background-100 border-outline-200">
-          <InputField value={title} onChangeText={setTitle} placeholder="Item title" maxLength={80} />
-        </Input>
+        <View style={{ marginBottom: 16, backgroundColor: '#F5EFE6', borderRadius: 999, borderWidth: 1, borderColor: '#E8DED3', paddingHorizontal: 20, paddingVertical: 14, minHeight: 48 }}>
+          <FocusTextInput value={title} onChangeText={setTitle} placeholder="Item title" maxLength={80} label="Title" />
+        </View>
 
         <RNText style={styles.label}>Description</RNText>
-        <Input variant="rounded" size="xl" className="mb-4 bg-background-100 border-outline-200">
-          <InputField
+        <View style={{ marginBottom: 16, backgroundColor: '#F5EFE6', borderRadius: 999, borderWidth: 1, borderColor: '#E8DED3', paddingHorizontal: 20, paddingVertical: 14, minHeight: 48 }}>
+          <FocusTextInput
             value={description}
             onChangeText={setDescription}
             placeholder="Description"
             maxLength={250}
+            label="Description"
           />
-        </Input>
+        </View>
 
         <RNText style={styles.label}>Tags (comma separated)</RNText>
-        <Input variant="rounded" size="xl" className="mb-6 bg-background-100 border-outline-200">
-          <InputField value={tagsText} onChangeText={setTagsText} placeholder="casual, denim, blue" />
-        </Input>
+        <View style={{ marginBottom: 24, backgroundColor: '#F5EFE6', borderRadius: 999, borderWidth: 1, borderColor: '#E8DED3', paddingHorizontal: 20, paddingVertical: 14, minHeight: 48 }}>
+          <FocusTextInput value={tagsText} onChangeText={setTagsText} placeholder="casual, denim, blue" label="Tags" />
+        </View>
 
         <Button onPress={onSave} isDisabled={saving} className="bg-primary-500">
           <ButtonText>{saving ? "Saving..." : "Save changes"}</ButtonText>
