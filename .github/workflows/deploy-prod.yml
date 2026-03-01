@@ -395,10 +395,21 @@ jobs:
           else
             echo "frontend_tag=latest" >> "$GITHUB_OUTPUT"
           fi
-          # Scraper images are built on every deploy run.
-          echo "hm_scraper_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "pinterest_scraper_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "zalando_scraper_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          if [ "${{ needs.changes.outputs.hm_scraper }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "hm_scraper_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "hm_scraper_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ needs.changes.outputs.pinterest_scraper }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "pinterest_scraper_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "pinterest_scraper_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ needs.changes.outputs.zalando_scraper }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "zalando_scraper_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "zalando_scraper_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upload production compose + Keycloak assets
         uses: appleboy/scp-action@v0.1.7
