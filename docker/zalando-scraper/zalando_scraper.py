@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
 import random
 import re
 import sys
@@ -23,6 +25,10 @@ from typing import Any
 from urllib.parse import urlparse
 
 from curl_cffi import requests
+from stem import Signal
+from stem.control import Controller
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Browser impersonation profiles (rotate to avoid fingerprint detection)
@@ -72,6 +78,33 @@ def _invalidate_session() -> None:
     global _session
     with _session_lock:
         _session = None
+
+
+# ---------------------------------------------------------------------------
+# Tor proxy helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_proxies() -> dict[str, str] | None:
+    """Return proxy dict from PROXY_URL env var, or None if unset."""
+    proxy_url = os.environ.get("PROXY_URL")
+    if not proxy_url:
+        return None
+    return {"http": proxy_url, "https": proxy_url}
+
+
+def _renew_tor_circuit() -> None:
+    """Send NEWNYM signal to Tor control port for a fresh exit IP."""
+    host = os.environ.get("TOR_CONTROL_HOST", "127.0.0.1")
+    port = int(os.environ.get("TOR_CONTROL_PORT", "9051"))
+    password = os.environ.get("TOR_CONTROL_PASSWORD", "")
+    try:
+        with Controller.from_port(address=host, port=port) as controller:
+            controller.authenticate(password=password)
+            controller.signal(Signal.NEWNYM)
+            logger.info("Tor circuit renewed (NEWNYM sent)")
+    except Exception as exc:
+        logger.warning("Failed to renew Tor circuit: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -245,13 +278,15 @@ def _extract_graphql_error(payload: dict[str, Any]) -> str:
 def _fetch_product_payload(product_id: str, url: str) -> dict[str, Any]:
     endpoint, headers = _build_graphql_headers(url)
     request_body = [{"id": _ZALANDO_PRODUCT_QUERY_ID, "variables": {"id": product_id}}]
+    proxies = _get_proxies()
 
     _rate_limit_wait()
     session = _get_session()
 
-    response = session.post(endpoint, headers=headers, json=request_body, timeout=20)
+    response = session.post(endpoint, headers=headers, json=request_body, timeout=45, proxies=proxies)
 
     if response.status_code in (403, 429):
+        _renew_tor_circuit()
         raise RuntimeError(f"Zalando GraphQL request failed with status {response.status_code}")
 
     if response.status_code != 200:
@@ -300,10 +335,11 @@ def _find_product_json_ld(data: Any) -> dict[str, Any] | None:
 
 def _fetch_product_via_json_ld(url: str, product_id: str) -> dict[str, Any] | None:
     """Fallback parser for environments where GraphQL cannot be used."""
+    proxies = _get_proxies()
     _rate_limit_wait()
     session = _get_session()
 
-    response = session.get(url, timeout=20, allow_redirects=True)
+    response = session.get(url, timeout=45, allow_redirects=True, proxies=proxies)
     if response.status_code != 200:
         return None
 

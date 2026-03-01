@@ -15,4 +15,4 @@ USER scraper
 
 EXPOSE 4525
 
-CMD ["gunicorn", "--bind", "0.0.0.0:4525", "--workers", "2", "--timeout", "30", "--graceful-timeout", "10", "--access-logfile", "-", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:4525", "--workers", "2", "--timeout", "120", "--graceful-timeout", "10", "--access-logfile", "-", "app:app"]

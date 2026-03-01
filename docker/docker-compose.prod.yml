@@ -99,15 +99,38 @@ services:
       - traefik.http.middlewares.wtw-rembg-stripprefix.stripprefix.prefixes=/rembg
       - traefik.http.services.wtw-rembg.loadbalancer.server.port=8080
 
+  wtw-tor:
+    image: dperson/torproxy:latest
+    container_name: wtw-tor
+    restart: always
+    networks:
+      - wtw_internal
+    environment:
+      TOR_NewCircuitPeriod: "300"
+      TOR_MaxCircuitDirtiness: "300"
+      PASSWORD: "torpassword123"
+    healthcheck:
+      test: ["CMD", "curl", "--socks5-hostname", "localhost:9050", "-s", "-o", "/dev/null", "-w", "%{http_code}", "https://check.torproject.org/"]
+      interval: 60s
+      timeout: 30s
+      start_period: 30s
+      retries: 3
+
   wtw-hm-scraper:
     image: ${HM_SCRAPER_IMAGE}
     container_name: wtw-hm-scraper
     restart: unless-stopped
+    depends_on:
+      - wtw-tor
     networks:
       - wtw_internal
       - proxy_default
     environment:
       LOG_LEVEL: ${HM_SCRAPER_LOG_LEVEL:-INFO}
+      PROXY_URL: socks5h://wtw-tor:9050
+      TOR_CONTROL_HOST: wtw-tor
+      TOR_CONTROL_PORT: "9051"
+      TOR_CONTROL_PASSWORD: "torpassword123"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4523/health"]
       interval: 30s
@@ -127,9 +150,16 @@ services:
     image: ${PINTEREST_SCRAPER_IMAGE}
     container_name: wtw-pinterest-scraper
     restart: unless-stopped
+    depends_on:
+      - wtw-tor
     networks:
       - wtw_internal
       - proxy_default
+    environment:
+      PROXY_URL: socks5h://wtw-tor:9050
+      TOR_CONTROL_HOST: wtw-tor
+      TOR_CONTROL_PORT: "9051"
+      TOR_CONTROL_PASSWORD: "torpassword123"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4524/health"]
       interval: 30s
@@ -149,9 +179,16 @@ services:
     image: ${ZALANDO_SCRAPER_IMAGE}
     container_name: wtw-zalando-scraper
     restart: unless-stopped
+    depends_on:
+      - wtw-tor
     networks:
       - wtw_internal
       - proxy_default
+    environment:
+      PROXY_URL: socks5h://wtw-tor:9050
+      TOR_CONTROL_HOST: wtw-tor
+      TOR_CONTROL_PORT: "9051"
+      TOR_CONTROL_PASSWORD: "torpassword123"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4525/health"]
       interval: 30s

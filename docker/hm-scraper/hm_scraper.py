@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import random
 import re
@@ -24,6 +25,10 @@ import time
 from dataclasses import dataclass, field
 
 from curl_cffi import requests
+from stem import Signal
+from stem.control import Controller
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Browser impersonation profiles (rotate to avoid fingerprint detection)
@@ -73,6 +78,33 @@ def _invalidate_session() -> None:
     global _session
     with _session_lock:
         _session = None
+
+
+# ---------------------------------------------------------------------------
+# Tor proxy helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_proxies() -> dict[str, str] | None:
+    """Return proxy dict from PROXY_URL env var, or None if unset."""
+    proxy_url = os.environ.get("PROXY_URL")
+    if not proxy_url:
+        return None
+    return {"http": proxy_url, "https": proxy_url}
+
+
+def _renew_tor_circuit() -> None:
+    """Send NEWNYM signal to Tor control port for a fresh exit IP."""
+    host = os.environ.get("TOR_CONTROL_HOST", "127.0.0.1")
+    port = int(os.environ.get("TOR_CONTROL_PORT", "9051"))
+    password = os.environ.get("TOR_CONTROL_PASSWORD", "")
+    try:
+        with Controller.from_port(address=host, port=port) as controller:
+            controller.authenticate(password=password)
+            controller.signal(Signal.NEWNYM)
+            logger.info("Tor circuit renewed (NEWNYM sent)")
+    except Exception as exc:
+        logger.warning("Failed to renew Tor circuit: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +212,8 @@ def fetch_product_via_search(article_code: str, locale: str = "de_at") -> Produc
     search_url = f"https://www2.hm.com/{locale}/search-results.html?q={article_code}"
     last_exc: Exception | None = None
 
+    proxies = _get_proxies()
+
     for attempt in range(_MAX_RETRIES):
         if attempt > 0:
             backoff = _BACKOFF_BASE ** attempt + random.uniform(0, _BACKOFF_JITTER)
@@ -190,13 +224,14 @@ def fetch_product_via_search(article_code: str, locale: str = "de_at") -> Produc
         session = _get_session()
 
         try:
-            resp = session.get(search_url, timeout=20)
+            resp = session.get(search_url, timeout=45, proxies=proxies)
         except (requests.errors.RequestsError, OSError) as exc:
             last_exc = exc
             continue
 
         if resp.status_code in (403, 429):
             last_exc = RuntimeError(f"Search request failed with status {resp.status_code}")
+            _renew_tor_circuit()
             continue
 
         if resp.status_code != 200:
