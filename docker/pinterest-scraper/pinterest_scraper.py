@@ -200,14 +200,17 @@ def _is_short_url(url: str) -> bool:
 def _resolve_short_url(url: str) -> str:
     """Follow a pin.it redirect and return the canonical Pinterest URL.
 
-    Uses a HEAD request so we only fetch headers, not the full page.
+    Uses a GET request because pin.it does not reliably redirect HEAD
+    requests.  ``stream=True`` avoids downloading the full response body.
     The resolved URL is cleaned of tracking query parameters.
     """
     proxies = _get_proxies()
     session = _get_session()
 
     try:
-        resp = session.head(url, timeout=30, allow_redirects=True, proxies=proxies)
+        # Use GET instead of HEAD — pin.it does not reliably redirect HEAD requests.
+        resp = session.get(url, timeout=30, allow_redirects=True, proxies=proxies, stream=True)
+        resp.close()
     except (requests.errors.RequestsError, OSError) as exc:
         raise RuntimeError(f"Failed to resolve short URL {url}: {exc}") from exc
 
