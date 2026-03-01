@@ -36,19 +36,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _IMPERSONATE_PROFILES = [
-    "chrome",
     "chrome110",
     "chrome116",
     "chrome119",
     "chrome120",
     "chrome123",
     "chrome124",
+    "chrome131",
     "edge99",
     "edge101",
     "safari15_3",
     "safari15_5",
     "safari17_0",
-    "safari17_2_1",
+    "safari18_0",
 ]
 
 # ---------------------------------------------------------------------------
