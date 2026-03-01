@@ -231,6 +231,7 @@ jobs:
 
   build-hm-scraper:
     needs: changes
+    if: needs.changes.outputs.hm_scraper == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -271,6 +272,7 @@ jobs:
 
   build-pinterest-scraper:
     needs: changes
+    if: needs.changes.outputs.pinterest_scraper == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -311,6 +313,7 @@ jobs:
 
   build-zalando-scraper:
     needs: changes
+    if: needs.changes.outputs.zalando_scraper == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
