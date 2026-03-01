@@ -17,6 +17,7 @@ import logging
 import os
 import random
 import re
+import socket
 import sys
 import threading
 import time
@@ -93,9 +94,20 @@ def _get_proxies() -> dict[str, str] | None:
     return {"http": proxy_url, "https": proxy_url}
 
 
+def _resolve_host(hostname: str) -> str:
+    """Resolve hostname to IP address for stem compatibility."""
+    try:
+        results = socket.getaddrinfo(hostname, None, socket.AF_INET)
+        if results:
+            return results[0][4][0]
+    except socket.gaierror:
+        pass
+    return hostname
+
+
 def _renew_tor_circuit() -> None:
     """Send NEWNYM signal to Tor control port for a fresh exit IP."""
-    host = os.environ.get("TOR_CONTROL_HOST", "127.0.0.1")
+    host = _resolve_host(os.environ.get("TOR_CONTROL_HOST", "127.0.0.1"))
     port = int(os.environ.get("TOR_CONTROL_PORT", "9051"))
     password = os.environ.get("TOR_CONTROL_PASSWORD", "")
     try:
