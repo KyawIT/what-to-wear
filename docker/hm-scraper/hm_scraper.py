@@ -61,14 +61,69 @@ _session: requests.Session | None = None
 _session_created_at: float = 0.0
 
 
+def _get_browser_headers(profile: str) -> dict[str, str]:
+    """Return realistic browser headers matching the impersonation profile."""
+    base_headers = {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "accept-language": "de-AT,de;q=0.9,en-US;q=0.8,en;q=0.7",
+        "accept-encoding": "gzip, deflate, br",
+        "cache-control": "no-cache",
+        "pragma": "no-cache",
+        "upgrade-insecure-requests": "1",
+        "dnt": "1",
+    }
+
+    if profile.startswith("chrome") or profile.startswith("edge"):
+        major = "124"
+        if profile == "chrome110":
+            major = "110"
+        elif profile == "chrome116":
+            major = "116"
+        elif profile == "chrome119":
+            major = "119"
+        elif profile == "chrome120":
+            major = "120"
+        elif profile == "chrome123":
+            major = "123"
+        elif profile == "chrome124":
+            major = "124"
+        elif profile == "edge99":
+            major = "99"
+        elif profile == "edge101":
+            major = "101"
+
+        brand = "Microsoft Edge" if profile.startswith("edge") else "Google Chrome"
+        base_headers.update({
+            "sec-ch-ua": f'"Chromium";v="{major}", "{brand}";v="{major}", "Not-A.Brand";v="99"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+            "sec-fetch-user": "?1",
+        })
+    elif profile.startswith("safari"):
+        base_headers.update({
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+        })
+
+    return base_headers
+
+
+_current_profile: str = "chrome"
+
+
 def _get_session() -> requests.Session:
     """Return a shared curl_cffi session, auto-refreshing after _SESSION_MAX_AGE with a random profile."""
-    global _session, _session_created_at
+    global _session, _session_created_at, _current_profile
     with _session_lock:
         now = time.monotonic()
         if _session is None or (now - _session_created_at) >= _SESSION_MAX_AGE:
-            profile = random.choice(_IMPERSONATE_PROFILES)
-            _session = requests.Session(impersonate=profile)
+            _current_profile = random.choice(_IMPERSONATE_PROFILES)
+            _session = requests.Session(impersonate=_current_profile)
+            _session._warmed = False
             _session_created_at = now
         return _session
 
@@ -105,6 +160,25 @@ def _renew_tor_circuit() -> None:
             logger.info("Tor circuit renewed (NEWNYM sent)")
     except Exception as exc:
         logger.warning("Failed to renew Tor circuit: %s", exc)
+
+
+def _warm_session(session: requests.Session, proxies: dict[str, str] | None) -> None:
+    """Visit H&M homepage to collect Akamai cookies before the real request."""
+    if getattr(session, "_warmed", False):
+        return
+    headers = _get_browser_headers(_current_profile)
+    try:
+        session.get(
+            "https://www2.hm.com/de_at/index.html",
+            timeout=30,
+            proxies=proxies,
+            headers=headers,
+        )
+        logger.info("Session warmed with homepage visit")
+    except Exception as exc:
+        logger.debug("Homepage warm-up failed (non-fatal): %s", exc)
+    session._warmed = True
+    time.sleep(random.uniform(1.0, 3.0))
 
 
 # ---------------------------------------------------------------------------
@@ -218,20 +292,24 @@ def fetch_product_via_search(article_code: str, locale: str = "de_at") -> Produc
         if attempt > 0:
             backoff = _BACKOFF_BASE ** attempt + random.uniform(0, _BACKOFF_JITTER)
             time.sleep(backoff)
+            _renew_tor_circuit()
+            time.sleep(random.uniform(2.0, 5.0))
             _invalidate_session()
 
         _rate_limit_wait()
         session = _get_session()
+        _warm_session(session, proxies)
+        headers = _get_browser_headers(_current_profile)
 
         try:
-            resp = session.get(search_url, timeout=45, proxies=proxies)
+            resp = session.get(search_url, timeout=45, proxies=proxies, headers=headers)
         except (requests.errors.RequestsError, OSError) as exc:
             last_exc = exc
             continue
 
         if resp.status_code in (403, 429):
+            logger.warning("H&M returned %d on attempt %d", resp.status_code, attempt + 1)
             last_exc = RuntimeError(f"Search request failed with status {resp.status_code}")
-            _renew_tor_circuit()
             continue
 
         if resp.status_code != 200:

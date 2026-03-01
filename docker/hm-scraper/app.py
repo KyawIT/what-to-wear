@@ -3,7 +3,15 @@
 
 from __future__ import annotations
 
+import logging
+import os
+
 from flask import Flask, jsonify, request
+
+logging.basicConfig(
+    level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 from hm_scraper import ProductInfo, extract_article_code, fetch_product_via_search, get_cache_stats
 
