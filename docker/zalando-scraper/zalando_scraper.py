@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import re
 import sys
 import threading
@@ -22,6 +23,26 @@ from typing import Any
 from urllib.parse import urlparse
 
 from curl_cffi import requests
+
+# ---------------------------------------------------------------------------
+# Browser impersonation profiles (rotate to avoid fingerprint detection)
+# ---------------------------------------------------------------------------
+
+_IMPERSONATE_PROFILES = [
+    "chrome",
+    "chrome110",
+    "chrome116",
+    "chrome119",
+    "chrome120",
+    "chrome123",
+    "chrome124",
+    "edge99",
+    "edge101",
+    "safari15_3",
+    "safari15_5",
+    "safari17_0",
+    "safari17_2_1",
+]
 
 # ---------------------------------------------------------------------------
 # Session manager (module-level singleton, thread-safe)
@@ -35,12 +56,13 @@ _session_created_at: float = 0.0
 
 
 def _get_session() -> requests.Session:
-    """Return a shared curl_cffi session, auto-refreshing after _SESSION_MAX_AGE."""
+    """Return a shared curl_cffi session, auto-refreshing after _SESSION_MAX_AGE with a random profile."""
     global _session, _session_created_at
     with _session_lock:
         now = time.monotonic()
         if _session is None or (now - _session_created_at) >= _SESSION_MAX_AGE:
-            _session = requests.Session(impersonate="chrome")
+            profile = random.choice(_IMPERSONATE_PROFILES)
+            _session = requests.Session(impersonate=profile)
             _session_created_at = now
         return _session
 
@@ -281,15 +303,7 @@ def _fetch_product_via_json_ld(url: str, product_id: str) -> dict[str, Any] | No
     _rate_limit_wait()
     session = _get_session()
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-    }
-
-    response = session.get(url, headers=headers, timeout=20, allow_redirects=True)
+    response = session.get(url, timeout=20, allow_redirects=True)
     if response.status_code != 200:
         return None
 
@@ -402,8 +416,9 @@ def _normalize_from_json_ld(product: dict[str, Any], product_id: str, url: str) 
 # Retry settings
 # ---------------------------------------------------------------------------
 
-_MAX_RETRIES = 3
-_BACKOFF_BASE = 2  # seconds: 2, 4, 8
+_MAX_RETRIES = 5
+_BACKOFF_BASE = 2  # seconds: 2, 4, 8, 16, 32
+_BACKOFF_JITTER = 2.0  # random jitter added to backoff
 
 
 def fetch_product_info(url: str) -> ProductInfo:
@@ -421,7 +436,7 @@ def fetch_product_info(url: str) -> ProductInfo:
 
     for attempt in range(_MAX_RETRIES):
         if attempt > 0:
-            backoff = _BACKOFF_BASE**attempt
+            backoff = _BACKOFF_BASE ** attempt + random.uniform(0, _BACKOFF_JITTER)
             time.sleep(backoff)
             _invalidate_session()
 
