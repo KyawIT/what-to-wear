@@ -1,0 +1,51 @@
+@startuml
+
+!theme plain
+top to bottom direction
+skinparam linetype ortho
+
+class wtw_outfit {
+   createdat: timestamp(6) with time zone
+   description: varchar(1000)
+   imagekey: varchar(255)
+   title: varchar(255)
+   updatedat: timestamp(6) with time zone
+   userid: varchar(255)
+   id: uuid
+}
+class wtw_outfit_tags {
+   outfit_id: uuid
+   tags: varchar(255)
+}
+class wtw_outfit_wearables {
+   outfit_id: uuid
+   wearable_id: uuid
+}
+class wtw_wearable {
+   createdat: timestamp(6) with time zone
+   cutoutimagekey: varchar(255)
+   description: varchar(1000)
+   title: varchar(255)
+   updatedat: timestamp(6) with time zone
+   userid: varchar(255)
+   category_id: uuid
+   id: uuid
+}
+class wtw_wearable_category {
+   createdat: timestamp(6) with time zone
+   name: varchar(100)
+   updatedat: timestamp(6) with time zone
+   userid: varchar(255)
+   id: uuid
+}
+class wtw_wearable_tags {
+   wearable_id: uuid
+   tags: varchar(255)
+}
+
+wtw_outfit_tags        -[#595959,plain]-^  wtw_outfit            : "outfit_id:id"
+wtw_outfit_wearables   -[#595959,plain]-^  wtw_outfit            : "outfit_id:id"
+wtw_outfit_wearables   -[#595959,plain]-^  wtw_wearable          : "wearable_id:id"
+wtw_wearable           -[#595959,plain]-^  wtw_wearable_category : "category_id:id"
+wtw_wearable_tags      -[#595959,plain]-^  wtw_wearable          : "wearable_id:id"
+@enduml

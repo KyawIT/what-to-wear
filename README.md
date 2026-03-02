@@ -65,23 +65,38 @@ The repository is a monorepo with a mobile app, backend API, Python AI services,
 
 ## Architecture Overview
 
-```text
-Expo App (frontend)
-  -> Better Auth API route (frontend/app/api/auth/[...route]+api.ts)
-  -> Keycloak (OIDC) for login
-  -> Access token (Bearer)
-  -> Quarkus Backend (/api/*)
-       -> PostgreSQL (metadata)
-       -> MinIO (wearable/outfit images)
-       -> Python AI service (prediction / outfit endpoints)
-       -> Scraper services (HM/Pinterest/Zalando)
-```
+### System Architecture
 
-Additional flow:
+![System Architecture](docs/system-architecture.png)
+
+[View in Figma](https://www.figma.com/board/sPkqpNIpALgsEIQywzRllJ/WTW---System-Architecture?node-id=0-1)
+
+**Data flow:**
+
+- Clients (Expo mobile app, Next.js web app) connect through **Traefik** reverse proxy via HTTPS.
+- Traefik routes requests by path: `/api` to backend, `/auth` to Keycloak, `/rembg` to background removal, scrapers to their respective services.
+- **Quarkus backend** handles business logic, persists metadata in **PostgreSQL**, stores images in **MinIO**, delegates AI tasks to the **Python FastAPI service**, and proxies scraper requests.
+- **Python AI service** generates CLIP embeddings and performs outfit recommendations via **Qdrant** vector search.
+- **Scraper microservices** (H&M, Pinterest, Zalando) route outbound requests through a **Tor forward proxy** for IP rotation.
+- **rembg** provides standalone background removal, called directly from the frontend.
+- **Embedding Indexer** is a batch job that indexes the preprocessed dataset into Qdrant (runs on-demand via Docker profile).
+- **GitHub Actions** builds and pushes container images to **GHCR** for production deployment.
+
+Additional notes:
 
 - `frontend` can call `rembg` directly for background removal (`/remove-bg`).
 - Backend image responses include presigned MinIO URLs (10-minute expiry).
 - Backend also exposes public proxy image endpoints under `/api/image/*`.
+
+### Database Schema
+
+#### Core Domain (Wearables, Outfits, Categories)
+
+![Core Domain Schema](docs/wtw.png)
+
+#### Better-Auth (User, Account, Session)
+
+![Better-Auth Schema](docs/betterauth.png)
 
 ## Core Data Model
 
