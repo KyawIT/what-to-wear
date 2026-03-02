@@ -14,6 +14,7 @@ import { router, useFocusEffect } from "expo-router";
 
 import { authClient } from "@/lib/auth-client";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
 import {
   fetchWearableCategories,
@@ -110,7 +111,7 @@ const Create = () => {
       setAllWearables(wearables);
       setCategories(fetchedCategories);
     } catch (err) {
-      console.error("Failed to fetch data:", err);
+      if (isAuthError(err)) { handleAuthError(); return; }
       setError(err instanceof Error ? err.message : "Failed to load wardrobe data");
     } finally {
       setLoadingData(false);
