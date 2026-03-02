@@ -93,7 +93,7 @@ jobs:
           file: ./backend/src/main/docker/Dockerfile
           push: true
           cache-from: type=gha,scope=wtw-backend
-          cache-to: type=gha,mode=max,scope=wtw-backend
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-backend
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-backend:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-backend:latest
@@ -134,7 +134,7 @@ jobs:
           file: ./docker/rembg/Dockerfile
           push: true
           cache-from: type=gha,scope=wtw-rembg
-          cache-to: type=gha,mode=max,scope=wtw-rembg
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-rembg
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:latest
@@ -175,7 +175,7 @@ jobs:
           file: ./docker/python-service/Dockerfile
           push: true
           cache-from: type=gha,scope=wtw-python
-          cache-to: type=gha,mode=max,scope=wtw-python
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-python
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-python:latest
@@ -216,7 +216,7 @@ jobs:
           file: ./frontend/Dockerfile.auth
           push: true
           cache-from: type=gha,scope=wtw-frontend-auth
-          cache-to: type=gha,mode=max,scope=wtw-frontend-auth
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-frontend-auth
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-frontend-auth:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-frontend-auth:latest
@@ -257,7 +257,7 @@ jobs:
           file: ./docker/hm-scraper/Dockerfile
           push: true
           cache-from: type=gha,scope=wtw-hm-scraper
-          cache-to: type=gha,mode=max,scope=wtw-hm-scraper
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-hm-scraper
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-hm-scraper:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-hm-scraper:latest
@@ -298,7 +298,7 @@ jobs:
           file: ./docker/pinterest-scraper/Dockerfile
           push: true
           cache-from: type=gha,scope=wtw-pinterest-scraper
-          cache-to: type=gha,mode=max,scope=wtw-pinterest-scraper
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-pinterest-scraper
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-pinterest-scraper:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-pinterest-scraper:latest
@@ -339,7 +339,7 @@ jobs:
           file: ./docker/zalando-scraper/Dockerfile
           push: true
           cache-from: type=gha,scope=wtw-zalando-scraper
-          cache-to: type=gha,mode=max,scope=wtw-zalando-scraper
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-zalando-scraper
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wtw-zalando-scraper:${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/wtw-zalando-scraper:latest
