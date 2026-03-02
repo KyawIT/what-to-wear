@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { authClient } from "@/lib/auth-client";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
 import { predictWearableTags } from "@/api/backend/predict.api";
 import { WearableResponseDto } from "@/api/backend/wearable.model";
@@ -71,7 +72,11 @@ export default function ComposeOutfitScreen() {
                     setActiveItemId(selected[selected.length - 1].id); // last item on top is active default
                 }
             } catch (err) {
-                console.error("Failed to parse or load items:", err);
+                if (isAuthError(err)) { handleAuthError(); return; }
+                Alert.alert(
+                    "Load Failed",
+                    err instanceof Error ? err.message : "Failed to load outfit items."
+                );
             } finally {
                 setLoading(false);
             }
@@ -302,6 +307,7 @@ export default function ComposeOutfitScreen() {
                     ]
                 );
             } catch (error) {
+                if (isAuthError(error)) { handleAuthError(); return; }
                 const message =
                     error instanceof Error
                         ? error.message
