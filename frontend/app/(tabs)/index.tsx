@@ -8,12 +8,14 @@ import ViewShot from "react-native-view-shot";
 
 import { authClient } from "@/lib/auth-client";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
 import { AppHeader } from "@/components/navigation/app-header";
 import { Pressable } from "@/components/ui/pressable";
 import { Center } from "@/components/ui/center";
 import { VStack } from "@/components/ui/vstack";
 import { colors } from "@/lib/theme";
 import { resolveImageUrl } from "@/lib/resolve-image-url";
+import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/ui/toast";
 import RecommendationIntroState from "@/components/common/RecommendationIntroState";
 import RecommendationLoadingState from "@/components/common/RecommendationLoadingState";
 import RecommendationEmptyState from "@/components/common/RecommendationEmptyState";
@@ -112,6 +114,7 @@ function toFriendlyRecommendationError(error: unknown): string {
 const Index = () => {
   const { data } = authClient.useSession();
   const router = useRouter();
+  const toast = useToast();
 
   const [wearables, setWearables] = useState<WearableResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,7 +138,7 @@ const Index = () => {
       setWearables(items);
       return { items, token };
     } catch (err) {
-      console.error("Failed to fetch wearables:", err);
+      if (isAuthError(err)) { handleAuthError(); return null; }
       setError("Failed to load your wardrobe");
       return null;
     }
@@ -221,9 +224,9 @@ const Index = () => {
           setOutfits([]);
           setError("No outfit recommendations were returned.");
         }
-      } catch (err) {
-        console.error("Outfit generation error:", err);
-        setError(toFriendlyRecommendationError(err));
+      } catch (genErr) {
+        if (isAuthError(genErr)) { handleAuthError(); return; }
+        setError(toFriendlyRecommendationError(genErr));
       } finally {
         setGenerating(false);
       }
@@ -269,7 +272,7 @@ const Index = () => {
         await generateOutfits(items, token);
       }
     } catch (err) {
-      console.error("Regenerate error:", err);
+      if (isAuthError(err)) { handleAuthError(); return; }
       setError("Something went wrong. Pull down to try again.");
     } finally {
       setGenerating(false);
@@ -298,8 +301,15 @@ const Index = () => {
       let uri: string | null = null;
       try {
         uri = (await captureRef.current?.capture?.()) ?? null;
-      } catch (err) {
-        console.error("Outfit preview capture failed:", err);
+      } catch {
+        toast.show({
+          render: ({ id: toastId }) => (
+            <Toast nativeID={`toast-${toastId}`} action="error">
+              <ToastTitle>Error</ToastTitle>
+              <ToastDescription>Failed to capture outfit preview</ToastDescription>
+            </Toast>
+          ),
+        });
       }
 
       if (!cancelled) {
@@ -315,7 +325,7 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
-  }, [captureItems]);
+  }, [captureItems, toast]);
 
   useEffect(() => {
     return () => {
@@ -344,7 +354,7 @@ const Index = () => {
         );
         setSavedOutfitIds((prev) => new Set(prev).add(outfit.id));
       } catch (err) {
-        console.error("Save outfit error:", err);
+        if (isAuthError(err)) { handleAuthError(); return; }
         Alert.alert(
           "Save Failed",
           err instanceof Error ? err.message : "Could not save outfit."
