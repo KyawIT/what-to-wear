@@ -106,13 +106,6 @@ export async function createWearableMultipart(
     if (!res.ok) {
         const errBody = await readErrorBody(res);
 
-        // useful debug
-        console.log("Create wearable failed:");
-        console.log("URL:", url);
-        console.log("Status:", res.status);
-        console.log("Content-Type:", res.headers.get("content-type"));
-        console.log("Body:", errBody);
-
         throw new Error(`Failed to create wearable (${res.status}): ${errBody}`);
     }
 
