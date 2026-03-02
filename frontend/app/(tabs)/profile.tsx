@@ -1,5 +1,5 @@
 import { Text, ScrollView, View, RefreshControl } from "react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { router, useFocusEffect } from "expo-router";
@@ -19,14 +19,23 @@ import { fetchAllWearables } from "@/api/backend/wearable.api";
 import { fetchAllOutfits } from "@/api/backend/outfit.api";
 import { colors } from "@/lib/theme";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
+import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/ui/toast";
 import PullToRefreshBanner from "@/components/common/PullToRefreshBanner";
 import { styles } from "../../styles/screens/tabs/profile.styles";
 
 const Profile = () => {
   const { data } = authClient.useSession();
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  const hasShownStatsErrorRef = useRef(false);
   const [totalItemsCount, setTotalItemsCount] = useState(0);
   const [outfitsCount, setOutfitsCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
 
   const handleFullLogout = async () => {
@@ -77,8 +86,19 @@ const Profile = () => {
       ]);
       setTotalItemsCount(allItems.length);
       setOutfitsCount(allOutfits.length);
+      hasShownStatsErrorRef.current = false;
     } catch (err) {
-      console.error("Failed to fetch total wearables:", err);
+      if (isAuthError(err)) { handleAuthError(); return; }
+      if (hasShownStatsErrorRef.current) return;
+      hasShownStatsErrorRef.current = true;
+      toastRef.current.show({
+        render: ({ id: toastId }) => (
+          <Toast nativeID={`toast-${toastId}`} action="error">
+            <ToastTitle>Error</ToastTitle>
+            <ToastDescription>Failed to load profile stats</ToastDescription>
+          </Toast>
+        ),
+      });
     }
   }, [data?.user?.id]);
 
