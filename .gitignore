@@ -9,3 +9,6 @@ minio
 /docker/.env.prod
 /wtw-realm.json
 /python/neuronalnetwork/
+.agents/
+.agent/
+skills-lock.json
