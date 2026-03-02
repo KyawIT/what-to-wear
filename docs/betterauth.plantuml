@@ -1,0 +1,52 @@
+@startuml
+
+!theme plain
+top to bottom direction
+skinparam linetype ortho
+
+class account {
+   accountId: text
+   providerId: text
+   userId: text
+   accessToken: text
+   refreshToken: text
+   idToken: text
+   accessTokenExpiresAt: timestamp with time zone
+   refreshTokenExpiresAt: timestamp with time zone
+   scope: text
+   password: text
+   createdAt: timestamp with time zone
+   updatedAt: timestamp with time zone
+   id: text
+}
+class session {
+   expiresAt: timestamp with time zone
+   token: text
+   createdAt: timestamp with time zone
+   updatedAt: timestamp with time zone
+   ipAddress: text
+   userAgent: text
+   userId: text
+   id: text
+}
+class user {
+   name: text
+   email: text
+   emailVerified: boolean
+   image: text
+   createdAt: timestamp with time zone
+   updatedAt: timestamp with time zone
+   id: text
+}
+class verification {
+   identifier: text
+   value: text
+   expiresAt: timestamp with time zone
+   createdAt: timestamp with time zone
+   updatedAt: timestamp with time zone
+   id: text
+}
+
+account       -[#595959,plain]-^  user         : "userId:id"
+session       -[#595959,plain]-^  user         : "userId:id"
+@enduml
