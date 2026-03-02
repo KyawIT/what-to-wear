@@ -23,6 +23,7 @@ jobs:
       rembg: ${{ steps.filter.outputs.rembg }}
       python: ${{ steps.filter.outputs.python }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      web: ${{ steps.filter.outputs.web }}
       hm_scraper: ${{ steps.filter.outputs.hm_scraper }}
       pinterest_scraper: ${{ steps.filter.outputs.pinterest_scraper }}
       zalando_scraper: ${{ steps.filter.outputs.zalando_scraper }}
@@ -43,6 +44,8 @@ jobs:
               - 'docker/python-service/Dockerfile'
             frontend:
               - 'frontend/**'
+            web:
+              - 'web/**'
             hm_scraper:
               - 'docker/hm-scraper/**'
             pinterest_scraper:
@@ -229,6 +232,47 @@ jobs:
             echo "- Frontend auth image: ghcr.io/${OWNER_LC}/wtw-frontend-auth:${GITHUB_SHA}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  build-web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Normalize image owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          file: ./web/Dockerfile
+          push: true
+          cache-from: type=gha,scope=wtw-web
+          cache-to: type=gha,mode=max,ignore-error=true,scope=wtw-web
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/wtw-web:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wtw-web:latest
+
+      - name: Build summary
+        run: |
+          {
+            echo "## Web Build Summary"
+            echo ""
+            echo "- Web image: ghcr.io/${OWNER_LC}/wtw-web:${GITHUB_SHA}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build-hm-scraper:
     needs: changes
     if: needs.changes.outputs.hm_scraper == 'true' || github.event_name == 'workflow_dispatch'
@@ -361,6 +405,7 @@ jobs:
       - build-rembg
       - build-python
       - build-frontend-auth
+      - build-web
       - build-hm-scraper
       - build-pinterest-scraper
       - build-zalando-scraper
@@ -395,6 +440,11 @@ jobs:
           else
             echo "frontend_tag=latest" >> "$GITHUB_OUTPUT"
           fi
+          if [ "${{ needs.changes.outputs.web }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "web_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "web_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
           if [ "${{ needs.changes.outputs.hm_scraper }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "hm_scraper_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           else
@@ -427,6 +477,7 @@ jobs:
           REMBG_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ steps.tags.outputs.rembg_tag }}
           PYTHON_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ steps.tags.outputs.python_tag }}
           FRONTEND_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-frontend-auth:${{ steps.tags.outputs.frontend_tag }}
+          WEB_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-web:${{ steps.tags.outputs.web_tag }}
           HM_SCRAPER_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-hm-scraper:${{ steps.tags.outputs.hm_scraper_tag }}
           PINTEREST_SCRAPER_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-pinterest-scraper:${{ steps.tags.outputs.pinterest_scraper_tag }}
           ZALANDO_SCRAPER_IMAGE: ghcr.io/${{ env.OWNER_LC }}/wtw-zalando-scraper:${{ steps.tags.outputs.zalando_scraper_tag }}
@@ -437,7 +488,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          envs: BACKEND_IMAGE,REMBG_IMAGE,PYTHON_IMAGE,FRONTEND_IMAGE,HM_SCRAPER_IMAGE,PINTEREST_SCRAPER_IMAGE,ZALANDO_SCRAPER_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD
+          envs: BACKEND_IMAGE,REMBG_IMAGE,PYTHON_IMAGE,FRONTEND_IMAGE,WEB_IMAGE,HM_SCRAPER_IMAGE,PINTEREST_SCRAPER_IMAGE,ZALANDO_SCRAPER_IMAGE,DEPLOY_PATH,REGISTRY_USERNAME,REGISTRY_PASSWORD
           script: |
             set -e
             cd "$DEPLOY_PATH"
@@ -447,7 +498,7 @@ jobs:
 
             # Smoke checks for critical services.
             # python-service can take longer on cold start while loading ML models.
-            for svc_url in "python-service http://localhost:8000/health" "wtw-frontend-auth http://localhost:8081/api/auth/get-session"; do
+            for svc_url in "python-service http://localhost:8000/health" "wtw-frontend-auth http://localhost:8081/api/auth/get-session" "wtw-web http://localhost:3000"; do
               svc="${svc_url%% *}"
               url="${svc_url##* }"
               max_retries=6
@@ -499,6 +550,7 @@ jobs:
             echo "- Rembg image: ghcr.io/${{ env.OWNER_LC }}/wtw-rembg:${{ steps.tags.outputs.rembg_tag }}"
             echo "- Python image: ghcr.io/${{ env.OWNER_LC }}/wtw-python:${{ steps.tags.outputs.python_tag }}"
             echo "- Frontend auth image: ghcr.io/${{ env.OWNER_LC }}/wtw-frontend-auth:${{ steps.tags.outputs.frontend_tag }}"
+            echo "- Web image: ghcr.io/${{ env.OWNER_LC }}/wtw-web:${{ steps.tags.outputs.web_tag }}"
             echo "- H&M scraper image: ghcr.io/${{ env.OWNER_LC }}/wtw-hm-scraper:${{ steps.tags.outputs.hm_scraper_tag }}"
             echo "- Pinterest scraper image: ghcr.io/${{ env.OWNER_LC }}/wtw-pinterest-scraper:${{ steps.tags.outputs.pinterest_scraper_tag }}"
             echo "- Zalando scraper image: ghcr.io/${{ env.OWNER_LC }}/wtw-zalando-scraper:${{ steps.tags.outputs.zalando_scraper_tag }}"
