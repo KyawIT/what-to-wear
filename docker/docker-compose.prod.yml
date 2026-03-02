@@ -291,6 +291,21 @@ services:
       - traefik.http.routers.wtw-frontend-auth.priority=100
       - traefik.http.services.wtw-frontend-auth.loadbalancer.server.port=8081
 
+  wtw-web:
+    image: ${WEB_IMAGE}
+    container_name: wtw-web
+    restart: unless-stopped
+    networks:
+      - proxy_default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtw-web.rule=Host(`what-to-wear.cms-building.at`)
+      - traefik.http.routers.wtw-web.entrypoints=websecure
+      - traefik.http.routers.wtw-web.tls=true
+      - traefik.http.routers.wtw-web.tls.certresolver=default
+      - traefik.http.routers.wtw-web.priority=1
+      - traefik.http.services.wtw-web.loadbalancer.server.port=3000
+
   wtw-backend:
     image: ${BACKEND_IMAGE}
     container_name: wtw-backend
