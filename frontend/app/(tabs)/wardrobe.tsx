@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { router, useFocusEffect } from "expo-router";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
 import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -57,6 +58,7 @@ import {
 import { OutfitResponseDto } from "@/api/backend/outfit.model";
 import { colors } from "@/lib/theme";
 import { resolveImageUrl } from "@/lib/resolve-image-url";
+import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/ui/toast";
 import WardrobeErrorState from "@/components/common/WardrobeErrorState";
 import WardrobeTabSwitcher from "@/components/common/WardrobeTabSwitcher";
 import WardrobeListEmptyState from "@/components/common/WardrobeListEmptyState";
@@ -70,6 +72,7 @@ type DeleteTargetType = "wearable" | "outfit";
 
 const Wardrobe = () => {
   const { data } = authClient.useSession();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<TabType>("items");
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("ALL");
   const [wearables, setWearables] = useState<WearableResponseDto[]>([]);
@@ -121,7 +124,7 @@ const Wardrobe = () => {
       }
       setWearables(items);
     } catch (err) {
-      console.error("Failed to fetch wearables:", err);
+      if (isAuthError(err)) { handleAuthError(); return; }
       const msg = err instanceof Error ? err.message : "Failed to load wardrobe";
       setFetchError(msg);
       setWearables([]);
@@ -138,7 +141,7 @@ const Wardrobe = () => {
       const list = await fetchAllOutfits(accessToken);
       setOutfits(list);
     } catch (err) {
-      console.error("Failed to fetch outfits:", err);
+      if (isAuthError(err)) { handleAuthError(); return; }
       setOutfits([]);
     } finally {
       setLoadingOutfits(false);
@@ -152,7 +155,7 @@ const Wardrobe = () => {
       const token = await getKeycloakAccessToken(data.user.id);
       setCategories(await fetchWearableCategories(token));
     } catch (err) {
-      console.error("Failed to fetch categories:", err);
+      if (isAuthError(err)) { handleAuthError(); return; }
     } finally {
       setLoadingCategories(false);
     }
@@ -245,7 +248,15 @@ const Wardrobe = () => {
           const detail = await fetWearableById(item.id, accessToken);
           setSelectedWearable(detail);
         } catch (err) {
-          console.error("Failed to fetch wearable detail:", err);
+          if (isAuthError(err)) { handleAuthError(); return; }
+          toast.show({
+            render: ({ id: toastId }) => (
+              <Toast nativeID={`toast-${toastId}`} action="error">
+                <ToastTitle>Error</ToastTitle>
+                <ToastDescription>Failed to load item details</ToastDescription>
+              </Toast>
+            ),
+          });
         } finally {
           setLoadingDetail(false);
         }
@@ -288,7 +299,15 @@ const Wardrobe = () => {
           const detail = await fetchOutfitById(item.id, accessToken);
           setSelectedOutfit(detail);
         } catch (err) {
-          console.error("Failed to fetch outfit detail:", err);
+          if (isAuthError(err)) { handleAuthError(); return; }
+          toast.show({
+            render: ({ id: toastId }) => (
+              <Toast nativeID={`toast-${toastId}`} action="error">
+                <ToastTitle>Error</ToastTitle>
+                <ToastDescription>Failed to load outfit details</ToastDescription>
+              </Toast>
+            ),
+          });
         } finally {
           setLoadingOutfitDetail(false);
         }
