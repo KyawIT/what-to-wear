@@ -18,6 +18,8 @@ import {
 import { colors } from "@/lib/theme";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
+import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/ui/toast";
 import { styles } from "../../styles/screens/profile/account.styles";
 
 const getInitials = (name: string) =>
@@ -30,6 +32,7 @@ const getInitials = (name: string) =>
 
 export default function AccountScreen() {
   const { data } = authClient.useSession();
+  const toast = useToast();
   const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
@@ -40,10 +43,18 @@ export default function AccountScreen() {
         const items = await fetchAllWearables(token);
         setTotalItems(items.length);
       } catch (err) {
-        console.error("Failed to fetch wearables:", err);
+        if (isAuthError(err)) { handleAuthError(); return; }
+        toast.show({
+          render: ({ id: toastId }) => (
+            <Toast nativeID={`toast-${toastId}`} action="error">
+              <ToastTitle>Error</ToastTitle>
+              <ToastDescription>Failed to load wardrobe stats</ToastDescription>
+            </Toast>
+          ),
+        });
       }
     })();
-  }, [data?.user?.id]);
+  }, [data?.user?.id, toast]);
 
   return (
     <SafeAreaView
