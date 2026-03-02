@@ -139,7 +139,6 @@ export function useWardrobeWeather(): UseWardrobeWeatherResult {
         setCity(normalizeCityName(finalCity));
         setWeatherLine(stripCityPrefix(weather, finalCity));
       } catch (err) {
-        console.error("Failed to load wardrobe weather:", err);
         setError(WEATHER_LOAD_ERROR);
       } finally {
         setLoading(false);
