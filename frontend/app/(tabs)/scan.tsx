@@ -176,61 +176,6 @@ const Scan = () => {
         )}
       />
 
-      {/* Import from Link button */}
-      <Pressable
-        onPress={() => router.push("/import-link")}
-        style={{
-          marginHorizontal: 16,
-          marginTop: 8,
-          marginBottom: 8,
-          paddingVertical: 12,
-          paddingHorizontal: 16,
-          borderRadius: 14,
-          backgroundColor: colors.cardBg,
-          borderWidth: 1,
-          borderColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-        }}
-        className="active:opacity-60"
-      >
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: `${colors.primary}20`,
-            alignItems: "center",
-            justifyContent: "center",
-            marginRight: 12,
-          }}
-        >
-          <Link size={18} color={colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontFamily: "Inter_600SemiBold",
-              fontSize: 14,
-              color: colors.textPrimary,
-            }}
-          >
-            Import from Link
-          </Text>
-          <Text
-            style={{
-              fontFamily: "Inter_400Regular",
-              fontSize: 12,
-              color: colors.textMuted,
-              marginTop: 1,
-            }}
-          >
-            Zalando, Pinterest
-          </Text>
-        </View>
-        <ChevronRight size={18} color={colors.textMuted} />
-      </Pressable>
-
       <ImagePermissionGate
         permission={permission}
         requestPermission={requestPermission}
@@ -247,21 +192,6 @@ const Scan = () => {
         }
       >
         <View className="flex-1" style={{ backgroundColor: colors.background }}>
-          <ScanPreviewPane preview={preview} selectedId={selectedId} />
-
-          {/* Grid Gallery Header */}
-          <View style={styles.galleryHeader}>
-            <Pressable
-              className="flex-row items-center active:opacity-60"
-              onPress={() => setShowAlbumPicker(true)}
-            >
-              <Text style={styles.galleryLabel}>{selectedAlbumLabel}</Text>
-              <ChevronDown size={16} color={colors.textSecondary} />
-            </Pressable>
-
-            <Text style={styles.photoCount}>{assets.length} photos</Text>
-          </View>
-
           {/* Grid */}
           <FlatList
             data={gridData}
@@ -273,6 +203,79 @@ const Scan = () => {
             contentContainerStyle={{ gap: 2, paddingBottom: 100 }}
             onEndReached={handleEndReached}
             onEndReachedThreshold={0.5}
+            ListHeaderComponent={
+              <View style={{ backgroundColor: colors.background }}>
+                <ScanPreviewPane preview={preview} selectedId={selectedId} />
+
+                {/* Import from Link button */}
+                <Pressable
+                  onPress={() => router.push("/import-link")}
+                  style={{
+                    marginHorizontal: 16,
+                    marginTop: 8,
+                    marginBottom: 8,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 14,
+                    backgroundColor: colors.cardBg,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                  className="active:opacity-60"
+                >
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: `${colors.primary}20`,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Link size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 14,
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      Import from Link
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: "Inter_400Regular",
+                        fontSize: 12,
+                        color: colors.textMuted,
+                        marginTop: 1,
+                      }}
+                    >
+                      Zalando, Pinterest
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.textMuted} />
+                </Pressable>
+
+                {/* Grid Gallery Header */}
+                <View style={styles.galleryHeader}>
+                  <Pressable
+                    className="flex-row items-center active:opacity-60"
+                    onPress={() => setShowAlbumPicker(true)}
+                  >
+                    <Text style={styles.galleryLabel}>{selectedAlbumLabel}</Text>
+                    <ChevronDown size={16} color={colors.textSecondary} />
+                  </Pressable>
+
+                  <Text style={styles.photoCount}>{assets.length} photos</Text>
+                </View>
+              </View>
+            }
             ListFooterComponent={
               loadingMore ? (
                 <View style={{ paddingVertical: 20, alignItems: "center" }}>
