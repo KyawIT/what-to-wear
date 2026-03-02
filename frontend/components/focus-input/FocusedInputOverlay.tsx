@@ -11,15 +11,13 @@ import {
     View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     Easing,
     FadeIn,
     FadeOut,
-    SlideInDown,
     SlideOutDown,
 } from 'react-native-reanimated';
-import { useFocusInput } from './FocusInputContext';
+import { useFocusInput } from './FocusInputStore';
 import { colors } from '@/lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -33,7 +31,6 @@ const EASING = Easing.out(Easing.cubic);
 
 export function FocusedInputOverlay() {
     const { isOpen, config, draftValue, setDraftValue, close } = useFocusInput();
-    const insets = useSafeAreaInsets();
     const inputRef = useRef<TextInput>(null);
 
     // Track keyboard height in React state.
