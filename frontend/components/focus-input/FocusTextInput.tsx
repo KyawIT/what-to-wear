@@ -9,7 +9,7 @@ import {
     type ViewStyle,
     type TextStyle,
 } from 'react-native';
-import { useFocusInput, type FocusInputConfig } from './FocusInputContext';
+import { useFocusInput, type FocusInputConfig } from './FocusInputStore';
 import { colors } from '@/lib/theme';
 
 // ── Props ────────────────────────────────────────────────────────────
