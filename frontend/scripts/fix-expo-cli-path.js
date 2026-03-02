@@ -13,6 +13,14 @@ const nestedMetroRequire = path.join(
   "metro-require",
   "require.js"
 );
+const shareIntentPluginChecker = path.join(
+  root,
+  "node_modules",
+  "expo-share-intent",
+  "plugin",
+  "build",
+  "withCompatibilityChecker.js"
+);
 
 function ensureExpoCliNestedPath() {
   if (!fs.existsSync(expoDir) || !fs.existsSync(cliDir)) {
@@ -33,4 +41,27 @@ function ensureExpoCliNestedPath() {
   }
 }
 
+function patchExpoShareIntentCompatibility() {
+  if (!fs.existsSync(shareIntentPluginChecker)) {
+    return;
+  }
+
+  const sourceCheck =
+    'if (!config.sdkVersion?.includes(package_json_1.default.peerDependencies.expo.replace("^", ""))) {';
+  const patchedCheck =
+    'if (!(config.sdkVersion?.startsWith("54.") || config.sdkVersion?.includes(package_json_1.default.peerDependencies.expo.replace("^", "")))) {';
+
+  const checker = fs.readFileSync(shareIntentPluginChecker, "utf8");
+  if (!checker.includes(sourceCheck) || checker.includes(patchedCheck)) {
+    return;
+  }
+
+  fs.writeFileSync(
+    shareIntentPluginChecker,
+    checker.replace(sourceCheck, patchedCheck),
+    "utf8"
+  );
+}
+
 ensureExpoCliNestedPath();
+patchExpoShareIntentCompatibility();
