@@ -49,8 +49,10 @@ import { authClient } from "@/lib/auth-client";
 import { dataUriToFileUri } from "@/lib/image/image.utils";
 import { colors } from "@/lib/theme";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
 import { predictWearableTags } from "@/api/backend/predict.api";
 import { suggestWearableMetadata } from "@/lib/ai/metadata-suggestions";
+import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/ui/toast";
 import { s } from "../../styles/screens/preview/index.styles";
 
 const VENDOR_LABELS: Record<string, string> = {
@@ -81,6 +83,7 @@ export default function PreviewScreen() {
   const { id, uri, prefillName, prefillDescription, prefillTags, prefillSource } =
     useLocalSearchParams<Params>();
 
+  const toast = useToast();
   const isLinkImport = !!prefillSource;
   const { loading, cutoutUri, error, retry } = useRemoveBackground({ id, uri });
 
@@ -128,12 +131,20 @@ export default function PreviewScreen() {
         const cats = await fetchWearableCategories(accessToken);
         setCategories(cats);
       } catch (err) {
-        console.error("Failed to fetch categories:", err);
+        if (isAuthError(err)) { handleAuthError(); return; }
+        toast.show({
+          render: ({ id: toastId }) => (
+            <Toast nativeID={`toast-${toastId}`} action="error">
+              <ToastTitle>Error</ToastTitle>
+              <ToastDescription>Failed to load categories</ToastDescription>
+            </Toast>
+          ),
+        });
       } finally {
         setLoadingCategories(false);
       }
     })();
-  }, [data?.user?.id]);
+  }, [data?.user?.id, toast]);
 
   useEffect(() => {
     if (!cutoutUri || loading || error || !data?.user?.id) {
@@ -387,7 +398,7 @@ export default function PreviewScreen() {
         file = { uri: cutoutUri, mime: "image/png", name: `wearable_${Date.now()}.png` };
       }
 
-      const result = await createWearableMultipart(
+      await createWearableMultipart(
         {
           categoryId: selectedCategoryId,
           title: title.trim(),
@@ -402,14 +413,11 @@ export default function PreviewScreen() {
         accessToken
       );
 
-      console.log("Wearable created successfully:", result);
-
       Alert.alert("Success!", "Your wearable has been created successfully.", [
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error("Error creating wearable:", error);
-
+      if (isAuthError(error)) { handleAuthError(); return; }
       Alert.alert(
         "Error",
         error instanceof Error
