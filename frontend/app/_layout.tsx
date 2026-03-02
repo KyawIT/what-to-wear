@@ -69,11 +69,6 @@ export default function RootLayout() {
     });
 
     useEffect(() => {
-        if (!__DEV__ || !isExpoGo) return;
-        console.log("[ShareIntent] Disabled in Expo Go. Use a dev client build to receive shares.");
-    }, [isExpoGo]);
-
-    useEffect(() => {
         if (!__DEV__ || !error) return;
         console.warn("[ShareIntent] Error:", error);
     }, [error]);
@@ -87,28 +82,12 @@ export default function RootLayout() {
         lastSharePayloadRef.current = serialized;
 
         const source = inferShareSource(shareIntent);
-        const payload = {
-            source,
-            type: shareIntent.type,
-            webUrl: shareIntent.webUrl,
-            text: shareIntent.text,
-            meta: shareIntent.meta ?? null,
-            files: (shareIntent.files ?? []).map((file) => ({
-                fileName: file.fileName ?? null,
-                mimeType: file.mimeType ?? null,
-                path: file.path ?? null,
-                size: file.size ?? null,
-                width: file.width ?? null,
-                height: file.height ?? null,
-                duration: file.duration ?? null,
-            })),
-        };
-
-        if (__DEV__) {
-            console.log("[ShareIntent] Received payload:", JSON.stringify(payload, null, 2));
-        }
         if (source !== "unknown") {
-            router.replace("/(tabs)/create");
+            const sharedUrl = shareIntent.webUrl || shareIntent.text || "";
+            router.replace({
+                pathname: "/import-link",
+                params: { sharedUrl },
+            });
         }
         resetShareIntent();
     }, [hasShareIntent, isAuthenticated, resetShareIntent, shareIntent]);
