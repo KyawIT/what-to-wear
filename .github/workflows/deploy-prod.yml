@@ -498,12 +498,13 @@ jobs:
 
             # Smoke checks for critical services.
             # python-service can take longer on cold start while loading ML models.
-            for svc_url in "python-service http://localhost:8000/health" "wtw-frontend-auth http://localhost:8081/api/auth/get-session" "wtw-web http://localhost:3000"; do
+            for svc_url in "python-service http://localhost:8000/health" "wtw-frontend-auth http://localhost:8081/api/auth/get-session" "wtw-web http://127.0.0.1:3000"; do
               svc="${svc_url%% *}"
               url="${svc_url##* }"
               max_retries=6
               case "$svc" in
                 python-service) max_retries=18 ;; # 90s
+                wtw-web) max_retries=12 ;; # 60s
               esac
               timeout_sec=$((max_retries * 5))
 
