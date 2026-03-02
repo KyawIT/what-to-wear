@@ -8,6 +8,7 @@ import { Button, ButtonText } from "@/components/ui/button";
 import { Pressable } from "@/components/ui/pressable";
 import { authClient } from "@/lib/auth-client";
 import { getKeycloakAccessToken } from "@/lib/keycloak";
+import { isAuthError, handleAuthError } from "@/lib/auth-error";
 import { fetchAllWearables } from "@/api/backend/wearable.api";
 import { fetchOutfitById, updateOutfitById } from "@/api/backend/outfit.api";
 import { WearableResponseDto } from "@/api/backend/wearable.model";
@@ -46,6 +47,7 @@ export default function EditOutfitScreen() {
         setTagsText((outfit.tags ?? []).join(", "));
         setSelectedWearableIds((outfit.wearables ?? []).map((w) => w.id));
       } catch (error) {
+        if (isAuthError(error)) { handleAuthError(); return; }
         const msg = error instanceof Error ? error.message : "Failed to load outfit";
         Alert.alert("Error", msg, [{ text: "Back", onPress: () => router.back() }]);
       } finally {
@@ -91,6 +93,7 @@ export default function EditOutfitScreen() {
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error) {
+      if (isAuthError(error)) { handleAuthError(); return; }
       const msg = error instanceof Error ? error.message : "Failed to update outfit";
       Alert.alert("Update failed", msg);
     } finally {
